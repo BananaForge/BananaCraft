@@ -185,44 +185,44 @@ de.SHARE_SHORT = "Datenbank an Gilde teilen"
 en.CMD_HEADER = "Commands:"
 de.CMD_HEADER = "Befehle:"
 
-en.CMD_SHOW = "/bcraft show      - open/close the UI"
-de.CMD_SHOW = "/bcraft show      - UI oeffnen/schliessen"
+en.CMD_SHOW = "/bc show      - open/close the UI"
+de.CMD_SHOW = "/bc show      - UI oeffnen/schliessen"
 
-en.CMD_SCAN = "/bcraft scan      - scan the open profession"
-de.CMD_SCAN = "/bcraft scan      - aktuell geoeffneten Beruf scannen"
+en.CMD_SCAN = "/bc scan      - scan the open profession"
+de.CMD_SCAN = "/bc scan      - aktuell geoeffneten Beruf scannen"
 
-en.CMD_RESCAN = "/bcraft rescan    - allow rescanning (clears session cache)"
-de.CMD_RESCAN = "/bcraft rescan    - erlaube erneutes Scannen (cleart Session-Cache)"
+en.CMD_RESCAN = "/bc rescan    - allow rescanning (clears session cache)"
+de.CMD_RESCAN = "/bc rescan    - erlaube erneutes Scannen (cleart Session-Cache)"
 
-en.CMD_SEND = "/bcraft send      - send all professions to the guild"
-de.CMD_SEND = "/bcraft send      - alle Berufe an Gilde senden"
+en.CMD_SEND = "/bc send      - send all professions to the guild"
+de.CMD_SEND = "/bc send      - alle Berufe an Gilde senden"
 
-en.CMD_SYNC = "/bcraft sync      - lightweight sync: only pulls what's outdated"
-de.CMD_SYNC = "/bcraft sync      - leichter Abgleich: holt nur veraltete Daten nach"
+en.CMD_SYNC = "/bc sync      - lightweight sync: only pulls what's outdated"
+de.CMD_SYNC = "/bc sync      - leichter Abgleich: holt nur veraltete Daten nach"
 
-en.CMD_VERSIONCHECK = "/bcraft versioncheck - see which BananaCraft version guildmates run"
-de.CMD_VERSIONCHECK = "/bcraft versioncheck - zeigt BananaCraft-Version der Gildenmitglieder"
+en.CMD_VERSIONCHECK = "/bc versioncheck - see which BananaCraft version guildmates run"
+de.CMD_VERSIONCHECK = "/bc versioncheck - zeigt BananaCraft-Version der Gildenmitglieder"
 
-en.CMD_DELETE = "/bcraft delete [prof] - delete a profession (e.g. /bcraft delete Alchemy)"
-de.CMD_DELETE = "/bcraft delete [prof] - Beruf loeschen (z.B. /bcraft delete Alchemy)"
+en.CMD_DELETE = "/bc delete [prof] - delete a profession (e.g. /bc delete Alchemy)"
+de.CMD_DELETE = "/bc delete [prof] - Beruf loeschen (z.B. /bc delete Alchemy)"
 
-en.CMD_DELETE_ALL = "/bcraft delete all    - delete ALL professions"
-de.CMD_DELETE_ALL = "/bcraft delete all    - ALLE Berufe loeschen"
+en.CMD_DELETE_ALL = "/bc delete all    - delete ALL professions"
+de.CMD_DELETE_ALL = "/bc delete all    - ALLE Berufe loeschen"
 
-en.CMD_SCANBANK = "/bcraft scanbank  - scan bank manually"
-de.CMD_SCANBANK = "/bcraft scanbank  - Bank manuell scannen"
+en.CMD_SCANBANK = "/bc scanbank  - scan bank manually"
+de.CMD_SCANBANK = "/bc scanbank  - Bank manuell scannen"
 
-en.CMD_EXPORT = "/bcraft export    - CSV export for Discord/Excel"
-de.CMD_EXPORT = "/bcraft export    - CSV-Export fuer Discord/Excel"
+en.CMD_EXPORT = "/bc export    - CSV export for Discord/Excel"
+de.CMD_EXPORT = "/bc export    - CSV-Export fuer Discord/Excel"
 
-en.CMD_DEBUG = "/bcraft debug     - toggle debug"
-de.CMD_DEBUG = "/bcraft debug     - Debug an/aus"
+en.CMD_DEBUG = "/bc debug     - toggle debug"
+de.CMD_DEBUG = "/bc debug     - Debug an/aus"
 
-en.CMD_ABOUT = "/bcraft about     - info & support"
-de.CMD_ABOUT = "/bcraft about     - Info & Unterstuetzung"
+en.CMD_ABOUT = "/bc about     - info & support"
+de.CMD_ABOUT = "/bc about     - Info & Unterstuetzung"
 
-en.CMD_LANG = "/bcraft lang en|de|auto - language"
-de.CMD_LANG = "/bcraft lang en|de|auto - Sprache"
+en.CMD_LANG = "/bc lang en|de|auto - language"
+de.CMD_LANG = "/bc lang en|de|auto - Sprache"
 
 en.SYNC_REQUESTING = "Sync: requesting updated data for professions:"
 de.SYNC_REQUESTING = "Abgleich: fordere aktualisierte Daten an fuer Berufe:"
@@ -248,11 +248,11 @@ de.ON = "AN"
 en.OFF = "OFF"
 de.OFF = "AUS"
 
-en.USAGE_DELETE = "Usage: /bcraft delete [profession] or /bcraft delete all"
-de.USAGE_DELETE = "Benutzung: /bcraft delete [Beruf] oder /bcraft delete all"
+en.USAGE_DELETE = "Usage: /bc delete [profession] or /bc delete all"
+de.USAGE_DELETE = "Benutzung: /bc delete [Beruf] oder /bc delete all"
 
-en.EXAMPLE_DELETE = "Example: /bcraft delete Alchemy"
-de.EXAMPLE_DELETE = "Beispiel: /bcraft delete Alchemy"
+en.EXAMPLE_DELETE = "Example: /bc delete Alchemy"
+de.EXAMPLE_DELETE = "Beispiel: /bc delete Alchemy"
 
 en.DB_WIPED = "ENTIRE DATABASE DELETED:"
 de.DB_WIPED = "KOMPLETTE DATENBANK GELOESCHT:"
@@ -470,29 +470,29 @@ end
 -- -------------------------
 -- Partnergilden
 -- -------------------------
-en.CMD_PARTNER = "/bcraft partner   - partner guild setup (invite code)"
-de.CMD_PARTNER = "/bcraft partner   - Partnergilde einrichten (Einladecode)"
+en.CMD_PARTNER = "/bc partner   - partner guild setup (invite code)"
+de.CMD_PARTNER = "/bc partner   - Partnergilde einrichten (Einladecode)"
 
-en.CMD_PARTNER_CREATE = "  /bcraft partner create        - create a new invite code"
-de.CMD_PARTNER_CREATE = "  /bcraft partner create        - neuen Einladecode erzeugen"
+en.CMD_PARTNER_CREATE = "  /bc partner create        - create a new invite code"
+de.CMD_PARTNER_CREATE = "  /bc partner create        - neuen Einladecode erzeugen"
 
-en.CMD_PARTNER_ADD = "  /bcraft partner add <code>    - join with a code you received"
-de.CMD_PARTNER_ADD = "  /bcraft partner add <Code>    - mit erhaltenem Code verbinden"
+en.CMD_PARTNER_ADD = "  /bc partner add <code>    - join with a code you received"
+de.CMD_PARTNER_ADD = "  /bc partner add <Code>    - mit erhaltenem Code verbinden"
 
-en.CMD_PARTNER_CODE = "  /bcraft partner code          - show the current code"
-de.CMD_PARTNER_CODE = "  /bcraft partner code          - aktuellen Code anzeigen"
+en.CMD_PARTNER_CODE = "  /bc partner code          - show the current code"
+de.CMD_PARTNER_CODE = "  /bc partner code          - aktuellen Code anzeigen"
 
-en.CMD_PARTNER_NEWCODE = "  /bcraft partner newcode       - generate a new code (old one stops working)"
-de.CMD_PARTNER_NEWCODE = "  /bcraft partner newcode       - neuen Code erzeugen (alter wird ungueltig)"
+en.CMD_PARTNER_NEWCODE = "  /bc partner newcode       - generate a new code (old one stops working)"
+de.CMD_PARTNER_NEWCODE = "  /bc partner newcode       - neuen Code erzeugen (alter wird ungueltig)"
 
-en.CMD_PARTNER_LIST = "  /bcraft partner list          - list known partner guilds"
-de.CMD_PARTNER_LIST = "  /bcraft partner list          - bekannte Partnergilden auflisten"
+en.CMD_PARTNER_LIST = "  /bc partner list          - list known partner guilds"
+de.CMD_PARTNER_LIST = "  /bc partner list          - bekannte Partnergilden auflisten"
 
-en.CMD_PARTNER_REMOVE = "  /bcraft partner remove <guild> - drop that guild's data"
-de.CMD_PARTNER_REMOVE = "  /bcraft partner remove <Gilde> - Daten dieser Gilde rauswerfen"
+en.CMD_PARTNER_REMOVE = "  /bc partner remove <guild> - drop that guild's data"
+de.CMD_PARTNER_REMOVE = "  /bc partner remove <Gilde> - Daten dieser Gilde rauswerfen"
 
-en.CMD_PARTNER_LEAVE = "  /bcraft partner leave         - end partnership, remove all foreign data"
-de.CMD_PARTNER_LEAVE = "  /bcraft partner leave         - Partnerschaft beenden, alle Fremddaten loeschen"
+en.CMD_PARTNER_LEAVE = "  /bc partner leave         - end partnership, remove all foreign data"
+de.CMD_PARTNER_LEAVE = "  /bc partner leave         - Partnerschaft beenden, alle Fremddaten loeschen"
 
 en.PARTNER_CREATED = "Partnership opened."
 de.PARTNER_CREATED = "Partnerschaft eroeffnet."
@@ -500,11 +500,11 @@ de.PARTNER_CREATED = "Partnerschaft eroeffnet."
 en.PARTNER_CODE_IS = "Invite code:"
 de.PARTNER_CODE_IS = "Einladecode:"
 
-en.PARTNER_SHARE_HINT = "Share this code with the partner guild. They enter: /bcraft partner add <code>"
-de.PARTNER_SHARE_HINT = "Diesen Code an die Partnergilde geben. Dort eingeben: /bcraft partner add <Code>"
+en.PARTNER_SHARE_HINT = "Share this code with the partner guild. They enter: /bc partner add <code>"
+de.PARTNER_SHARE_HINT = "Diesen Code an die Partnergilde geben. Dort eingeben: /bc partner add <Code>"
 
-en.PARTNER_NEED_CODE = "Please provide a code: /bcraft partner add <code>"
-de.PARTNER_NEED_CODE = "Bitte Code angeben: /bcraft partner add <Code>"
+en.PARTNER_NEED_CODE = "Please provide a code: /bc partner add <code>"
+de.PARTNER_NEED_CODE = "Bitte Code angeben: /bc partner add <Code>"
 
 en.PARTNER_BAD_CODE = "Invalid code. A code has 12 characters."
 de.PARTNER_BAD_CODE = "Ungueltiger Code. Ein Code hat 12 Zeichen."
@@ -512,8 +512,8 @@ de.PARTNER_BAD_CODE = "Ungueltiger Code. Ein Code hat 12 Zeichen."
 en.PARTNER_JOINED = "Connected. Recipes will now be shared with the partner guild."
 de.PARTNER_JOINED = "Verbunden. Rezepte werden ab jetzt mit der Partnergilde geteilt."
 
-en.PARTNER_NO_CODE = "No code set yet. Use /bcraft partner create"
-de.PARTNER_NO_CODE = "Noch kein Code gesetzt. Nutze /bcraft partner create"
+en.PARTNER_NO_CODE = "No code set yet. Use /bc partner create"
+de.PARTNER_NO_CODE = "Noch kein Code gesetzt. Nutze /bc partner create"
 
 en.PARTNER_NEWCODE = "New code generated."
 de.PARTNER_NEWCODE = "Neuer Code erzeugt."
@@ -533,8 +533,8 @@ de.PARTNER_CHARS = "Charaktere"
 en.PARTNER_GUILDS = "guilds"
 de.PARTNER_GUILDS = "Gilden"
 
-en.PARTNER_NEED_GUILD = "Please provide a guild name: /bcraft partner remove <guild>"
-de.PARTNER_NEED_GUILD = "Bitte Gildennamen angeben: /bcraft partner remove <Gilde>"
+en.PARTNER_NEED_GUILD = "Please provide a guild name: /bc partner remove <guild>"
+de.PARTNER_NEED_GUILD = "Bitte Gildennamen angeben: /bc partner remove <Gilde>"
 
 en.PARTNER_CANT_REMOVE_OWN = "That's your own guild - not removing it."
 de.PARTNER_CANT_REMOVE_OWN = "Das ist deine eigene Gilde - wird nicht entfernt."
@@ -581,14 +581,14 @@ de.BTN_CONNECT_TIP2 = "Sie werden automatisch verbunden - niemand muss den Code 
 en.PARTNER_AUTO_JOINED = "Automatically connected to the partnership. Code received from:"
 de.PARTNER_AUTO_JOINED = "Automatisch mit der Partnerschaft verbunden. Code erhalten von:"
 
-en.PARTNER_AUTO_HINT = "Leave any time with /bcraft partner leave"
-de.PARTNER_AUTO_HINT = "Jederzeit verlassen mit /bcraft partner leave"
+en.PARTNER_AUTO_HINT = "Leave any time with /bc partner leave"
+de.PARTNER_AUTO_HINT = "Jederzeit verlassen mit /bc partner leave"
 
 en.PARTNER_PUSHED = "Partner code sent to the guild. Members with the addon join automatically."
 de.PARTNER_PUSHED = "Partnercode an die Gilde gesendet. Mitglieder mit dem Addon verbinden sich automatisch."
 
-en.CMD_PARTNER_PUSH = "  /bcraft partner push          - send the code to your own guild"
-de.CMD_PARTNER_PUSH = "  /bcraft partner push          - Code an die eigene Gilde senden"
+en.CMD_PARTNER_PUSH = "  /bc partner push          - send the code to your own guild"
+de.CMD_PARTNER_PUSH = "  /bc partner push          - Code an die eigene Gilde senden"
 
 en.PARTNER_NOT_IN_CHANNEL = "not reachable"
 de.PARTNER_NOT_IN_CHANNEL = "nicht erreichbar"

@@ -44,10 +44,10 @@ end
 local ADDON_NAME = "BananaCraft"
 local DB_NAME = "BananaCraftDB"
 local PREFIX = "BCRAFT0"
-local DEBUG = false  -- Debug messages OFF by default (use /bcraft debug to enable)
+local DEBUG = false  -- Debug messages OFF by default (use /bc debug to enable)
 local ADDON_VERSION = "2.2.1"  -- keep in sync with the .toc "## Version:" line
 
--- /bcraft versioncheck state (see startHashSync section for PING/PONG, this is
+-- /bc versioncheck state (see startHashSync section for PING/PONG, this is
 -- the separate, simpler VCHECK/VERSION request/response pair)
 VersionCheckResponses = VersionCheckResponses or {}
 VersionCheckActive = false
@@ -98,7 +98,7 @@ function BCRAFT_OwnGuild()
   -- dass jeder die Daten des anderen fuer eigene haelt -- der
   -- Schleifenschutz beim Senden (Gilde == eigene Gilde) greift dann nicht
   -- mehr und beide schicken sich die Daten endlos zurueck. Ausserdem wuerde
-  -- "/bcraft partner remove" alle Gildenlosen auf einmal rauswerfen.
+  -- "/bc partner remove" alle Gildenlosen auf einmal rauswerfen.
   --
   -- Darum eine pro Charakter eindeutige Kennung. In der Oberflaeche wird
   -- sie ueber BCRAFT_GuildLabel() wieder lesbar gemacht.
@@ -142,7 +142,7 @@ local function ensureDB()
   local db = _G[DB_NAME]
   if not db.guild then db.guild = {} end
 
-  -- Einmalig: Reste der entfernten Testdaten (/bcrafttest) aus alten
+  -- Einmalig: Reste der entfernten Testdaten (/bctest) aus alten
   -- SavedVariables loeschen, damit sie nie an echte Gilden gehen.
   if not db.testPurged then
     for key, data in pairs(db.guild) do
@@ -1101,7 +1101,7 @@ end
 -- Hash-based sync (PING/PONG)
 --
 -- Inspired by GuildRecipes Octo's approach: instead of always broadcasting
--- everything we know (which is what /bcraft send still does, and which is what
+-- everything we know (which is what /bc send still does, and which is what
 -- gets throttled hard by SendThrottle/BroadcastTimer on big guilds), we first
 -- ask "does anyone have a different hash for profession X than me?", wait a
 -- couple seconds for replies, and then only pull full data from the single
@@ -1160,7 +1160,7 @@ local function startHashSync()
   local db = ensureDB()
 
   if SyncPinging then
-    debug("[SYNC] Already pinging, ignoring duplicate /bcraft sync")
+    debug("[SYNC] Already pinging, ignoring duplicate /bc sync")
     return
   end
 
@@ -1352,7 +1352,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
     return
   end
 
-  -- /bcraft versioncheck: someone is asking who's running what version
+  -- /bc versioncheck: someone is asking who's running what version
   if cmd == "VCHECK" then
     local reply = "VERSION" .. SEP .. safe(sender) .. SEP .. safe(playerName()) .. SEP .. safe(ADDON_VERSION)
     enqueueSend("GUILD", reply)
@@ -1394,7 +1394,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
       end
 
       -- Wer die Partnerschaft bewusst verlassen hat, wird nicht wieder
-      -- hineingezogen. Sonst wuerde jedes /bcraft partner leave beim naechsten
+      -- hineingezogen. Sonst wuerde jedes /bc partner leave beim naechsten
       -- Verteilen rueckgaengig gemacht.
       if db.partner.declined then
         debug("[PCODE] Ignoriert (Partnerschaft wurde bewusst verlassen)")
@@ -1637,7 +1637,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         }
         db.guild[player].updated = now()
 
-        -- Fremde Gilde? Dann als Partnergilde vermerken (fuer UI + /bcraft partner list)
+        -- Fremde Gilde? Dann als Partnergilde vermerken (fuer UI + /bc partner list)
         local _, srcGuild = BCRAFT_SplitKey(player)
         if srcGuild and BCRAFT_Partner then
           BCRAFT_Partner.NoteGuild(db, srcGuild)
@@ -3069,7 +3069,7 @@ end
 -- -------------------------
 -- Slash commands
 -- -------------------------
-SLASH_BCRAFT1 = "/bcraft"
+SLASH_BCRAFT1 = "/bc"
 SlashCmdList["BCRAFT"] = function(input)
   input = input or ""
   
@@ -3414,7 +3414,7 @@ SlashCmdList["BCRAFT"] = function(input)
     return
   end
 
-  debug("Unbekannter Befehl. /bcraft help")
+  debug("Unbekannter Befehl. /bc help")
 end
 
 -- -------------------------
@@ -3564,7 +3564,7 @@ eventFrame:SetScript("OnEvent", function()
       end
     end
     
-    debug("geladen. /bcraft show")
+    debug("geladen. /bc show")
     return
   end
 
