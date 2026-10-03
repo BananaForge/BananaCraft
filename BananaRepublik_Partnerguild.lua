@@ -2512,6 +2512,7 @@ local function uiCreate()
     scheduleUIRefresh()  -- debounced: collapses fast keystrokes into one rebuild
   end)
 
+  local BRPP_SubDD_Initialize  -- forward declaration (defined below, used by the filter dropdown)
   local dd = CreateFrame("Frame", "BRPP_FilterDropDown", f, "UIDropDownMenuTemplate")
   dd:SetPoint("TOPRIGHT", f, "TOPRIGHT", -20, -54)
   f.filterDD = dd
@@ -2579,7 +2580,7 @@ local function uiCreate()
     BRPP_UI_Refresh()
   end
   
-  local function BRPP_SubDD_Initialize()
+  BRPP_SubDD_Initialize = function()
     -- Define subcategories for each profession
     -- IMPORTANT: These must match EXACT header names from WoW profession window!
     -- Category list is derived from BRPP_RecipeMaps at runtime.
@@ -3370,7 +3371,7 @@ SlashCmdList["BRPP"] = function(input)
       msg("  • " .. totalProfs .. " Beruf(e)")
       msg("  • " .. totalGuild .. " Gilden-Einträge")
       
-      if BRPP_Frame and BRPP_Frame:IsShown() then
+      if BRPP_MainFrame and BRPP_MainFrame:IsShown() then
         BRPP_UI_Refresh()
       end
     else
@@ -3387,7 +3388,7 @@ SlashCmdList["BRPP"] = function(input)
         
         msg("|cffff0000" .. BRPP_L.DELETED .. "|r " .. normalizedProf)
         
-        if BRPP_Frame and BRPP_Frame:IsShown() then
+        if BRPP_MainFrame and BRPP_MainFrame:IsShown() then
           BRPP_UI_Refresh()
         end
       else
