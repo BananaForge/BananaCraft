@@ -3,7 +3,7 @@
 ## Notes: Berufe & Rezepte teilen - inkl. Partnergilden ueber Einladecode
 ## Author: Lumihunt
 ## Version: 2.2.1
-## SavedVariables: BRPPDB
+## SavedVariables: BananaCraftDB
 
 BananaCraft_Locale.lua
 BananaCraft_RecipeMaps.lua

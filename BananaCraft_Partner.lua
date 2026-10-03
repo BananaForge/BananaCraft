@@ -15,16 +15,16 @@
 -- niemand eine Textwand sieht.
 -- =========================================================================
 
-BRPP_Partner = {}
+BCRAFT_Partner = {}
 
-local PARTNER_TAG = "BRPPG1"   -- Kennung am Anfang jeder Partner-Nachricht
-local CHANNEL_BASE = "BRPPG"   -- Kanalname = CHANNEL_BASE .. <6 Zeichen>
+local PARTNER_TAG = "BCRAFTG1"   -- Kennung am Anfang jeder Partner-Nachricht
+local CHANNEL_BASE = "BCRAFTG"   -- Kanalname = CHANNEL_BASE .. <6 Zeichen>
 local CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  -- ohne I/O/0/1 (Verwechslung)
 
 local tlen = table.getn
 
 local function pmsg(text)
-  DEFAULT_CHAT_FRAME:AddMessage("|cffffd200BRPP:|r " .. text)
+  DEFAULT_CHAT_FRAME:AddMessage("|cffffd200BananaCraft:|r " .. text)
 end
 
 -- -------------------------------------------------------------------------
@@ -43,12 +43,12 @@ local function randomCode(len)
   return s
 end
 
-function BRPP_Partner.GenerateCode()
+function BCRAFT_Partner.GenerateCode()
   return randomCode(12)
 end
 
 -- Code -> Kanalname + Passwort
-function BRPP_Partner.SplitCode(code)
+function BCRAFT_Partner.SplitCode(code)
   if not code then return nil, nil end
   code = string.upper(code)
   code = string.gsub(code, "%s", "")
@@ -60,7 +60,7 @@ function BRPP_Partner.SplitCode(code)
 end
 
 -- Huebsche Darstellung mit Bindestrich, leichter vorzulesen
-function BRPP_Partner.FormatCode(code)
+function BCRAFT_Partner.FormatCode(code)
   if not code or string.len(code) ~= 12 then return code or "" end
   return string.sub(code, 1, 4) .. "-" .. string.sub(code, 5, 8) .. "-" .. string.sub(code, 9, 12)
 end
@@ -68,11 +68,11 @@ end
 -- -------------------------------------------------------------------------
 -- Kanal betreten / verlassen
 -- -------------------------------------------------------------------------
-function BRPP_Partner.JoinChannel(db)
+function BCRAFT_Partner.JoinChannel(db)
   local p = db.partner
   if not p or not p.code then return false end
 
-  local chan, pass = BRPP_Partner.SplitCode(p.code)
+  local chan, pass = BCRAFT_Partner.SplitCode(p.code)
   if not chan then return false end
 
   if JoinChannelByName then
@@ -83,7 +83,7 @@ function BRPP_Partner.JoinChannel(db)
   return false
 end
 
-function BRPP_Partner.LeaveChannel(db)
+function BCRAFT_Partner.LeaveChannel(db)
   local p = db.partner
   if p and p.channel and LeaveChannelByName then
     LeaveChannelByName(p.channel)
@@ -92,7 +92,7 @@ function BRPP_Partner.LeaveChannel(db)
 end
 
 -- Aktuellen Kanalindex holen (wird zum Senden gebraucht)
-function BRPP_Partner.GetChannelIndex(db)
+function BCRAFT_Partner.GetChannelIndex(db)
   local p = db.partner
   if not p or not p.channel then return nil end
   if not GetChannelName then return nil end
@@ -141,16 +141,16 @@ local function decodeNewlines(s)
   return out
 end
 
-function BRPP_Partner.Enqueue(payload)
+function BCRAFT_Partner.Enqueue(payload)
   table.insert(PartnerQueue, encodeNewlines(payload))
   PartnerThrottle:Show()
 end
 
-function BRPP_Partner.QueueLength()
+function BCRAFT_Partner.QueueLength()
   return tlen(PartnerQueue)
 end
 
-function BRPP_Partner.ClearQueue()
+function BCRAFT_Partner.ClearQueue()
   PartnerQueue = {}
   PartnerThrottle:Hide()
 end
@@ -165,14 +165,14 @@ PartnerThrottle:SetScript("OnUpdate", function()
     return
   end
 
-  local db = BRPP_EnsureDB and BRPP_EnsureDB() or nil
+  local db = BCRAFT_EnsureDB and BCRAFT_EnsureDB() or nil
   if not db then PartnerThrottle:Hide(); return end
 
-  local idx = BRPP_Partner.GetChannelIndex(db)
+  local idx = BCRAFT_Partner.GetChannelIndex(db)
   if not idx then
     -- Kanal (noch) nicht verfuegbar: Warteschlange verwerfen statt ewig
     -- weiterzulaufen, sonst staut sich beim naechsten Login alles auf.
-    BRPP_Partner.ClearQueue()
+    BCRAFT_Partner.ClearQueue()
     return
   end
 
@@ -194,14 +194,14 @@ end)
 --
 -- Rueckgabe: payload (String) oder nil, wenn es keine Partner-Nachricht ist.
 -- -------------------------------------------------------------------------
-function BRPP_Partner.ParseIncoming(text)
+function BCRAFT_Partner.ParseIncoming(text)
   if not text then return nil end
   local tagLen = string.len(PARTNER_TAG)
   if string.sub(text, 1, tagLen) ~= PARTNER_TAG then return nil end
   return decodeNewlines(string.sub(text, tagLen + 2))  -- +2 wegen Leerzeichen
 end
 
-function BRPP_Partner.IsPartnerText(text)
+function BCRAFT_Partner.IsPartnerText(text)
   if not text then return false end
   return string.sub(text, 1, string.len(PARTNER_TAG)) == PARTNER_TAG
 end
@@ -215,12 +215,12 @@ end
 -- -------------------------------------------------------------------------
 local origChatFrame_OnEvent = ChatFrame_OnEvent
 
-function BRPP_Partner.InstallChatFilter()
-  if BRPP_Partner._filterInstalled then return end
-  BRPP_Partner._filterInstalled = true
+function BCRAFT_Partner.InstallChatFilter()
+  if BCRAFT_Partner._filterInstalled then return end
+  BCRAFT_Partner._filterInstalled = true
 
   ChatFrame_OnEvent = function(chatEvent)
-    if chatEvent == "CHAT_MSG_CHANNEL" and BRPP_Partner.IsPartnerText(arg1) then
+    if chatEvent == "CHAT_MSG_CHANNEL" and BCRAFT_Partner.IsPartnerText(arg1) then
       return  -- Datenverkehr nicht anzeigen
     end
 
@@ -232,7 +232,7 @@ function BRPP_Partner.InstallChatFilter()
       or chatEvent == "CHAT_MSG_CHANNEL_LIST"
       or chatEvent == "CHAT_MSG_CHANNEL_NOTICE"
       or chatEvent == "CHAT_MSG_CHANNEL_NOTICE_USER" then
-      if BRPP_Partner.IsOwnChannel(arg9) then
+      if BCRAFT_Partner.IsOwnChannel(arg9) then
         return
       end
     end
@@ -242,9 +242,9 @@ function BRPP_Partner.InstallChatFilter()
 end
 
 -- Gehoert der Kanalname zu unserem Partnerkanal?
-function BRPP_Partner.IsOwnChannel(chanName)
+function BCRAFT_Partner.IsOwnChannel(chanName)
   if not chanName or chanName == "" then return false end
-  local db = BRPP_EnsureDB and BRPP_EnsureDB() or nil
+  local db = BCRAFT_EnsureDB and BCRAFT_EnsureDB() or nil
   if not db or not db.partner or not db.partner.channel then return false end
   return string.lower(chanName) == string.lower(db.partner.channel)
 end
@@ -268,24 +268,24 @@ end
 -- -------------------------------------------------------------------------
 local Presence = {}
 
-function BRPP_Partner.SetOnline(name)
+function BCRAFT_Partner.SetOnline(name)
   if name and name ~= "" then Presence[name] = true end
 end
 
-function BRPP_Partner.SetOffline(name)
+function BCRAFT_Partner.SetOffline(name)
   if name and name ~= "" then Presence[name] = nil end
 end
 
-function BRPP_Partner.IsOnline(name)
+function BCRAFT_Partner.IsOnline(name)
   if not name then return false end
   return Presence[name] == true
 end
 
-function BRPP_Partner.ClearPresence()
+function BCRAFT_Partner.ClearPresence()
   Presence = {}
 end
 
-function BRPP_Partner.PresenceCount()
+function BCRAFT_Partner.PresenceCount()
   local n = 0
   for _ in pairs(Presence) do n = n + 1 end
   return n
@@ -293,7 +293,7 @@ end
 
 -- Vollstaendige Kanalliste anfordern. Die Antwort kommt als
 -- CHAT_MSG_CHANNEL_LIST und wird von ParseList verarbeitet.
-function BRPP_Partner.RequestRoster(db)
+function BCRAFT_Partner.RequestRoster(db)
   if not db.partner or not db.partner.channel then return false end
   if not ListChannelByName then return false end
   ListChannelByName(db.partner.channel)
@@ -302,7 +302,7 @@ end
 
 -- "Name1, Name2, Name3" -> Anwesenheitsliste.
 -- Namen koennen mit Praefixen wie "@" (Moderator) oder "+" ankommen.
-function BRPP_Partner.ParseList(text)
+function BCRAFT_Partner.ParseList(text)
   if not text then return 0 end
 
   Presence = {}
@@ -336,9 +336,9 @@ end
 -- -------------------------------------------------------------------------
 
 -- Merkt sich, welche fremden Gilden ueber den Kanal gesehen wurden.
-function BRPP_Partner.NoteGuild(db, guildName)
+function BCRAFT_Partner.NoteGuild(db, guildName)
   if not guildName or guildName == "" then return end
-  local own = BRPP_OwnGuild and BRPP_OwnGuild() or nil
+  local own = BCRAFT_OwnGuild and BCRAFT_OwnGuild() or nil
   if guildName == own then return end
 
   if not db.partner then return end
@@ -346,19 +346,19 @@ function BRPP_Partner.NoteGuild(db, guildName)
 
   if not db.partner.guilds[guildName] then
     db.partner.guilds[guildName] = { firstSeen = date("%Y-%m-%d %H:%M:%S") }
-    pmsg("|cff00ff00" .. BRPP_L.PARTNER_NEW_GUILD .. "|r " .. (BRPP_GuildLabel and BRPP_GuildLabel(guildName) or guildName))
+    pmsg("|cff00ff00" .. BCRAFT_L.PARTNER_NEW_GUILD .. "|r " .. (BCRAFT_GuildLabel and BCRAFT_GuildLabel(guildName) or guildName))
   end
   db.partner.guilds[guildName].lastSeen = date("%Y-%m-%d %H:%M:%S")
 end
 
 -- Punkt 3.2: Alle Daten einer Partnergilde rauswerfen.
 -- Loescht sowohl die Rezeptdaten als auch den Partnereintrag.
-function BRPP_Partner.PurgeGuild(db, guildName)
+function BCRAFT_Partner.PurgeGuild(db, guildName)
   if not guildName or guildName == "" then return 0 end
 
   local removed = 0
   for key, _ in pairs(db.guild) do
-    local _, g = BRPP_SplitKey(key)
+    local _, g = BCRAFT_SplitKey(key)
     if g == guildName then
       db.guild[key] = nil
       removed = removed + 1
@@ -373,7 +373,7 @@ function BRPP_Partner.PurgeGuild(db, guildName)
 end
 
 -- Liste aller bekannten Partnergilden
-function BRPP_Partner.ListGuilds(db)
+function BCRAFT_Partner.ListGuilds(db)
   local list = {}
   if db.partner and db.partner.guilds then
     for g, _ in pairs(db.partner.guilds) do

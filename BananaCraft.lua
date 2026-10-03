@@ -1,4 +1,4 @@
--- BananaCraft (intern: BRPP) -- vormals BananaRepublik Partnerguild
+-- BananaCraft -- vormals BananaRepublik Partnerguild
 -- Guild profession recipe database with sharing and search functionality
 --
 -- v1.0.1:
@@ -11,7 +11,7 @@
 
 
 -- Recipe maps loaded from BananaCraft_RecipeMaps.lua
--- Access via: BRPP_RecipeMaps[professionName][recipeName] = categoryName
+-- Access via: BCRAFT_RecipeMaps[professionName][recipeName] = categoryName
 
 -- -------------------------
 -- German → English Profession Name Mapping
@@ -42,12 +42,12 @@ local function normalizeProfessionName(profName)
 end
 
 local ADDON_NAME = "BananaCraft"
-local DB_NAME = "BRPPDB"
-local PREFIX = "BRPP0"
-local DEBUG = false  -- Debug messages OFF by default (use /brpp debug to enable)
+local DB_NAME = "BananaCraftDB"
+local PREFIX = "BCRAFT0"
+local DEBUG = false  -- Debug messages OFF by default (use /bcraft debug to enable)
 local ADDON_VERSION = "2.2.1"  -- keep in sync with the .toc "## Version:" line
 
--- /brpp versioncheck state (see startHashSync section for PING/PONG, this is
+-- /bcraft versioncheck state (see startHashSync section for PING/PONG, this is
 -- the separate, simpler VCHECK/VERSION request/response pair)
 VersionCheckResponses = VersionCheckResponses or {}
 VersionCheckActive = false
@@ -59,12 +59,12 @@ local LastScannedProf = {}  -- Now per-character: LastScannedProf[charName] = pr
 -- Utility
 -- -------------------------
 local function msg(text)
-  DEFAULT_CHAT_FRAME:AddMessage("|cffffd200BRPP:|r " .. text)
+  DEFAULT_CHAT_FRAME:AddMessage("|cffffd200BananaCraft:|r " .. text)
 end
 
 local function debug(text)
   if DEBUG then
-    DEFAULT_CHAT_FRAME:AddMessage("|cff888888[BRPP Debug]|r " .. text)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff888888[BananaCraft Debug]|r " .. text)
   end
 end
 
@@ -88,7 +88,7 @@ end
 -- Dieselbe Zeichenkette wandert auch ueber das Netzwerk, damit Sender und
 -- Empfaenger garantiert denselben Schluessel bilden.
 -- -------------------------
-function BRPP_OwnGuild()
+function BCRAFT_OwnGuild()
   local g = GetGuildInfo and GetGuildInfo("player")
   if g and g ~= "" then return g end
 
@@ -98,32 +98,32 @@ function BRPP_OwnGuild()
   -- dass jeder die Daten des anderen fuer eigene haelt -- der
   -- Schleifenschutz beim Senden (Gilde == eigene Gilde) greift dann nicht
   -- mehr und beide schicken sich die Daten endlos zurueck. Ausserdem wuerde
-  -- "/brpp partner remove" alle Gildenlosen auf einmal rauswerfen.
+  -- "/bcraft partner remove" alle Gildenlosen auf einmal rauswerfen.
   --
   -- Darum eine pro Charakter eindeutige Kennung. In der Oberflaeche wird
-  -- sie ueber BRPP_GuildLabel() wieder lesbar gemacht.
+  -- sie ueber BCRAFT_GuildLabel() wieder lesbar gemacht.
   return "Solo:" .. (UnitName("player") or "Unknown")
 end
 
 -- Anzeigename einer Gilde. Die Solo-Kennung von oben ist technisch
 -- notwendig, aber niemand will "Solo:Thrall" im Fenster lesen.
-function BRPP_GuildLabel(guild)
+function BCRAFT_GuildLabel(guild)
   if not guild or guild == "" then return "" end
   if string.sub(guild, 1, 5) == "Solo:" then
-    return BRPP_L.PARTNER_NO_GUILD .. " (" .. string.sub(guild, 6) .. ")"
+    return BCRAFT_L.PARTNER_NO_GUILD .. " (" .. string.sub(guild, 6) .. ")"
   end
   return guild
 end
 
-function BRPP_MakeKey(player, guild)
+function BCRAFT_MakeKey(player, guild)
   if not player or player == "" then return nil end
   -- Leere Gilde darf nie zu einem Sammel-Schluessel werden (siehe
-  -- BRPP_OwnGuild): sonst laufen wieder mehrere Spieler unter einer Kennung.
-  if not guild or guild == "" then guild = BRPP_OwnGuild() end
+  -- BCRAFT_OwnGuild): sonst laufen wieder mehrere Spieler unter einer Kennung.
+  if not guild or guild == "" then guild = BCRAFT_OwnGuild() end
   return player .. "@" .. guild
 end
 
-function BRPP_SplitKey(key)
+function BCRAFT_SplitKey(key)
   if not key then return nil, nil end
   local at = string.find(key, "@", 1, true)
   if not at then
@@ -134,7 +134,7 @@ function BRPP_SplitKey(key)
 end
 
 local function myKey()
-  return BRPP_MakeKey(playerName(), BRPP_OwnGuild())
+  return BCRAFT_MakeKey(playerName(), BCRAFT_OwnGuild())
 end
 
 local function ensureDB()
@@ -142,7 +142,7 @@ local function ensureDB()
   local db = _G[DB_NAME]
   if not db.guild then db.guild = {} end
 
-  -- Einmalig: Reste der entfernten Testdaten (/brpptest) aus alten
+  -- Einmalig: Reste der entfernten Testdaten (/bcrafttest) aus alten
   -- SavedVariables loeschen, damit sie nie an echte Gilden gehen.
   if not db.testPurged then
     for key, data in pairs(db.guild) do
@@ -157,7 +157,7 @@ local function ensureDB()
   -- sinnvolle Annahme, denn vor dieser Version konnten ueberhaupt nur
   -- Daten aus der eigenen Gilde in der DB landen.
   if not db.schema or db.schema < 2 then
-    local ownGuild = BRPP_OwnGuild()
+    local ownGuild = BCRAFT_OwnGuild()
     local migrated = 0
     local rekeyed = {}
 
@@ -165,7 +165,7 @@ local function ensureDB()
       if string.find(key, "@", 1, true) then
         rekeyed[key] = data               -- schon migriert, unveraendert lassen
       else
-        local newKey = BRPP_MakeKey(key, ownGuild)
+        local newKey = BCRAFT_MakeKey(key, ownGuild)
         if rekeyed[newKey] then
           -- Kollision: neueren Datensatz behalten, nichts stillschweigend wegwerfen.
           -- "YYYY-MM-DD HH:MM:SS" sortiert als String korrekt chronologisch,
@@ -198,7 +198,7 @@ local function ensureDB()
     local me = playerName()
     local legacyKey = me .. "@Ohne Gilde"
     if db.guild[legacyKey] then
-      local newKey = BRPP_MakeKey(me, BRPP_OwnGuild())
+      local newKey = BCRAFT_MakeKey(me, BCRAFT_OwnGuild())
       if newKey ~= legacyKey then
         if not db.guild[newKey] then
           db.guild[newKey] = db.guild[legacyKey]
@@ -254,7 +254,7 @@ end
 
 -- Das Partnermodul liegt in einer eigenen Datei und braucht Zugriff auf
 -- dieselbe Datenbank -- ensureDB selbst bleibt local, hier nur die Bruecke.
-function BRPP_EnsureDB()
+function BCRAFT_EnsureDB()
   return ensureDB()
 end
 
@@ -483,7 +483,7 @@ BroadcastTimer:SetScript("OnUpdate", function()
     
     if tlen(BroadcastQueue) == 0 then
       BroadcastTimer:Hide()
-      msg("|cff00ff00" .. BRPP_L.ALL_SENT .. "|r")
+      msg("|cff00ff00" .. BCRAFT_L.ALL_SENT .. "|r")
       return
     end
     
@@ -491,10 +491,10 @@ BroadcastTimer:SetScript("OnUpdate", function()
     local job = table.remove(BroadcastQueue, 1)
     local remaining = tlen(BroadcastQueue)
     
-    msg("|cffffff00" .. BRPP_L.SENDING .. "|r " .. job.charName .. " - " .. BRPP_ProfName(job.profName) .. " (" .. remaining .. " " .. BRPP_L.REMAINING .. ")")
+    msg("|cffffff00" .. BCRAFT_L.SENDING .. "|r " .. job.charName .. " - " .. BCRAFT_ProfName(job.profName) .. " (" .. remaining .. " " .. BCRAFT_L.REMAINING .. ")")
     
     -- Broadcast this profession with direct data
-    BRPP_BroadcastProfession(job.profName, job.charName, job.profData)
+    BCRAFT_BroadcastProfession(job.profName, job.charName, job.profData)
   end
 end)
 
@@ -720,10 +720,10 @@ local function scanCurrentTradeSkill()
 
   local gname = GetGuildInfo and GetGuildInfo("player")
   if gname and gname ~= "" then
-    BRPP_BroadcastProfession(profName)
+    BCRAFT_BroadcastProfession(profName)
   end
   
-  msg("|cff00ff00" .. BRPP_L.SCANNED .. "|r " .. BRPP_ProfName(profName) .. " (" .. tlen(recipes) .. " " .. BRPP_L.RECIPES_SUFFIX .. ")")
+  msg("|cff00ff00" .. BCRAFT_L.SCANNED .. "|r " .. BCRAFT_ProfName(profName) .. " (" .. tlen(recipes) .. " " .. BCRAFT_L.RECIPES_SUFFIX .. ")")
   return true  -- Signal success
 end
 
@@ -836,10 +836,10 @@ local function scanCurrentCraft()
 
   local gname = GetGuildInfo and GetGuildInfo("player")
   if gname and gname ~= "" then
-    BRPP_BroadcastProfession(profName)
+    BCRAFT_BroadcastProfession(profName)
   end
   
-  msg("|cff00ff00" .. BRPP_L.SCANNED .. "|r " .. BRPP_ProfName(profName) .. " (" .. tlen(recipes) .. " " .. BRPP_L.RECIPES_SUFFIX .. ")")
+  msg("|cff00ff00" .. BCRAFT_L.SCANNED .. "|r " .. BCRAFT_ProfName(profName) .. " (" .. tlen(recipes) .. " " .. BCRAFT_L.RECIPES_SUFFIX .. ")")
   return true  -- Signal success
 end
 
@@ -931,15 +931,15 @@ UIRefreshTimer:SetScript("OnUpdate", function()
   this.elapsed = 0
   UIRefreshTimer:Hide()
 
-  if BRPP_UI_Refresh then
-    BRPP_UI_Refresh()
+  if BCRAFT_UI_Refresh then
+    BCRAFT_UI_Refresh()
   end
 end)
 
 -- -------------------------
 -- Broadcast
 -- -------------------------
-function BRPP_BroadcastProfession(profName, characterName, profData)
+function BCRAFT_BroadcastProfession(profName, characterName, profData)
   -- profData is now passed directly instead of using db.me
   if not profData then
     -- Fallback: try to get from db.me (for backward compatibility)
@@ -958,7 +958,7 @@ function BRPP_BroadcastProfession(profName, characterName, profData)
   -- faelschlich durch die eigene ersetzt.
   local p = characterName or playerName()
   if not string.find(p, "@", 1, true) then
-    p = BRPP_MakeKey(p, BRPP_OwnGuild())
+    p = BCRAFT_MakeKey(p, BCRAFT_OwnGuild())
   end
   local rank = profData.rank or 0
   local maxRank = profData.maxRank or 0
@@ -1001,7 +1001,9 @@ function BRPP_BroadcastProfession(profName, characterName, profData)
   
   -- Calculate overhead: "C~PlayerName~ProfName~ChunkIndex~"
   local overhead = string.len("C" .. SEP .. safe(p) .. SEP .. safe(profName) .. SEP .. "999" .. SEP)
-  local maxChunkSize = 250 - overhead
+  -- 240 statt 250: der Partnerkanal haengt noch "BCRAFTG1 " (9 Zeichen) davor,
+  -- die fertige Zeile darf dort 250 nicht ueberschreiten.
+  local maxChunkSize = 240 - overhead
   
   for i = 1, tlen(recipeData) do
     local line = recipeData[i] .. LINE_SEP
@@ -1042,21 +1044,21 @@ function BRPP_BroadcastProfession(profName, characterName, profData)
   -- Bankdaten verlassen den eigenen Client an dieser Stelle NICHT: hier
   -- laufen ausschliesslich Berufs-/Rezeptdaten durch.
   local pdb = ensureDB()
-  if pdb.partner and pdb.partner.enabled and BRPP_Partner then
-    local _, pg = BRPP_SplitKey(p)
-    if pg == BRPP_OwnGuild() then
-      BRPP_Partner.Enqueue(startMsg)
+  if pdb.partner and pdb.partner.enabled and BCRAFT_Partner then
+    local _, pg = BCRAFT_SplitKey(p)
+    if pg == BCRAFT_OwnGuild() then
+      BCRAFT_Partner.Enqueue(startMsg)
       for idx = 1, total do
-        BRPP_Partner.Enqueue("C" .. SEP .. safe(p) .. SEP .. safe(profName) .. SEP .. tostring(idx) .. SEP .. chunks[idx])
+        BCRAFT_Partner.Enqueue("C" .. SEP .. safe(p) .. SEP .. safe(profName) .. SEP .. tostring(idx) .. SEP .. chunks[idx])
       end
-      BRPP_Partner.Enqueue(endMsg)
+      BCRAFT_Partner.Enqueue(endMsg)
     end
   end
 end
 
 -- Wrapper to send a profession even if not currently open
-function BRPP_SendAllRecipesForProfession(profName)
-  BRPP_BroadcastProfession(profName)
+function BCRAFT_SendAllRecipesForProfession(profName)
+  BCRAFT_BroadcastProfession(profName)
 end
 
 local function broadcastAll()
@@ -1086,12 +1088,12 @@ local function broadcastAll()
   local totalJobs = tlen(BroadcastQueue)
   
   if totalJobs > 0 then
-    msg("|cffffff00" .. BRPP_L.TRANSFER_START .. "|r " .. totalJobs .. " " .. BRPP_L.PROFS_QUEUED)
-    msg("|cff888888" .. BRPP_L.EST_TIME .. " " .. (totalJobs * 2) .. " " .. BRPP_L.SECONDS .. "|r")
+    msg("|cffffff00" .. BCRAFT_L.TRANSFER_START .. "|r " .. totalJobs .. " " .. BCRAFT_L.PROFS_QUEUED)
+    msg("|cff888888" .. BCRAFT_L.EST_TIME .. " " .. (totalJobs * 2) .. " " .. BCRAFT_L.SECONDS .. "|r")
     BroadcastTimer.elapsed = 0
     BroadcastTimer:Show()
   else
-    msg("|cffff0000" .. BRPP_L.NOTHING_TO_SEND .. "|r " .. BRPP_L.SCAN_FIRST)
+    msg("|cffff0000" .. BCRAFT_L.NOTHING_TO_SEND .. "|r " .. BCRAFT_L.SCAN_FIRST)
   end
 end
 
@@ -1099,7 +1101,7 @@ end
 -- Hash-based sync (PING/PONG)
 --
 -- Inspired by GuildRecipes Octo's approach: instead of always broadcasting
--- everything we know (which is what /brpp send still does, and which is what
+-- everything we know (which is what /bcraft send still does, and which is what
 -- gets throttled hard by SendThrottle/BroadcastTimer on big guilds), we first
 -- ask "does anyone have a different hash for profession X than me?", wait a
 -- couple seconds for replies, and then only pull full data from the single
@@ -1107,7 +1109,7 @@ end
 -- instead of a full recipe dump for data we may already have.
 --
 -- This does NOT replace the S/C/E chunk format above -- once we decide we
--- need data from someone, we still ask them to run BRPP_BroadcastProfession
+-- need data from someone, we still ask them to run BCRAFT_BroadcastProfession
 -- for that profession, and it still goes through the same two throttles.
 -- -------------------------
 local SyncPinging = false
@@ -1143,9 +1145,9 @@ SyncTimeoutTimer:SetScript("OnUpdate", function()
   end
 
   if requested > 0 then
-    msg("|cffffff00" .. BRPP_L.SYNC_REQUESTING .. "|r " .. requested)
+    msg("|cffffff00" .. BCRAFT_L.SYNC_REQUESTING .. "|r " .. requested)
   else
-    msg("|cff00ff00" .. BRPP_L.SYNC_UP_TO_DATE .. "|r")
+    msg("|cff00ff00" .. BCRAFT_L.SYNC_UP_TO_DATE .. "|r")
   end
 
   SyncBestPing = {}
@@ -1158,7 +1160,7 @@ local function startHashSync()
   local db = ensureDB()
 
   if SyncPinging then
-    debug("[SYNC] Already pinging, ignoring duplicate /brpp sync")
+    debug("[SYNC] Already pinging, ignoring duplicate /bcraft sync")
     return
   end
 
@@ -1188,7 +1190,7 @@ local function startHashSync()
   end
 
   if count == 0 then
-    msg("|cffff0000" .. BRPP_L.NOTHING_TO_SEND .. "|r " .. BRPP_L.SCAN_FIRST)
+    msg("|cffff0000" .. BCRAFT_L.NOTHING_TO_SEND .. "|r " .. BCRAFT_L.SCAN_FIRST)
     return
   end
 
@@ -1292,12 +1294,12 @@ local function pushPartnerCodeToGuild()
   local db = ensureDB()
 
   if not (db.partner and db.partner.enabled and db.partner.code) then
-    msg("|cffff0000" .. BRPP_L.PARTNER_NO_CODE .. "|r")
+    msg("|cffff0000" .. BCRAFT_L.PARTNER_NO_CODE .. "|r")
     return
   end
 
   enqueueSend("GUILD", "PCODE" .. SEP .. safe(db.partner.code))
-  msg("|cff00ff00" .. BRPP_L.PARTNER_PUSHED .. "|r")
+  msg("|cff00ff00" .. BCRAFT_L.PARTNER_PUSHED .. "|r")
 end
 
 -- -------------------------
@@ -1350,7 +1352,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
     return
   end
 
-  -- /brpp versioncheck: someone is asking who's running what version
+  -- /bcraft versioncheck: someone is asking who's running what version
   if cmd == "VCHECK" then
     local reply = "VERSION" .. SEP .. safe(sender) .. SEP .. safe(playerName()) .. SEP .. safe(ADDON_VERSION)
     enqueueSend("GUILD", reply)
@@ -1363,7 +1365,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
       local respondent = parts[3]
       local version = parts[4]
       if requester == playerName() and VersionCheckActive then
-        msg("|cff00ff00" .. respondent .. "|r " .. BRPP_L.VERSIONCHECK_RUNS .. " |cffffff00v" .. version .. "|r")
+        msg("|cff00ff00" .. respondent .. "|r " .. BCRAFT_L.VERSIONCHECK_RUNS .. " |cffffff00v" .. version .. "|r")
       end
     end
     return
@@ -1385,14 +1387,14 @@ local function handleAddonMessage(prefix, text, distrib, sender)
 
     if tlen(parts) >= 2 then
       local code = parts[2]
-      local chan = BRPP_Partner.SplitCode(code)
+      local chan = BCRAFT_Partner.SplitCode(code)
       if not chan then
         debug("[PCODE] Ungueltiger Code von " .. tostring(sender))
         return
       end
 
       -- Wer die Partnerschaft bewusst verlassen hat, wird nicht wieder
-      -- hineingezogen. Sonst wuerde jedes /brpp partner leave beim naechsten
+      -- hineingezogen. Sonst wuerde jedes /bcraft partner leave beim naechsten
       -- Verteilen rueckgaengig gemacht.
       if db.partner.declined then
         debug("[PCODE] Ignoriert (Partnerschaft wurde bewusst verlassen)")
@@ -1406,16 +1408,16 @@ local function handleAddonMessage(prefix, text, distrib, sender)
 
       -- Alten Kanal sauber verlassen, bevor der neue betreten wird
       if db.partner.channel then
-        BRPP_Partner.LeaveChannel(db)
-        BRPP_Partner.ClearQueue()
+        BCRAFT_Partner.LeaveChannel(db)
+        BCRAFT_Partner.ClearQueue()
       end
 
       db.partner.code = code
       db.partner.enabled = true
-      BRPP_Partner.JoinChannel(db)
+      BCRAFT_Partner.JoinChannel(db)
 
-      msg("|cff00ff00" .. BRPP_L.PARTNER_AUTO_JOINED .. "|r " .. sender)
-      msg("|cff888888" .. BRPP_L.PARTNER_AUTO_HINT .. "|r")
+      msg("|cff00ff00" .. BCRAFT_L.PARTNER_AUTO_JOINED .. "|r " .. sender)
+      msg("|cff888888" .. BCRAFT_L.PARTNER_AUTO_HINT .. "|r")
     end
 
     -- Jemand hat geantwortet: eigene geplante Antwort ist ueberfluessig
@@ -1447,7 +1449,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         debug("[SYNC] " .. sender .. " requested " .. profName .. " from us")
         local myProfData = db.guild[myKey()] and db.guild[myKey()].profs and db.guild[myKey()].profs[profName]
         if myProfData then
-          BRPP_BroadcastProfession(profName, playerName(), myProfData)
+          BCRAFT_BroadcastProfession(profName, playerName(), myProfData)
         end
       end
     end
@@ -1465,8 +1467,8 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         debug("|cffff8800Empfangen:|r " .. player .. " hat " .. prof .. " verlernt")
         debug("DELETE: " .. player .. " - " .. prof)
         
-        if BRPP_UI and BRPP_UI:IsShown() then
-          BRPP_UI_Refresh()
+        if BCRAFT_UI and BCRAFT_UI:IsShown() then
+          BCRAFT_UI_Refresh()
         end
       end
     end
@@ -1621,7 +1623,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         -- Addon-Version in der Gilde), haengen wir die eigene Gilde an --
         -- ueber den Gildenkanal kann es ohnehin nur die eigene sein.
         if not string.find(player, "@", 1, true) then
-          player = BRPP_MakeKey(player, BRPP_OwnGuild())
+          player = BCRAFT_MakeKey(player, BCRAFT_OwnGuild())
         end
 
         if not db.guild[player] then
@@ -1635,16 +1637,16 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         }
         db.guild[player].updated = now()
 
-        -- Fremde Gilde? Dann als Partnergilde vermerken (fuer UI + /brpp partner list)
-        local _, srcGuild = BRPP_SplitKey(player)
-        if srcGuild and BRPP_Partner then
-          BRPP_Partner.NoteGuild(db, srcGuild)
+        -- Fremde Gilde? Dann als Partnergilde vermerken (fuer UI + /bcraft partner list)
+        local _, srcGuild = BCRAFT_SplitKey(player)
+        if srcGuild and BCRAFT_Partner then
+          BCRAFT_Partner.NoteGuild(db, srcGuild)
         end
 
         debug("Empfangen: " .. player .. " — " .. prof .. " (" .. tlen(recipes) .. " Rezepte)")
 
-        if BRPP_UI and BRPP_UI:IsShown() then
-          BRPP_UI_Refresh()
+        if BCRAFT_UI and BCRAFT_UI:IsShown() then
+          BCRAFT_UI_Refresh()
         end
       end
 
@@ -1662,8 +1664,8 @@ local UI_FilterProf = "ALL"
 local UI_EnchantSlot = "ALL"  -- For Enchanting filter
 local UI_ScrollOffset = 0
 local UI_CurrentTab = 1  -- Tab system: 1 = Rezepte, 2 = Admin
-local BRPP_VISIBLE_ROWS = 12
-local BRPP_ROW_HEIGHT = 22
+local BCRAFT_VISIBLE_ROWS = 12
+local BCRAFT_ROW_HEIGHT = 22
 
 local function uiGetProfessionList()
   local db = ensureDB()
@@ -1720,8 +1722,8 @@ local function uiBuildData()
             
             -- `player` ist der Schluessel "Name@Gilde" -- fuer Anzeige und
             -- Online-Pruefung brauchen wir den reinen Namen.
-            local pName, pGuild = BRPP_SplitKey(player)
-            local isForeign = (pGuild ~= nil) and (pGuild ~= BRPP_OwnGuild())
+            local pName, pGuild = BCRAFT_SplitKey(player)
+            local isForeign = (pGuild ~= nil) and (pGuild ~= BCRAFT_OwnGuild())
 
             -- Online-Status je nach Herkunft:
             --   eigene Gilde   -> Gildenroster
@@ -1731,8 +1733,8 @@ local function uiBuildData()
             -- Zweig durch und liefert falsche Ergebnisse.
             local isOnline = false
             if isForeign then
-              if BRPP_Partner then
-                isOnline = BRPP_Partner.IsOnline(pName or player)
+              if BCRAFT_Partner then
+                isOnline = BCRAFT_Partner.IsOnline(pName or player)
               end
             else
               isOnline = isPlayerOnline(pName or player)
@@ -1785,11 +1787,11 @@ local function uiFilterData(data)
       -- Subcategory filter
       local slotMatch = true
       if UI_EnchantSlot ~= "ALL" and UI_EnchantSlot ~= "" then
-        -- Use recipe-to-category mapping (loaded from BRPP_RecipeMaps)
+        -- Use recipe-to-category mapping (loaded from BCRAFT_RecipeMaps)
         local recipeCategory = nil
         
-        if BRPP_RecipeMaps and BRPP_RecipeMaps[row.prof] then
-          recipeCategory = BRPP_RecipeMaps[row.prof][row.recipe]
+        if BCRAFT_RecipeMaps and BCRAFT_RecipeMaps[row.prof] then
+          recipeCategory = BCRAFT_RecipeMaps[row.prof][row.recipe]
           
           -- DEBUG: Show what's not matching
           if not recipeCategory then
@@ -1899,13 +1901,13 @@ end
 -- -------------------------
 -- UI: Recipe Popup
 -- -------------------------
-local BRPP_RecipePopup = nil
-local BRPP_RecipeQuantity = 1  -- Default quantity
+local BCRAFT_RecipePopup = nil
+local BCRAFT_RecipeQuantity = 1  -- Default quantity
 
-function BRPP_ShowRecipePopup(data)
-  if not BRPP_RecipePopup then
-    local pop = CreateFrame("Frame", "BRPP_RecipePopup", UIParent)
-    BRPP_RecipePopup = pop
+function BCRAFT_ShowRecipePopup(data)
+  if not BCRAFT_RecipePopup then
+    local pop = CreateFrame("Frame", "BCRAFT_RecipePopup", UIParent)
+    BCRAFT_RecipePopup = pop
     pop:SetWidth(400)  -- Wider for table layout
     pop:SetHeight(380)  -- Taller for editbox + summary
     pop:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -1972,17 +1974,17 @@ function BRPP_ShowRecipePopup(data)
     -- STEP 3: Quantity EditBox
     local qtyLabel = pop:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     qtyLabel:SetPoint("TOPLEFT", pop, "TOPLEFT", 22, -50)
-    qtyLabel:SetText(BRPP_L.QUANTITY)
+    qtyLabel:SetText(BCRAFT_L.QUANTITY)
     pop.qtyLabelFS = qtyLabel
     
-    local qtyBox = CreateFrame("EditBox", "BRPP_QuantityBox", pop, "InputBoxTemplate")
+    local qtyBox = CreateFrame("EditBox", "BCRAFT_QuantityBox", pop, "InputBoxTemplate")
     qtyBox:SetWidth(60)
     qtyBox:SetHeight(20)
     qtyBox:SetPoint("LEFT", qtyLabel, "RIGHT", 10, 0)
     qtyBox:SetAutoFocus(false)
     qtyBox:SetNumeric(true)
     qtyBox:SetMaxLetters(3)
-    qtyBox:SetText(tostring(BRPP_RecipeQuantity))
+    qtyBox:SetText(tostring(BCRAFT_RecipeQuantity))
     pop.qtyBox = qtyBox
     
     qtyBox:SetScript("OnEnterPressed", function() 
@@ -1990,11 +1992,11 @@ function BRPP_ShowRecipePopup(data)
       local qty = tonumber(this:GetText()) or 1
       if qty < 1 then qty = 1 end
       if qty > 100 then qty = 100 end
-      BRPP_RecipeQuantity = qty
+      BCRAFT_RecipeQuantity = qty
       this:SetText(tostring(qty))
       -- Refresh display
       if pop.currentData then
-        BRPP_UpdateRecipePopupContent(pop, pop.currentData)
+        BCRAFT_UpdateRecipePopupContent(pop, pop.currentData)
       end
     end)
     
@@ -2013,7 +2015,7 @@ function BRPP_ShowRecipePopup(data)
     
     -- Logo removed for clean background
 
-    local scroll = CreateFrame("ScrollFrame", "BRPP_RecipePopupScrollFrame", pop, "UIPanelScrollFrameTemplate")
+    local scroll = CreateFrame("ScrollFrame", "BCRAFT_RecipePopupScrollFrame", pop, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", scrollBg, "TOPLEFT", 8, -8)
     scroll:SetPoint("BOTTOMRIGHT", scrollBg, "BOTTOMRIGHT", -28, 8)
     pop.scroll = scroll
@@ -2045,7 +2047,7 @@ function BRPP_ShowRecipePopup(data)
     whisperBtn:SetWidth(200)
     whisperBtn:SetHeight(24)
     whisperBtn:SetPoint("BOTTOM", pop, "BOTTOM", 0, 18)
-    whisperBtn:SetText(BRPP_L.WHISPER)
+    whisperBtn:SetText(BCRAFT_L.WHISPER)
     pop.whisperBtn = whisperBtn
     
     whisperBtn:SetScript("OnClick", function()
@@ -2082,7 +2084,7 @@ function BRPP_ShowRecipePopup(data)
       
       -- Show dropdown menu with online crafters
       if tlen(menu) > 0 then
-        local dropdown = CreateFrame("Frame", "BRPP_WhisperMenu", pop, "UIDropDownMenuTemplate")
+        local dropdown = CreateFrame("Frame", "BCRAFT_WhisperMenu", pop, "UIDropDownMenuTemplate")
         UIDropDownMenu_Initialize(dropdown, function()
           for i = 1, tlen(menu) do
             UIDropDownMenu_AddButton(menu[i])
@@ -2095,7 +2097,7 @@ function BRPP_ShowRecipePopup(data)
     pop:Hide()
   end
 
-  local pop = BRPP_RecipePopup
+  local pop = BCRAFT_RecipePopup
   pop.currentData = data
   pop.title:SetText(data.recipe or "Rezept")
   
@@ -2168,16 +2170,16 @@ function BRPP_ShowRecipePopup(data)
   end
   
   -- Reset quantity box
-  pop.qtyBox:SetText(tostring(BRPP_RecipeQuantity))
+  pop.qtyBox:SetText(tostring(BCRAFT_RecipeQuantity))
   
-  BRPP_UpdateRecipePopupContent(pop, data)
+  BCRAFT_UpdateRecipePopupContent(pop, data)
 
   pop:Show()
 end
 
 -- STEP 3: Update popup content with inventory check first, then crafter list at bottom
-function BRPP_UpdateRecipePopupContent(pop, data)
-  local qty = BRPP_RecipeQuantity
+function BCRAFT_UpdateRecipePopupContent(pop, data)
+  local qty = BCRAFT_RecipeQuantity
   local db = ensureDB()
   
   local infoText = ""
@@ -2263,13 +2265,13 @@ function BRPP_UpdateRecipePopupContent(pop, data)
     for i = 1, tlen(sortedCrafters) do
       local crafter = sortedCrafters[i]
       local statusColor = crafter.online and "|cff00ff00" or "|cff888888"
-      local statusText = crafter.online and BRPP_L.ONLINE or BRPP_L.OFFLINE
+      local statusText = crafter.online and BCRAFT_L.ONLINE or BCRAFT_L.OFFLINE
       
       infoText = infoText .. "• " .. statusColor .. crafter.player .. "|r"
 
       -- Partnergilde sichtbar kennzeichnen
       if crafter.foreign and crafter.guild then
-        infoText = infoText .. " |cff66ccff<" .. BRPP_GuildLabel(crafter.guild) .. ">|r"
+        infoText = infoText .. " |cff66ccff<" .. BCRAFT_GuildLabel(crafter.guild) .. ">|r"
       end
 
       infoText = infoText .. " |cffaaaaaa(" .. (data.prof or "") .. " " .. crafter.rank .. "/" .. crafter.maxRank .. ")"
@@ -2277,9 +2279,9 @@ function BRPP_UpdateRecipePopupContent(pop, data)
         -- Online = sitzt im Partnerkanal. Offline heisst hier genauer:
         -- nicht im Kanal -- also entweder ausgeloggt oder ohne Addon.
         if crafter.online then
-          infoText = infoText .. " " .. BRPP_L.ONLINE .. "|r\n"
+          infoText = infoText .. " " .. BCRAFT_L.ONLINE .. "|r\n"
         else
-          infoText = infoText .. " " .. BRPP_L.PARTNER_NOT_IN_CHANNEL .. "|r\n"
+          infoText = infoText .. " " .. BCRAFT_L.PARTNER_NOT_IN_CHANNEL .. "|r\n"
         end
       else
         infoText = infoText .. " " .. statusText .. "|r\n"
@@ -2297,15 +2299,15 @@ function BRPP_UpdateRecipePopupContent(pop, data)
   if tlen(missing) > 0 then
     pop.missingSummary:SetText("|cffff0000Fehlen:|r " .. table.concat(missing, ", "))
   else
-    pop.missingSummary:SetText("|cff00ff00" .. BRPP_L.ALL_MATS .. "|r")
+    pop.missingSummary:SetText("|cff00ff00" .. BCRAFT_L.ALL_MATS .. "|r")
   end
 end
 
 -- -------------------------
 -- UI: Refresh
 -- -------------------------
-function BRPP_UI_Refresh()
-  local f = BRPP_UI
+function BCRAFT_UI_Refresh()
+  local f = BCRAFT_UI
   if not f or not f:IsShown() then return end
 
   local allData = uiBuildData()
@@ -2348,16 +2350,16 @@ function BRPP_UI_Refresh()
       -- Display crafter info
       local crafterText = ""
       if onlineCount > 0 then
-        crafterText = "|cff00ff00" .. onlineCount .. " " .. BRPP_L.ONLINE .. "|r"
+        crafterText = "|cff00ff00" .. onlineCount .. " " .. BCRAFT_L.ONLINE .. "|r"
       else
-        crafterText = "|cff888888" .. totalCount .. " " .. BRPP_L.OFFLINE .. "|r"
+        crafterText = "|cff888888" .. totalCount .. " " .. BCRAFT_L.OFFLINE .. "|r"
       end
       
       if totalCount > 1 then
-        crafterText = crafterText .. " |cffaaaaaa(" .. totalCount .. " " .. BRPP_L.TOTAL .. ")|r"
+        crafterText = crafterText .. " |cffaaaaaa(" .. totalCount .. " " .. BCRAFT_L.TOTAL .. ")|r"
       end
       
-      crafterText = crafterText .. " |cff888888- " .. BRPP_ProfName(data.prof or "") .. "|r"
+      crafterText = crafterText .. " |cff888888- " .. BCRAFT_ProfName(data.prof or "") .. "|r"
       row.who:SetText(crafterText)
       
       row.data = data
@@ -2397,24 +2399,24 @@ end
 -- UI: Create
 -- -------------------------
 local function uiCreate()
-  -- Defensive check: if a previous session already built BRPP_UI but somehow
+  -- Defensive check: if a previous session already built BCRAFT_UI but somehow
   -- without the info/language buttons (e.g. an older cached UI state after
   -- a partial reload), rebuild from scratch instead of silently keeping a
   -- half-built frame around. This is what caused the info/language buttons
   -- to "disappear" even though the button-creation code was present.
-  if BRPP_UI then
-    if BRPP_UI.infoBtn and BRPP_UI.deBtn and BRPP_UI.enBtn and BRPP_UI.connectBtn then
+  if BCRAFT_UI then
+    if BCRAFT_UI.infoBtn and BCRAFT_UI.deBtn and BCRAFT_UI.enBtn and BCRAFT_UI.connectBtn then
       return
     else
-      debug("[UI] BRPP_UI existierte bereits, aber ohne Info/Sprach-Buttons - baue Fenster neu auf.")
-      BRPP_UI:Hide()
-      BRPP_UI:SetParent(nil)
-      BRPP_UI = nil
+      debug("[UI] BCRAFT_UI existierte bereits, aber ohne Info/Sprach-Buttons - baue Fenster neu auf.")
+      BCRAFT_UI:Hide()
+      BCRAFT_UI:SetParent(nil)
+      BCRAFT_UI = nil
     end
   end
 
-  local f = CreateFrame("Frame", "BRPP_MainFrame", UIParent)
-  BRPP_UI = f
+  local f = CreateFrame("Frame", "BCRAFT_MainFrame", UIParent)
+  BCRAFT_UI = f
   f:SetWidth(650)
   f:SetHeight(480)  -- Extended for statistics display
   f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -2440,7 +2442,7 @@ local function uiCreate()
 
   local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOP", f, "TOP", 0, -18)
-  title:SetText(BRPP_L.WINDOW_TITLE)
+  title:SetText(BCRAFT_L.WINDOW_TITLE)
   f.titleFS = title
 
   local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
@@ -2465,14 +2467,14 @@ local function uiCreate()
   infoBtn:SetScript("OnEnter", function()
     this.tex:SetVertexColor(1, 1, 1)
     GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-    GameTooltip:SetText(BRPP_L.ABOUT_TOOLTIP)
+    GameTooltip:SetText(BCRAFT_L.ABOUT_TOOLTIP)
     GameTooltip:Show()
   end)
   infoBtn:SetScript("OnLeave", function()
     this.tex:SetVertexColor(1, 0.75, 0.3)
     GameTooltip:Hide()
   end)
-  infoBtn:SetScript("OnClick", function() BRPP_ShowThanksFrame() end)
+  infoBtn:SetScript("OnClick", function() BCRAFT_ShowThanksFrame() end)
   f.infoBtn = infoBtn
 
   -- Language buttons: EN / DE, left of the heart
@@ -2490,14 +2492,14 @@ local function uiCreate()
 
     b:SetScript("OnEnter", function()
       GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-      GameTooltip:SetText(BRPP_L.LANG_TOOLTIP)
+      GameTooltip:SetText(BCRAFT_L.LANG_TOOLTIP)
       GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
     b:SetScript("OnClick", function()
-      BRPP_SetLocale(this.code)
-      BRPP_ApplyLocale()
-      msg(BRPP_L.LANG_SWITCHED)
+      BCRAFT_SetLocale(this.code)
+      BCRAFT_ApplyLocale()
+      msg(BCRAFT_L.LANG_SWITCHED)
     end)
     return b
   end
@@ -2511,7 +2513,7 @@ local function uiCreate()
 
   local searchLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   searchLabel:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -62)
-  searchLabel:SetText(BRPP_L.SEARCH_LABEL)
+  searchLabel:SetText(BCRAFT_L.SEARCH_LABEL)
   f.searchLabelFS = searchLabel
 
   local search = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
@@ -2526,15 +2528,15 @@ local function uiCreate()
     scheduleUIRefresh()  -- debounced: collapses fast keystrokes into one rebuild
   end)
 
-  local BRPP_SubDD_Initialize  -- forward declaration (defined below, used by the filter dropdown)
-  local dd = CreateFrame("Frame", "BRPP_FilterDropDown", f, "UIDropDownMenuTemplate")
+  local BCRAFT_SubDD_Initialize  -- forward declaration (defined below, used by the filter dropdown)
+  local dd = CreateFrame("Frame", "BCRAFT_FilterDropDown", f, "UIDropDownMenuTemplate")
   dd:SetPoint("TOPRIGHT", f, "TOPRIGHT", -20, -54)
   f.filterDD = dd
 
-  local function BRPP_FilterDD_OnClick()
+  local function BCRAFT_FilterDD_OnClick()
     UI_FilterProf = this.value or "ALL"
     UIDropDownMenu_SetSelectedValue(dd, UI_FilterProf)
-    UIDropDownMenu_SetText(BRPP_ProfName(UI_FilterProf), dd)
+    UIDropDownMenu_SetText(BCRAFT_ProfName(UI_FilterProf), dd)
     UI_ScrollOffset = 0
     
     -- Show/hide subcategory filter for professions with categories
@@ -2549,61 +2551,61 @@ local function uiCreate()
     }
     
     if profsWithSubs[UI_FilterProf] then
-      BRPP_UI.subDD:Show()
+      BCRAFT_UI.subDD:Show()
       -- Reinitialize dropdown for new profession
-      UIDropDownMenu_Initialize(BRPP_UI.subDD, BRPP_SubDD_Initialize)
+      UIDropDownMenu_Initialize(BCRAFT_UI.subDD, BCRAFT_SubDD_Initialize)
       UI_EnchantSlot = "ALL"
-      UIDropDownMenu_SetSelectedValue(BRPP_UI.subDD, UI_EnchantSlot)
-      UIDropDownMenu_SetText(BRPP_CatName(UI_EnchantSlot), BRPP_UI.subDD)
+      UIDropDownMenu_SetSelectedValue(BCRAFT_UI.subDD, UI_EnchantSlot)
+      UIDropDownMenu_SetText(BCRAFT_CatName(UI_EnchantSlot), BCRAFT_UI.subDD)
     else
-      BRPP_UI.subDD:Hide()
+      BCRAFT_UI.subDD:Hide()
       UI_EnchantSlot = "ALL"  -- Reset subcategory filter
     end
     
-    BRPP_UI_Refresh()
+    BCRAFT_UI_Refresh()
   end
 
-  local function BRPP_FilterDD_Initialize()
+  local function BCRAFT_FilterDD_Initialize()
     local list = uiGetProfessionList()
     local info
     for i = 1, tlen(list) do
       info = {}
-      info.text = BRPP_ProfName(list[i])   -- display only
+      info.text = BCRAFT_ProfName(list[i])   -- display only
       info.value = list[i]                -- key stays English!
-      info.func = BRPP_FilterDD_OnClick
+      info.func = BCRAFT_FilterDD_OnClick
       UIDropDownMenu_AddButton(info)
     end
   end
 
-  UIDropDownMenu_Initialize(dd, BRPP_FilterDD_Initialize)
+  UIDropDownMenu_Initialize(dd, BCRAFT_FilterDD_Initialize)
   UIDropDownMenu_SetWidth(150, dd)
   UIDropDownMenu_SetSelectedValue(dd, UI_FilterProf)
-  UIDropDownMenu_SetText(BRPP_ProfName(UI_FilterProf), dd)
+  UIDropDownMenu_SetText(BCRAFT_ProfName(UI_FilterProf), dd)
 
   -- Subcategory Filter (visible for professions with categories)
-  local subDD = CreateFrame("Frame", "BRPP_SubcategoryDropDown", f, "UIDropDownMenuTemplate")
+  local subDD = CreateFrame("Frame", "BCRAFT_SubcategoryDropDown", f, "UIDropDownMenuTemplate")
   subDD:SetPoint("TOPRIGHT", dd, "BOTTOMRIGHT", 0, 6)
   f.subDD = subDD
   subDD:Hide()  -- Hidden by default
   
-  local function BRPP_SubDD_OnClick()
+  local function BCRAFT_SubDD_OnClick()
     UI_EnchantSlot = this.value or "ALL"
     UIDropDownMenu_SetSelectedValue(subDD, UI_EnchantSlot)
-    UIDropDownMenu_SetText(BRPP_CatName(UI_EnchantSlot), subDD)
+    UIDropDownMenu_SetText(BCRAFT_CatName(UI_EnchantSlot), subDD)
     UI_ScrollOffset = 0
-    BRPP_UI_Refresh()
+    BCRAFT_UI_Refresh()
   end
   
-  BRPP_SubDD_Initialize = function()
+  BCRAFT_SubDD_Initialize = function()
     -- Define subcategories for each profession
     -- IMPORTANT: These must match EXACT header names from WoW profession window!
-    -- Category list is derived from BRPP_RecipeMaps at runtime.
+    -- Category list is derived from BCRAFT_RecipeMaps at runtime.
     -- This guarantees the dropdown can never drift out of sync with the
     -- actual data (previously several entries were typos or plural
     -- mismatches and silently returned zero results).
     local categories = {}
-    if BRPP_RecipeMaps then
-      for prof, recipes in pairs(BRPP_RecipeMaps) do
+    if BCRAFT_RecipeMaps then
+      for prof, recipes in pairs(BCRAFT_RecipeMaps) do
         local seen, list = {}, { "ALL" }
         for recipeName, catName in pairs(recipes) do
           if catName and catName ~= "" and not seen[catName] then
@@ -2616,7 +2618,7 @@ local function uiCreate()
         table.sort(list, function(a, b)
           if a == "ALL" then return true end
           if b == "ALL" then return false end
-          return BRPP_CatName(a) < BRPP_CatName(b)
+          return BCRAFT_CatName(a) < BCRAFT_CatName(b)
         end)
         categories[prof] = list
       end
@@ -2626,17 +2628,17 @@ local function uiCreate()
     local info
     for i = 1, tlen(slots) do
       info = {}
-      info.text = BRPP_CatName(slots[i])   -- display only
+      info.text = BCRAFT_CatName(slots[i])   -- display only
       info.value = slots[i]               -- key stays English!
-      info.func = BRPP_SubDD_OnClick
+      info.func = BCRAFT_SubDD_OnClick
       UIDropDownMenu_AddButton(info)
     end
   end
   
-  UIDropDownMenu_Initialize(subDD, BRPP_SubDD_Initialize)
+  UIDropDownMenu_Initialize(subDD, BCRAFT_SubDD_Initialize)
   UIDropDownMenu_SetWidth(150, subDD)
   UIDropDownMenu_SetSelectedValue(subDD, UI_EnchantSlot)
-  UIDropDownMenu_SetText(BRPP_CatName(UI_EnchantSlot), subDD)
+  UIDropDownMenu_SetText(BCRAFT_CatName(UI_EnchantSlot), subDD)
 
   -- Clean UI - no logos
 
@@ -2645,7 +2647,7 @@ local function uiCreate()
   shareBtn:SetWidth(200)
   shareBtn:SetHeight(28)
   shareBtn:SetPoint("BOTTOM", f, "BOTTOM", -103, 30)  -- Higher for statistics space
-  shareBtn:SetText(BRPP_L.SHARE_BUTTON)
+  shareBtn:SetText(BCRAFT_L.SHARE_BUTTON)
   shareBtn:SetScript("OnClick", function()
     broadcastAll()
   end)
@@ -2662,15 +2664,15 @@ local function uiCreate()
   connectBtn:SetWidth(200)
   connectBtn:SetHeight(28)
   connectBtn:SetPoint("BOTTOM", f, "BOTTOM", 103, 30)
-  connectBtn:SetText(BRPP_L.BTN_CONNECT_MEMBERS)
+  connectBtn:SetText(BCRAFT_L.BTN_CONNECT_MEMBERS)
   connectBtn:SetScript("OnClick", function()
     pushPartnerCodeToGuild()
   end)
   connectBtn:SetScript("OnEnter", function()
     GameTooltip:SetOwner(this, "ANCHOR_TOP")
-    GameTooltip:SetText(BRPP_L.BTN_CONNECT_MEMBERS, 1, 1, 1)
-    GameTooltip:AddLine(BRPP_L.BTN_CONNECT_TIP1, 0.8, 0.8, 0.8, 1)
-    GameTooltip:AddLine(BRPP_L.BTN_CONNECT_TIP2, 1, 0.6, 0.2, 1)
+    GameTooltip:SetText(BCRAFT_L.BTN_CONNECT_MEMBERS, 1, 1, 1)
+    GameTooltip:AddLine(BCRAFT_L.BTN_CONNECT_TIP1, 0.8, 0.8, 0.8, 1)
+    GameTooltip:AddLine(BCRAFT_L.BTN_CONNECT_TIP2, 1, 0.6, 0.2, 1)
     GameTooltip:Show()
   end)
   connectBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -2713,11 +2715,11 @@ local function uiCreate()
   
   -- Clean background - no watermarks
 
-  f.visibleRows = BRPP_VISIBLE_ROWS
-  f.rowHeight = BRPP_ROW_HEIGHT
+  f.visibleRows = BCRAFT_VISIBLE_ROWS
+  f.rowHeight = BCRAFT_ROW_HEIGHT
   f.rows = {}
 
-  local sb = CreateFrame("Slider", "BRPP_Scrollbar", recipePage)
+  local sb = CreateFrame("Slider", "BCRAFT_Scrollbar", recipePage)
   f.scrollbar = sb
   sb:SetOrientation("VERTICAL")
   sb:SetPoint("TOPRIGHT", listBg, "TOPRIGHT", -6, -6)
@@ -2742,7 +2744,7 @@ local function uiCreate()
   
   sb:SetScript("OnValueChanged", function()
     UI_ScrollOffset = math.floor(this:GetValue() + 0.5)
-    BRPP_UI_Refresh()
+    BCRAFT_UI_Refresh()
   end)
 
   local function DoScroll(delta)
@@ -2757,7 +2759,7 @@ local function uiCreate()
     if UI_ScrollOffset < 0 then UI_ScrollOffset = 0 end
     if UI_ScrollOffset > maxScroll then UI_ScrollOffset = maxScroll end
     
-    BRPP_UI_Refresh()
+    BCRAFT_UI_Refresh()
   end
 
   listBg:EnableMouseWheel(true)
@@ -2785,7 +2787,7 @@ local function uiCreate()
 
     row:SetScript("OnClick", function()
       if this and this.data then
-        BRPP_ShowRecipePopup(this.data)
+        BCRAFT_ShowRecipePopup(this.data)
       end
     end)
 
@@ -2913,24 +2915,24 @@ end
 
 local function uiToggle()
   uiCreate()
-  if BRPP_UI:IsShown() then
-    BRPP_UI:Hide()
+  if BCRAFT_UI:IsShown() then
+    BCRAFT_UI:Hide()
   else
     -- Cleanup old professions from all players when opening UI
     cleanupOldProfessionsFromAllPlayers()
     
     UI_ScrollOffset = 0
-    BRPP_UI:Show()
+    BCRAFT_UI:Show()
 
     -- Anwesenheitsliste des Partnerkanals auffrischen. Beitritts- und
     -- Austrittsmeldungen halten sie waehrend der Sitzung aktuell, aber wer
     -- schon vor unserem Login drin sass, taucht dort nie auf.
     local d = ensureDB()
-    if BRPP_Partner and d.partner and d.partner.enabled then
-      BRPP_Partner.RequestRoster(d)
+    if BCRAFT_Partner and d.partner and d.partner.enabled then
+      BCRAFT_Partner.RequestRoster(d)
     end
 
-    BRPP_UI_Refresh()
+    BCRAFT_UI_Refresh()
   end
 end
 
@@ -2982,13 +2984,13 @@ local function exportToCSV()
   end
   
   -- Save to global variable
-  BRPP_CSV_Export = csv
-  BRPP_CSV_Timestamp = date("%Y-%m-%d %H:%M:%S")
-  BRPP_CSV_Lines = lineCount
+  BCRAFT_CSV_Export = csv
+  BCRAFT_CSV_Timestamp = date("%Y-%m-%d %H:%M:%S")
+  BCRAFT_CSV_Lines = lineCount
   
   -- Create export popup with copyable text
-  if not BRPP_ExportFrame then
-    local f = CreateFrame("Frame", "BRPP_ExportFrame", UIParent)
+  if not BCRAFT_ExportFrame then
+    local f = CreateFrame("Frame", "BCRAFT_ExportFrame", UIParent)
     f:SetWidth(600)
     f:SetHeight(400)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -3019,7 +3021,7 @@ local function exportToCSV()
     f.info = info
     
     -- ScrollFrame for EditBox
-    local scroll = CreateFrame("ScrollFrame", "BRPP_ExportScroll", f, "UIPanelScrollFrameTemplate")
+    local scroll = CreateFrame("ScrollFrame", "BCRAFT_ExportScroll", f, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 20, -80)
     scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -40, 50)
     
@@ -3036,7 +3038,7 @@ local function exportToCSV()
     f.editBox = editBox
     
     editBox:SetScript("OnEscapePressed", function()
-      BRPP_ExportFrame:Hide()
+      BCRAFT_ExportFrame:Hide()
     end)
     
     -- Close button
@@ -3046,17 +3048,17 @@ local function exportToCSV()
     closeBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 15)
     closeBtn:SetText("Schließen")
     closeBtn:SetScript("OnClick", function()
-      BRPP_ExportFrame:Hide()
+      BCRAFT_ExportFrame:Hide()
     end)
     
-    BRPP_ExportFrame = f
+    BCRAFT_ExportFrame = f
   end
   
   -- Set CSV text
-  BRPP_ExportFrame.editBox:SetText(csv)
-  BRPP_ExportFrame.editBox:HighlightText()  -- Pre-select all
-  BRPP_ExportFrame.info:SetText(string.format("|cff00ff00%d Zeilen | %s|r\n|cffffff00Strg+A → Strg+C zum Kopieren!|r", lineCount, BRPP_CSV_Timestamp))
-  BRPP_ExportFrame:Show()
+  BCRAFT_ExportFrame.editBox:SetText(csv)
+  BCRAFT_ExportFrame.editBox:HighlightText()  -- Pre-select all
+  BCRAFT_ExportFrame.info:SetText(string.format("|cff00ff00%d Zeilen | %s|r\n|cffffff00Strg+A → Strg+C zum Kopieren!|r", lineCount, BCRAFT_CSV_Timestamp))
+  BCRAFT_ExportFrame:Show()
   
   debug("|cff00ff00CSV Export-Fenster geöffnet!|r")
   debug("|cffffff00Strg+A|r → ganzen Text markieren")
@@ -3067,8 +3069,8 @@ end
 -- -------------------------
 -- Slash commands
 -- -------------------------
-SLASH_BRPP1 = "/brpp"
-SlashCmdList["BRPP"] = function(input)
+SLASH_BCRAFT1 = "/bcraft"
+SlashCmdList["BCRAFT"] = function(input)
   input = input or ""
   
   if type(input) ~= "string" then input = "" end
@@ -3083,26 +3085,26 @@ SlashCmdList["BRPP"] = function(input)
   cmd = string.lower(cmd or "")
 
   if cmd == "" or cmd == "help" then
-    msg(BRPP_L.CMD_HEADER)
-    msg(BRPP_L.CMD_SHOW)
-    msg(BRPP_L.CMD_SCAN)
-    msg(BRPP_L.CMD_RESCAN)
-    msg(BRPP_L.CMD_SEND)
-    msg(BRPP_L.CMD_SYNC)
-    msg(BRPP_L.CMD_VERSIONCHECK)
-    msg(BRPP_L.CMD_PARTNER)
-    msg(BRPP_L.CMD_DELETE)
-    msg(BRPP_L.CMD_DELETE_ALL)
-    msg(BRPP_L.CMD_SCANBANK)
-    msg(BRPP_L.CMD_EXPORT)
-    msg(BRPP_L.CMD_DEBUG)
-    msg(BRPP_L.CMD_ABOUT)
-    msg(BRPP_L.CMD_LANG)
+    msg(BCRAFT_L.CMD_HEADER)
+    msg(BCRAFT_L.CMD_SHOW)
+    msg(BCRAFT_L.CMD_SCAN)
+    msg(BCRAFT_L.CMD_RESCAN)
+    msg(BCRAFT_L.CMD_SEND)
+    msg(BCRAFT_L.CMD_SYNC)
+    msg(BCRAFT_L.CMD_VERSIONCHECK)
+    msg(BCRAFT_L.CMD_PARTNER)
+    msg(BCRAFT_L.CMD_DELETE)
+    msg(BCRAFT_L.CMD_DELETE_ALL)
+    msg(BCRAFT_L.CMD_SCANBANK)
+    msg(BCRAFT_L.CMD_EXPORT)
+    msg(BCRAFT_L.CMD_DEBUG)
+    msg(BCRAFT_L.CMD_ABOUT)
+    msg(BCRAFT_L.CMD_LANG)
     return
   end
 
   if cmd == "about" or cmd == "danke" or cmd == "info" then
-    BRPP_ShowThanksFrame()
+    BCRAFT_ShowThanksFrame()
     return
   end
 
@@ -3113,9 +3115,9 @@ SlashCmdList["BRPP"] = function(input)
     if which ~= "deDE" and which ~= "enUS" and which ~= "auto" then
       which = "auto"
     end
-    BRPP_SetLocale(which)
-    BRPP_ApplyLocale()
-    msg(BRPP_L.LANG_SWITCHED)
+    BCRAFT_SetLocale(which)
+    BCRAFT_ApplyLocale()
+    msg(BCRAFT_L.LANG_SWITCHED)
     return
   end
 
@@ -3129,7 +3131,7 @@ SlashCmdList["BRPP"] = function(input)
   if cmd == "rescan" then
     local myChar = playerName()
     LastScannedProf[myChar] = nil
-    msg(BRPP_L.CACHE_CLEARED)
+    msg(BCRAFT_L.CACHE_CLEARED)
     return
   end
   -- -------------------------
@@ -3150,33 +3152,33 @@ SlashCmdList["BRPP"] = function(input)
 
     -- Code erzeugen und Partnerschaft eroeffnen
     if sub == "create" then
-      db.partner.code = BRPP_Partner.GenerateCode()
+      db.partner.code = BCRAFT_Partner.GenerateCode()
       db.partner.enabled = true
       db.partner.declined = nil   -- bewusster Wiedereintritt
-      BRPP_Partner.JoinChannel(db)
-      msg("|cff00ff00" .. BRPP_L.PARTNER_CREATED .. "|r")
-      msg(BRPP_L.PARTNER_CODE_IS .. " |cffffff00" .. BRPP_Partner.FormatCode(db.partner.code) .. "|r")
-      msg(BRPP_L.PARTNER_SHARE_HINT)
+      BCRAFT_Partner.JoinChannel(db)
+      msg("|cff00ff00" .. BCRAFT_L.PARTNER_CREATED .. "|r")
+      msg(BCRAFT_L.PARTNER_CODE_IS .. " |cffffff00" .. BCRAFT_Partner.FormatCode(db.partner.code) .. "|r")
+      msg(BCRAFT_L.PARTNER_SHARE_HINT)
       return
     end
 
     -- Code der Partnergilde eintragen
     if sub == "add" or sub == "join" then
       if arg == "" then
-        msg("|cffff0000" .. BRPP_L.PARTNER_NEED_CODE .. "|r")
+        msg("|cffff0000" .. BCRAFT_L.PARTNER_NEED_CODE .. "|r")
         return
       end
-      local chan = BRPP_Partner.SplitCode(arg)
+      local chan = BCRAFT_Partner.SplitCode(arg)
       if not chan then
-        msg("|cffff0000" .. BRPP_L.PARTNER_BAD_CODE .. "|r")
+        msg("|cffff0000" .. BCRAFT_L.PARTNER_BAD_CODE .. "|r")
         return
       end
       local clean = string.upper(string.gsub(string.gsub(arg, "%s", ""), "-", ""))
       db.partner.code = clean
       db.partner.enabled = true
       db.partner.declined = nil   -- bewusster Wiedereintritt
-      BRPP_Partner.JoinChannel(db)
-      msg("|cff00ff00" .. BRPP_L.PARTNER_JOINED .. "|r")
+      BCRAFT_Partner.JoinChannel(db)
+      msg("|cff00ff00" .. BCRAFT_L.PARTNER_JOINED .. "|r")
       return
     end
 
@@ -3189,42 +3191,42 @@ SlashCmdList["BRPP"] = function(input)
     -- Punkt 3.3: Code anzeigen / neu erzeugen
     if sub == "code" then
       if db.partner.code then
-        msg(BRPP_L.PARTNER_CODE_IS .. " |cffffff00" .. BRPP_Partner.FormatCode(db.partner.code) .. "|r")
+        msg(BCRAFT_L.PARTNER_CODE_IS .. " |cffffff00" .. BCRAFT_Partner.FormatCode(db.partner.code) .. "|r")
       else
-        msg(BRPP_L.PARTNER_NO_CODE)
+        msg(BCRAFT_L.PARTNER_NO_CODE)
       end
       return
     end
 
     if sub == "newcode" then
-      BRPP_Partner.LeaveChannel(db)
-      BRPP_Partner.ClearQueue()
-      db.partner.code = BRPP_Partner.GenerateCode()
+      BCRAFT_Partner.LeaveChannel(db)
+      BCRAFT_Partner.ClearQueue()
+      db.partner.code = BCRAFT_Partner.GenerateCode()
       db.partner.enabled = true
       db.partner.declined = nil   -- bewusster Wiedereintritt
-      BRPP_Partner.JoinChannel(db)
-      msg("|cff00ff00" .. BRPP_L.PARTNER_NEWCODE .. "|r")
-      msg(BRPP_L.PARTNER_CODE_IS .. " |cffffff00" .. BRPP_Partner.FormatCode(db.partner.code) .. "|r")
-      msg("|cffff8800" .. BRPP_L.PARTNER_NEWCODE_WARN .. "|r")
+      BCRAFT_Partner.JoinChannel(db)
+      msg("|cff00ff00" .. BCRAFT_L.PARTNER_NEWCODE .. "|r")
+      msg(BCRAFT_L.PARTNER_CODE_IS .. " |cffffff00" .. BCRAFT_Partner.FormatCode(db.partner.code) .. "|r")
+      msg("|cffff8800" .. BCRAFT_L.PARTNER_NEWCODE_WARN .. "|r")
       return
     end
 
     -- Bekannte Partnergilden auflisten
     if sub == "list" then
-      local list = BRPP_Partner.ListGuilds(db)
+      local list = BCRAFT_Partner.ListGuilds(db)
       if tlen(list) == 0 then
-        msg(BRPP_L.PARTNER_NONE)
+        msg(BCRAFT_L.PARTNER_NONE)
         return
       end
-      msg(BRPP_L.PARTNER_LIST_HEADER)
+      msg(BCRAFT_L.PARTNER_LIST_HEADER)
       for i = 1, tlen(list) do
         local g = list[i]
         local cnt = 0
         for key, _ in pairs(db.guild) do
-          local _, kg = BRPP_SplitKey(key)
+          local _, kg = BCRAFT_SplitKey(key)
           if kg == g then cnt = cnt + 1 end
         end
-        msg("  |cff66ccff" .. BRPP_GuildLabel(g) .. "|r - " .. cnt .. " " .. BRPP_L.PARTNER_CHARS)
+        msg("  |cff66ccff" .. BCRAFT_GuildLabel(g) .. "|r - " .. cnt .. " " .. BCRAFT_L.PARTNER_CHARS)
       end
       return
     end
@@ -3232,11 +3234,11 @@ SlashCmdList["BRPP"] = function(input)
     -- Punkt 3.2: Daten einer Partnergilde rauswerfen
     if sub == "remove" or sub == "kick" then
       if arg == "" then
-        msg("|cffff0000" .. BRPP_L.PARTNER_NEED_GUILD .. "|r")
+        msg("|cffff0000" .. BCRAFT_L.PARTNER_NEED_GUILD .. "|r")
         return
       end
-      if arg == BRPP_OwnGuild() then
-        msg("|cffff0000" .. BRPP_L.PARTNER_CANT_REMOVE_OWN .. "|r")
+      if arg == BCRAFT_OwnGuild() then
+        msg("|cffff0000" .. BCRAFT_L.PARTNER_CANT_REMOVE_OWN .. "|r")
         return
       end
 
@@ -3249,9 +3251,9 @@ SlashCmdList["BRPP"] = function(input)
         target = "Solo:" .. arg
       end
 
-      local removed = BRPP_Partner.PurgeGuild(db, target)
-      msg("|cff00ff00" .. BRPP_L.PARTNER_REMOVED .. "|r " .. BRPP_GuildLabel(target) .. " (" .. removed .. " " .. BRPP_L.PARTNER_CHARS .. ")")
-      if BRPP_UI and BRPP_UI:IsShown() then BRPP_UI_Refresh() end
+      local removed = BCRAFT_Partner.PurgeGuild(db, target)
+      msg("|cff00ff00" .. BCRAFT_L.PARTNER_REMOVED .. "|r " .. BCRAFT_GuildLabel(target) .. " (" .. removed .. " " .. BCRAFT_L.PARTNER_CHARS .. ")")
+      if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
       return
     end
 
@@ -3259,52 +3261,52 @@ SlashCmdList["BRPP"] = function(input)
     if sub == "leave" or sub == "off" then
       local removedGuilds = 0
       local removedChars = 0
-      local list = BRPP_Partner.ListGuilds(db)
+      local list = BCRAFT_Partner.ListGuilds(db)
       for i = 1, tlen(list) do
-        removedChars = removedChars + BRPP_Partner.PurgeGuild(db, list[i])
+        removedChars = removedChars + BCRAFT_Partner.PurgeGuild(db, list[i])
         removedGuilds = removedGuilds + 1
       end
-      BRPP_Partner.LeaveChannel(db)
-      BRPP_Partner.ClearQueue()
+      BCRAFT_Partner.LeaveChannel(db)
+      BCRAFT_Partner.ClearQueue()
       db.partner.enabled = false
       db.partner.code = nil
       -- Merken, dass die Partnerschaft bewusst beendet wurde. Sonst wuerde
       -- der naechste verteilte Code (Button oder Login-Anfrage anderer)
       -- den Austritt sofort wieder rueckgaengig machen.
       db.partner.declined = true
-      msg("|cff00ff00" .. BRPP_L.PARTNER_LEFT .. "|r (" .. removedGuilds .. " " .. BRPP_L.PARTNER_GUILDS .. ", " .. removedChars .. " " .. BRPP_L.PARTNER_CHARS .. ")")
-      if BRPP_UI and BRPP_UI:IsShown() then BRPP_UI_Refresh() end
+      msg("|cff00ff00" .. BCRAFT_L.PARTNER_LEFT .. "|r (" .. removedGuilds .. " " .. BCRAFT_L.PARTNER_GUILDS .. ", " .. removedChars .. " " .. BCRAFT_L.PARTNER_CHARS .. ")")
+      if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
       return
     end
 
     -- Status
     if sub == "" or sub == "status" then
       if db.partner.enabled and db.partner.code then
-        msg(BRPP_L.PARTNER_STATUS_ON)
-        msg(BRPP_L.PARTNER_CODE_IS .. " |cffffff00" .. BRPP_Partner.FormatCode(db.partner.code) .. "|r")
-        local idx = BRPP_Partner.GetChannelIndex(db)
+        msg(BCRAFT_L.PARTNER_STATUS_ON)
+        msg(BCRAFT_L.PARTNER_CODE_IS .. " |cffffff00" .. BCRAFT_Partner.FormatCode(db.partner.code) .. "|r")
+        local idx = BCRAFT_Partner.GetChannelIndex(db)
         if idx then
-          msg("|cff00ff00" .. BRPP_L.PARTNER_CHANNEL_OK .. "|r")
-          BRPP_Partner.RequestRoster(db)
-          msg(BRPP_L.PARTNER_ONLINE_COUNT .. " |cffffff00" .. BRPP_Partner.PresenceCount() .. "|r")
+          msg("|cff00ff00" .. BCRAFT_L.PARTNER_CHANNEL_OK .. "|r")
+          BCRAFT_Partner.RequestRoster(db)
+          msg(BCRAFT_L.PARTNER_ONLINE_COUNT .. " |cffffff00" .. BCRAFT_Partner.PresenceCount() .. "|r")
         else
-          msg("|cffff8800" .. BRPP_L.PARTNER_CHANNEL_MISSING .. "|r")
+          msg("|cffff8800" .. BCRAFT_L.PARTNER_CHANNEL_MISSING .. "|r")
         end
       else
-        msg(BRPP_L.PARTNER_STATUS_OFF)
+        msg(BCRAFT_L.PARTNER_STATUS_OFF)
       end
-      msg(BRPP_L.CMD_PARTNER_CREATE)
-      msg(BRPP_L.CMD_PARTNER_ADD)
-      msg(BRPP_L.CMD_PARTNER_PUSH)
-      msg(BRPP_L.CMD_PARTNER_CODE)
-      msg(BRPP_L.CMD_PARTNER_NEWCODE)
-      msg(BRPP_L.CMD_PARTNER_LIST)
-      msg(BRPP_L.CMD_PARTNER_REMOVE)
-      msg(BRPP_L.CMD_PARTNER_LEAVE)
+      msg(BCRAFT_L.CMD_PARTNER_CREATE)
+      msg(BCRAFT_L.CMD_PARTNER_ADD)
+      msg(BCRAFT_L.CMD_PARTNER_PUSH)
+      msg(BCRAFT_L.CMD_PARTNER_CODE)
+      msg(BCRAFT_L.CMD_PARTNER_NEWCODE)
+      msg(BCRAFT_L.CMD_PARTNER_LIST)
+      msg(BCRAFT_L.CMD_PARTNER_REMOVE)
+      msg(BCRAFT_L.CMD_PARTNER_LEAVE)
       return
     end
 
-    msg("|cffff0000" .. BRPP_L.PARTNER_UNKNOWN_SUB .. "|r " .. sub)
+    msg("|cffff0000" .. BCRAFT_L.PARTNER_UNKNOWN_SUB .. "|r " .. sub)
     return
   end
 
@@ -3313,7 +3315,7 @@ SlashCmdList["BRPP"] = function(input)
   if cmd == "versioncheck" then
     VersionCheckResponses = {}
     VersionCheckActive = true
-    msg("|cffffff00" .. BRPP_L.VERSIONCHECK_ASKING .. "|r")
+    msg("|cffffff00" .. BCRAFT_L.VERSIONCHECK_ASKING .. "|r")
     enqueueSend("GUILD", "VCHECK" .. SEP .. safe(playerName()))
     return
   end
@@ -3336,8 +3338,8 @@ SlashCmdList["BRPP"] = function(input)
     local _, _, profName = string.find(input, "^%S+%s+(.+)")
     
     if not profName or profName == "" then
-      msg(BRPP_L.USAGE_DELETE)
-      msg(BRPP_L.EXAMPLE_DELETE)
+      msg(BCRAFT_L.USAGE_DELETE)
+      msg(BCRAFT_L.EXAMPLE_DELETE)
       return
     end
     
@@ -3380,13 +3382,13 @@ SlashCmdList["BRPP"] = function(input)
       -- Clear all scan caches
       LastScannedProf = {}
       
-      msg("|cffff0000" .. BRPP_L.DB_WIPED .. "|r")
+      msg("|cffff0000" .. BCRAFT_L.DB_WIPED .. "|r")
       msg("  • " .. totalChars .. " Character(e)")
       msg("  • " .. totalProfs .. " Beruf(e)")
       msg("  • " .. totalGuild .. " Gilden-Einträge")
       
-      if BRPP_MainFrame and BRPP_MainFrame:IsShown() then
-        BRPP_UI_Refresh()
+      if BCRAFT_MainFrame and BCRAFT_MainFrame:IsShown() then
+        BCRAFT_UI_Refresh()
       end
     else
       -- Delete specific profession (normalize name)
@@ -3400,10 +3402,10 @@ SlashCmdList["BRPP"] = function(input)
           db.guild[myChar].profs[normalizedProf] = nil
         end
         
-        msg("|cffff0000" .. BRPP_L.DELETED .. "|r " .. normalizedProf)
+        msg("|cffff0000" .. BCRAFT_L.DELETED .. "|r " .. normalizedProf)
         
-        if BRPP_MainFrame and BRPP_MainFrame:IsShown() then
-          BRPP_UI_Refresh()
+        if BCRAFT_MainFrame and BCRAFT_MainFrame:IsShown() then
+          BCRAFT_UI_Refresh()
         end
       else
         msg("|cffff0000Fehler:|r Beruf '" .. normalizedProf .. "' nicht gefunden")
@@ -3412,7 +3414,7 @@ SlashCmdList["BRPP"] = function(input)
     return
   end
 
-  debug("Unbekannter Befehl. /brpp help")
+  debug("Unbekannter Befehl. /bcraft help")
 end
 
 -- -------------------------
@@ -3502,16 +3504,16 @@ eventFrame:SetScript("OnEvent", function()
     
     -- Restore the saved language (or auto-detect from the client)
     local db = ensureDB()
-    BRPP_SetLocale(db.settings.locale or "auto")
+    BCRAFT_SetLocale(db.settings.locale or "auto")
 
     -- Initialize Minimap Button
-    BRPP_MinimapButton_Init()
+    BCRAFT_MinimapButton_Init()
 
     -- Partnerkanal automatisch betreten, damit niemand manuell /join tippen muss.
     -- Leicht verzoegert: direkt bei PLAYER_LOGIN ist das Kanalsystem noch nicht
     -- bereit und JoinChannelByName laeuft ins Leere.
-    if BRPP_Partner then
-      BRPP_Partner.InstallChatFilter()
+    if BCRAFT_Partner then
+      BCRAFT_Partner.InstallChatFilter()
 
       if db.partner and db.partner.enabled and db.partner.code then
         local joiner = CreateFrame("Frame")
@@ -3523,7 +3525,7 @@ eventFrame:SetScript("OnEvent", function()
           this:Hide()
           this:SetScript("OnUpdate", nil)
           local d = ensureDB()
-          if BRPP_Partner.JoinChannel(d) then
+          if BCRAFT_Partner.JoinChannel(d) then
             debug("Partnerkanal betreten: " .. tostring(d.partner.channel))
             -- Kurz danach die Anwesenheitsliste holen: wer schon vor uns im
             -- Kanal sass, loest kein JOIN-Ereignis mehr aus.
@@ -3535,7 +3537,7 @@ eventFrame:SetScript("OnEvent", function()
               if this.elapsed < 3.0 then return end
               this:Hide()
               this:SetScript("OnUpdate", nil)
-              BRPP_Partner.RequestRoster(ensureDB())
+              BCRAFT_Partner.RequestRoster(ensureDB())
             end)
             roster:Show()
           end
@@ -3562,7 +3564,7 @@ eventFrame:SetScript("OnEvent", function()
       end
     end
     
-    debug("geladen. /brpp show")
+    debug("geladen. /bcraft show")
     return
   end
 
@@ -3582,8 +3584,8 @@ eventFrame:SetScript("OnEvent", function()
   if event == "GUILD_ROSTER_UPDATE" then
     -- Roster data changed: rebuild the online lookup and repaint if visible.
     refreshOnlineCache(true)
-    if BRPP_UI and BRPP_UI:IsShown() then
-      BRPP_UI_Refresh()
+    if BCRAFT_UI and BCRAFT_UI:IsShown() then
+      BCRAFT_UI_Refresh()
     end
     return
   end
@@ -3601,7 +3603,7 @@ eventFrame:SetScript("OnEvent", function()
     if not (db.partner and db.partner.enabled and db.partner.channel) then return end
     if not arg9 or string.lower(arg9) ~= string.lower(db.partner.channel) then return end
 
-    local payload = BRPP_Partner.ParseIncoming(arg1)
+    local payload = BCRAFT_Partner.ParseIncoming(arg1)
     if not payload then return end
     if arg2 == playerName() then return end  -- eigene Nachrichten ignorieren
 
@@ -3611,27 +3613,27 @@ eventFrame:SetScript("OnEvent", function()
 
   -- Anwesenheit im Partnerkanal: wer drin sitzt, ist online und erreichbar.
   if event == "CHAT_MSG_CHANNEL_JOIN" then
-    if BRPP_Partner.IsOwnChannel(arg9) and arg2 then
-      BRPP_Partner.SetOnline(arg2)
-      if BRPP_UI and BRPP_UI:IsShown() then scheduleUIRefresh() end
+    if BCRAFT_Partner.IsOwnChannel(arg9) and arg2 then
+      BCRAFT_Partner.SetOnline(arg2)
+      if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
     end
     return
   end
 
   if event == "CHAT_MSG_CHANNEL_LEAVE" then
-    if BRPP_Partner.IsOwnChannel(arg9) and arg2 then
-      BRPP_Partner.SetOffline(arg2)
-      if BRPP_UI and BRPP_UI:IsShown() then scheduleUIRefresh() end
+    if BCRAFT_Partner.IsOwnChannel(arg9) and arg2 then
+      BCRAFT_Partner.SetOffline(arg2)
+      if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
     end
     return
   end
 
   -- Vollstaendige Kanalliste (Antwort auf ListChannelByName)
   if event == "CHAT_MSG_CHANNEL_LIST" then
-    if BRPP_Partner.IsOwnChannel(arg9) then
-      local n = BRPP_Partner.ParseList(arg1)
+    if BCRAFT_Partner.IsOwnChannel(arg9) then
+      local n = BCRAFT_Partner.ParseList(arg1)
       debug("[PRESENCE] " .. n .. " Spieler im Partnerkanal")
-      if BRPP_UI and BRPP_UI:IsShown() then scheduleUIRefresh() end
+      if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
     end
     return
   end
@@ -3647,17 +3649,17 @@ end)
 -- Apply the active language to every already-created widget.
 -- Called after switching language so no /reload is needed.
 -- -------------------------
-function BRPP_ApplyLocale()
-  local f = BRPP_UI
+function BCRAFT_ApplyLocale()
+  local f = BCRAFT_UI
 
   if f then
-    if f.titleFS then f.titleFS:SetText(BRPP_L.WINDOW_TITLE) end
-    if f.searchLabelFS then f.searchLabelFS:SetText(BRPP_L.SEARCH_LABEL) end
-    if f.shareBtn then f.shareBtn:SetText(BRPP_L.SHARE_BUTTON) end
-    if f.connectBtn then f.connectBtn:SetText(BRPP_L.BTN_CONNECT_MEMBERS) end
+    if f.titleFS then f.titleFS:SetText(BCRAFT_L.WINDOW_TITLE) end
+    if f.searchLabelFS then f.searchLabelFS:SetText(BCRAFT_L.SEARCH_LABEL) end
+    if f.shareBtn then f.shareBtn:SetText(BCRAFT_L.SHARE_BUTTON) end
+    if f.connectBtn then f.connectBtn:SetText(BCRAFT_L.BTN_CONNECT_MEMBERS) end
 
     -- Highlight the active language button
-    local cur = BRPP_GetLocale()
+    local cur = BCRAFT_GetLocale()
     if f.deBtn and f.deBtn.fs then
       if cur == "deDE" then f.deBtn.fs:SetTextColor(1, 0.82, 0) else f.deBtn.fs:SetTextColor(0.5, 0.5, 0.5) end
     end
@@ -3667,25 +3669,25 @@ function BRPP_ApplyLocale()
 
     -- Dropdown captions use translated text but keep English values
     if f.filterDD then
-      UIDropDownMenu_SetText(BRPP_ProfName(UI_FilterProf), f.filterDD)
+      UIDropDownMenu_SetText(BCRAFT_ProfName(UI_FilterProf), f.filterDD)
     end
     if f.subDD then
-      UIDropDownMenu_SetText(BRPP_CatName(UI_EnchantSlot), f.subDD)
+      UIDropDownMenu_SetText(BCRAFT_CatName(UI_EnchantSlot), f.subDD)
     end
 
     if f:IsShown() then
-      BRPP_UI_Refresh()
+      BCRAFT_UI_Refresh()
     end
   end
 
   -- Thanks window, if it was already built
-  local tf = BRPP_ThanksFrame
+  local tf = BCRAFT_ThanksFrame
   if tf then
-    if tf.titleFS then tf.titleFS:SetText(BRPP_L.THANKS_TITLE) end
-    if tf.bodyFS then tf.bodyFS:SetText(BRPP_L.THANKS_BODY) end
-    if tf.nameLabelFS then tf.nameLabelFS:SetText(BRPP_L.CHARACTER) end
-    if tf.mailBtn then tf.mailBtn:SetText(BRPP_L.FILL_NAME) end
-    if tf.okBtn then tf.okBtn:SetText(BRPP_L.CLOSE) end
+    if tf.titleFS then tf.titleFS:SetText(BCRAFT_L.THANKS_TITLE) end
+    if tf.bodyFS then tf.bodyFS:SetText(BCRAFT_L.THANKS_BODY) end
+    if tf.nameLabelFS then tf.nameLabelFS:SetText(BCRAFT_L.CHARACTER) end
+    if tf.mailBtn then tf.mailBtn:SetText(BCRAFT_L.FILL_NAME) end
+    if tf.okBtn then tf.okBtn:SetText(BCRAFT_L.CLOSE) end
   end
 
   -- The recipe popup rebuilds its text on open, so nothing to do there.
@@ -3694,13 +3696,13 @@ end
 -- -------------------------
 -- "Thank you" / support window
 -- -------------------------
-local BRPP_AUTHOR_CHAR = "Lumihunt"
+local BCRAFT_AUTHOR_CHAR = "Lumihunt"
 
-function BRPP_ShowThanksFrame()
-  local tf = BRPP_ThanksFrame
+function BCRAFT_ShowThanksFrame()
+  local tf = BCRAFT_ThanksFrame
 
   if not tf then
-    tf = CreateFrame("Frame", "BRPP_ThanksFrame", UIParent)
+    tf = CreateFrame("Frame", "BCRAFT_ThanksFrame", UIParent)
     tf:SetWidth(340)
     tf:SetHeight(275)
     tf:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
@@ -3719,7 +3721,7 @@ function BRPP_ShowThanksFrame()
 
     local tt = tf:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     tt:SetPoint("TOP", tf, "TOP", 0, -18)
-    tt:SetText(BRPP_L.THANKS_TITLE)
+    tt:SetText(BCRAFT_L.THANKS_TITLE)
     tf.titleFS = tt
 
     local tclose = CreateFrame("Button", nil, tf, "UIPanelCloseButton")
@@ -3730,12 +3732,12 @@ function BRPP_ShowThanksFrame()
     body:SetWidth(292)
     body:SetJustifyH("LEFT")
     body:SetJustifyV("TOP")
-    body:SetText(BRPP_L.THANKS_BODY)
+    body:SetText(BCRAFT_L.THANKS_BODY)
     tf.bodyFS = body
 
     local nameLabel = tf:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     nameLabel:SetPoint("TOPLEFT", tf, "TOPLEFT", 24, -158)
-    nameLabel:SetText(BRPP_L.CHARACTER)
+    nameLabel:SetText(BCRAFT_L.CHARACTER)
     tf.nameLabelFS = nameLabel
 
     -- Selectable box so the name can be copied with Ctrl+C
@@ -3744,11 +3746,11 @@ function BRPP_ShowThanksFrame()
     nameBox:SetHeight(20)
     nameBox:SetPoint("LEFT", nameLabel, "RIGHT", 12, 0)
     nameBox:SetAutoFocus(false)
-    nameBox:SetText(BRPP_AUTHOR_CHAR)
+    nameBox:SetText(BCRAFT_AUTHOR_CHAR)
     -- Keep the value fixed: undo any edit the user makes
     nameBox:SetScript("OnTextChanged", function()
-      if this:GetText() ~= BRPP_AUTHOR_CHAR then
-        this:SetText(BRPP_AUTHOR_CHAR)
+      if this:GetText() ~= BCRAFT_AUTHOR_CHAR then
+        this:SetText(BCRAFT_AUTHOR_CHAR)
       end
     end)
     nameBox:SetScript("OnEscapePressed", function() this:ClearFocus() end)
@@ -3766,21 +3768,21 @@ function BRPP_ShowThanksFrame()
     mailBtn:SetWidth(150)
     mailBtn:SetHeight(24)
     mailBtn:SetPoint("BOTTOMLEFT", tf, "BOTTOMLEFT", 24, 22)
-    mailBtn:SetText(BRPP_L.FILL_NAME)
+    mailBtn:SetText(BCRAFT_L.FILL_NAME)
     mailBtn:SetScript("OnClick", function()
       if MailFrame and MailFrame:IsVisible() and SendMailNameEditBox then
         -- Switch to the "send mail" tab, then prefill the recipient
         if MailFrameTab2 and MailFrameTab_OnClick then
           MailFrameTab_OnClick(2)
         end
-        SendMailNameEditBox:SetText(BRPP_AUTHOR_CHAR)
+        SendMailNameEditBox:SetText(BCRAFT_AUTHOR_CHAR)
         if SendMailSubjectEditBox and SendMailSubjectEditBox:GetText() == "" then
           SendMailSubjectEditBox:SetText("BananaCraft")
         end
-        msg(BRPP_L.RECIPIENT_SET .. " |cff00ff00" .. BRPP_AUTHOR_CHAR .. "|r " .. BRPP_L.RECIPIENT_THANKS)
-        BRPP_ThanksFrame:Hide()
+        msg(BCRAFT_L.RECIPIENT_SET .. " |cff00ff00" .. BCRAFT_AUTHOR_CHAR .. "|r " .. BCRAFT_L.RECIPIENT_THANKS)
+        BCRAFT_ThanksFrame:Hide()
       else
-        msg(BRPP_L.NEED_MAILBOX .. " |cffffff00" .. BRPP_L.MAILBOX .. "|r " .. BRPP_L.NEED_MAILBOX_2)
+        msg(BCRAFT_L.NEED_MAILBOX .. " |cffffff00" .. BCRAFT_L.MAILBOX .. "|r " .. BCRAFT_L.NEED_MAILBOX_2)
       end
     end)
     tf.mailBtn = mailBtn
@@ -3789,23 +3791,23 @@ function BRPP_ShowThanksFrame()
     okBtn:SetWidth(110)
     okBtn:SetHeight(24)
     okBtn:SetPoint("BOTTOMRIGHT", tf, "BOTTOMRIGHT", -24, 22)
-    okBtn:SetText(BRPP_L.CLOSE)
+    okBtn:SetText(BCRAFT_L.CLOSE)
     tf.okBtn = okBtn
-    okBtn:SetScript("OnClick", function() BRPP_ThanksFrame:Hide() end)
+    okBtn:SetScript("OnClick", function() BCRAFT_ThanksFrame:Hide() end)
 
-    BRPP_ThanksFrame = tf
+    BCRAFT_ThanksFrame = tf
   end
 
   -- Adapt the hint and the button to the current situation
   if MailFrame and MailFrame:IsVisible() then
-    tf.hint:SetText(BRPP_L.MAILBOX_OPEN)
+    tf.hint:SetText(BCRAFT_L.MAILBOX_OPEN)
     tf.mailBtn:Enable()
   else
-    tf.hint:SetText(BRPP_L.MAILBOX_CLOSED)
+    tf.hint:SetText(BCRAFT_L.MAILBOX_CLOSED)
     tf.mailBtn:Disable()
   end
 
-  tf.nameBox:SetText(BRPP_AUTHOR_CHAR)
+  tf.nameBox:SetText(BCRAFT_AUTHOR_CHAR)
 
   if tf:IsShown() then tf:Hide() else tf:Show() end
 end
@@ -3813,13 +3815,13 @@ end
 -- -------------------------
 -- Minimap Button Functions
 -- -------------------------
-function BRPP_MinimapButton_OnClick(button)
+function BCRAFT_MinimapButton_OnClick(button)
   if button == "LeftButton" then
     uiToggle()
   end
 end
 
-function BRPP_MinimapButton_Init()
+function BCRAFT_MinimapButton_Init()
   local db = ensureDB()
   
   -- Initialize settings if not exist
@@ -3835,25 +3837,25 @@ function BRPP_MinimapButton_Init()
   
   -- Show/hide button
   if db.settings.minimapButton == true then
-    BRPP_MinimapButtonFrame:Show()
+    BCRAFT_MinimapButtonFrame:Show()
   else
-    BRPP_MinimapButtonFrame:Hide()
+    BCRAFT_MinimapButtonFrame:Hide()
   end
   
   -- Update position
-  BRPP_MinimapButton_UpdatePosition()
+  BCRAFT_MinimapButton_UpdatePosition()
 end
 
-function BRPP_MinimapButton_OnEnter()
+function BCRAFT_MinimapButton_OnEnter()
   GameTooltip:SetOwner(this, "ANCHOR_LEFT")
   GameTooltip:SetText("BananaCraft")
   GameTooltipTextLeft1:SetTextColor(1, 1, 1)
-  GameTooltip:AddLine(BRPP_L.MM_LEFTCLICK)
-  GameTooltip:AddLine(BRPP_L.MM_RIGHTCLICK)
+  GameTooltip:AddLine(BCRAFT_L.MM_LEFTCLICK)
+  GameTooltip:AddLine(BCRAFT_L.MM_RIGHTCLICK)
   GameTooltip:Show()
 end
 
-function BRPP_MinimapButton_UpdatePosition()
+function BCRAFT_MinimapButton_UpdatePosition()
   local db = ensureDB()
   local pos = db.settings.minimapButtonPos or 315
   local radius = db.settings.minimapButtonRadius or 78
@@ -3861,7 +3863,7 @@ function BRPP_MinimapButton_UpdatePosition()
   -- Convert degrees to radians for Lua's math functions
   local posRad = math.rad(pos)
   
-  BRPP_MinimapButtonFrame:SetPoint(
+  BCRAFT_MinimapButtonFrame:SetPoint(
     "TOPLEFT",
     "Minimap",
     "TOPLEFT",
@@ -3870,22 +3872,22 @@ function BRPP_MinimapButton_UpdatePosition()
   )
 end
 
-function BRPP_MinimapButton_OnDrag()
+function BCRAFT_MinimapButton_OnDrag()
   local xpos, ypos = GetCursorPosition()
   local xmin, ymin = Minimap:GetLeft(), Minimap:GetBottom()
   
   xpos = xmin - xpos/UIParent:GetScale() + 70
   ypos = ypos/UIParent:GetScale() - ymin - 70
   
-  BRPP_MinimapButton_SetPosition(math.deg(math.atan2(ypos, xpos)))
+  BCRAFT_MinimapButton_SetPosition(math.deg(math.atan2(ypos, xpos)))
 end
 
-function BRPP_MinimapButton_SetPosition(v)
+function BCRAFT_MinimapButton_SetPosition(v)
   if v < 0 then
     v = v + 360
   end
   
   local db = ensureDB()
   db.settings.minimapButtonPos = v
-  BRPP_MinimapButton_UpdatePosition()
+  BCRAFT_MinimapButton_UpdatePosition()
 end

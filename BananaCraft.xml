@@ -1,7 +1,7 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd">
 
 	<!-- Minimap Button Frame - Styled like AtlasLoot -->
-	<Frame name="BRPP_MinimapButtonFrame" parent="Minimap" enableMouse="true" hidden="true" frameStrata="LOW">
+	<Frame name="BCRAFT_MinimapButtonFrame" parent="Minimap" enableMouse="true" hidden="true" frameStrata="LOW">
 		<Size>
 			<AbsDimension x="32" y="32"/>
 		</Size>
@@ -43,7 +43,7 @@
 			</Layer>
 		</Layers>
 		<Frames>
-			<Button name="BRPP_MinimapButton">
+			<Button name="BCRAFT_MinimapButton">
 				<Size>
 					<AbsDimension x="32" y="32"/>
 				</Size>
@@ -64,14 +64,14 @@
 					</OnDragStop>
 					<OnUpdate>
 						if this.isDragging == true then
-							BRPP_MinimapButton_OnDrag();
+							BCRAFT_MinimapButton_OnDrag();
 						end
 					</OnUpdate>
 					<OnClick>
-						BRPP_MinimapButton_OnClick(arg1);
+						BCRAFT_MinimapButton_OnClick(arg1);
 					</OnClick>
 					<OnEnter>
-						BRPP_MinimapButton_OnEnter();
+						BCRAFT_MinimapButton_OnEnter();
 					</OnEnter>
 					<OnLeave>
 						GameTooltip:Hide();

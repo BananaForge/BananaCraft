@@ -1,15 +1,15 @@
 # BananaCraft — Technical Documentation
 
-(Vormals BananaRepublik Partnerguild. Die internen Namen `BRPP_*`, `BRPPDB`, `BRPP0` und `/brpp` sind bewusst geblieben.)
+(Vormals BananaRepublik Partnerguild. Ab dem Umbau zu BananaCraft heissen auch die internen Namen neu: `BCRAFT_*`, `BananaCraftDB`, `BCRAFT0`, `/bcraft`.)
 
 Zweite Variante von BananaRepublicProfs mit Partnergilden-Unterstuetzung.
 
 ## Wichtig zuerst
 
 Das ist ein **eigenstaendiges Addon**, kein Update. Es hat:
-- eigene SavedVariables (`BRPPDB`) -- ruehrt `BRPDB` des Originals nicht an
-- eigenen Netzwerkprefix (`BRPP0`) -- redet nicht mit dem Original-Addon
-- eigener Befehl (`/brpp`)
+- eigene SavedVariables (`BananaCraftDB`) -- ruehrt `BRPDB` des Originals nicht an
+- eigenen Netzwerkprefix (`BCRAFT0`) -- redet nicht mit dem Original-Addon
+- eigener Befehl (`/bcraft`)
 
 Du kannst beide parallel installiert lassen. Sie stoeren sich nicht, teilen
 aber auch keine Daten. Wenn beide laufen, hast du zwei Minimap-Buttons und
@@ -76,45 +76,45 @@ ist nicht ermittelbar, und ein vorgetaeuschtes "offline" waere irrefuehrend.
 
 - **3.1 Rezeptsharing zur Partnergilde:** umgesetzt. Bankdaten gehen NICHT
   mit -- durch diesen Pfad laufen ausschliesslich Berufs- und Rezeptdaten.
-- **3.2 Gildendaten rauswerfen:** `/brpp partner remove <Gilde>` loescht
-  Rezeptdaten und Partnereintrag. `/brpp partner leave` beendet alles und
+- **3.2 Gildendaten rauswerfen:** `/bcraft partner remove <Gilde>` loescht
+  Rezeptdaten und Partnereintrag. `/bcraft partner leave` beendet alles und
   entfernt saemtliche Fremddaten.
-- **3.3 Code aenderbar:** `/brpp partner newcode` erzeugt einen neuen Code,
+- **3.3 Code aenderbar:** `/bcraft partner newcode` erzeugt einen neuen Code,
   verlaesst den alten Kanal und warnt, dass alle den neuen eintragen muessen.
 
 ## Befehle
 
 ```
-/brpp partner                  Status + Hilfe
-/brpp partner create           neuen Einladecode erzeugen
-/brpp partner add <Code>       mit erhaltenem Code verbinden
-/brpp partner push             Code an die eigene Gilde verteilen
-/brpp partner code             aktuellen Code anzeigen
-/brpp partner newcode          neuen Code erzeugen (alter wird ungueltig)
-/brpp partner list             bekannte Partnergilden auflisten
-/brpp partner remove <Gilde>   Daten dieser Gilde rauswerfen
-/brpp partner leave            Partnerschaft beenden, alle Fremddaten weg
+/bcraft partner                  Status + Hilfe
+/bcraft partner create           neuen Einladecode erzeugen
+/bcraft partner add <Code>       mit erhaltenem Code verbinden
+/bcraft partner push             Code an die eigene Gilde verteilen
+/bcraft partner code             aktuellen Code anzeigen
+/bcraft partner newcode          neuen Code erzeugen (alter wird ungueltig)
+/bcraft partner list             bekannte Partnergilden auflisten
+/bcraft partner remove <Gilde>   Daten dieser Gilde rauswerfen
+/bcraft partner leave            Partnerschaft beenden, alle Fremddaten weg
 ```
 
-Alle bisherigen Befehle funktionieren weiter, nur mit `/brpp` statt `/brp`
-(also auch `/brpp sync`, `/brpp versioncheck`, `/brpp export` usw.).
+Alle bisherigen Befehle funktionieren weiter, nur mit `/bcraft` statt `/brp`
+(also auch `/bcraft sync`, `/bcraft versioncheck`, `/bcraft export` usw.).
 
 ## Praxistest
 
-Die Oberflaeche wurde mit Testdaten geprueft; die Testdaten (`/brpptest`) sind seit 2.2.1 entfernt.
+Die Oberflaeche wurde mit Testdaten geprueft; die Testdaten (`/bcrafttest`) sind seit 2.2.1 entfernt.
 
 ### Zu zweit
 
 Das ist der Teil, der sich nur im Spiel verifizieren laesst.
 
 1. Beide Seiten installieren das Addon
-2. Gilde A: `/brpp partner create`, Code notieren
+2. Gilde A: `/bcraft partner create`, Code notieren
 3. Code an Gilde B geben (Whisper, Discord, egal)
-4. Gilde B: `/brpp partner add <Code>`
-5. Beide: `/brpp debug` einschalten
-6. Gilde A: `/brpp send`
+4. Gilde B: `/bcraft partner add <Code>`
+5. Beide: `/bcraft debug` einschalten
+6. Gilde A: `/bcraft send`
 7. Gilde B muss die Rezepte bekommen, markiert mit `<Gilde A>`
-8. `/brpp partner status` auf beiden Seiten -- muss "Partnerkanal verbunden"
+8. `/bcraft partner status` auf beiden Seiten -- muss "Partnerkanal verbunden"
    melden
 
 ## Geprueft
@@ -138,7 +138,7 @@ gelegentlich vom Original-Vanilla-Verhalten ab.
 
 Mogliche Stolpersteine im Praxistest:
 - Der Kanal wird erst 5 Sekunden nach dem Login betreten (vorher ist das
-  Kanalsystem nicht bereit). `/brpp partner status` sagt dir, ob es geklappt
+  Kanalsystem nicht bereit). `/bcraft partner status` sagt dir, ob es geklappt
   hat.
 - Wenn der Server Chat-Nachrichten mit `^` oder langen Strings filtert,
   kommen Chunks kaputt an. Dann meldet sich der Debug-Modus.
@@ -155,7 +155,7 @@ verlaesst die Gilde dabei nicht.
 "Datenbank an Gilde teilen"): schickt den Partnercode an alle in deiner
 Gilde, die das Addon haben. Sie sind sofort verbunden und bekommen eine
 Meldung im Chat. Direkt danach kannst du auf "Datenbank an Gilde teilen"
-klicken. Als Befehl: `/brpp partner push`.
+klicken. Als Befehl: `/bcraft partner push`.
 
 **Automatisch beim Login:** Wer das Addon neu installiert und noch keinen
 Code hat, fragt 8 Sekunden nach dem Einloggen selbst in der Gilde nach.
@@ -171,11 +171,11 @@ geantwortet hat. Im Ergebnis geht genau eine Antwort raus.
 - Jedes Gildenmitglied mit dem Addon bekommt den Code. Das ist genau der
   Zweck, heisst aber auch: jeder koennte ihn weitergeben. Wenn der Code
   irgendwo landet, wo er nicht hingehoert, hilft
-  `/brpp partner newcode` -- danach muessen allerdings beide Gilden neu
+  `/bcraft partner newcode` -- danach muessen allerdings beide Gilden neu
   verteilen.
-- Wer `/brpp partner leave` benutzt hat, wird NICHT wieder automatisch
+- Wer `/bcraft partner leave` benutzt hat, wird NICHT wieder automatisch
   hineingezogen. Das Addon merkt sich den Austritt. Zurueck geht es nur per
-  Hand mit `/brpp partner add <Code>`.
+  Hand mit `/bcraft partner add <Code>`.
 - Ein Code, der ueber den Partnerkanal ankommt, wird abgewiesen. Nur der
   eigene Gildenkanal zaehlt -- sonst koennte jemand aus der Partnergilde die
   Verbindung auf einen anderen Kanal umlenken.
@@ -204,7 +204,7 @@ Freundschaft, solange ihr auf demselben Realm seid.
 Aktualisiert wird der Status so:
 - beim Betreten und Verlassen des Kanals sofort
 - beim Oeffnen des Addon-Fensters wird die komplette Kanalliste geholt
-- `/brpp partner status` zeigt die Zahl der aktuell Erreichbaren
+- `/bcraft partner status` zeigt die Zahl der aktuell Erreichbaren
 
 Der letzte Punkt ist noetig, weil wer schon vor deinem Login im Kanal sass,
 kein Beitrittsereignis mehr ausloest.
@@ -222,7 +222,7 @@ Gildennamens. Das ist kein Schoenheitsdetail, sondern noetig: mit einem
 festen Sammelbegriff wie "Ohne Gilde" haetten alle gildenlosen Spieler
 dieselbe Kennung. Zwei davon wuerden sich gegenseitig fuer "eigene Gilde"
 halten, der Schleifenschutz beim Senden wuerde nicht greifen, und sie
-haetten sich die Daten bei jedem `/brpp send` gegenseitig zurueckgeschickt.
+haetten sich die Daten bei jedem `/bcraft send` gegenseitig zurueckgeschickt.
 
 In der Oberflaeche steht statt der Kennung `<ohne Gilde (Name)>`.
 
@@ -230,7 +230,7 @@ Zum Rauswerfen reicht der Charaktername, die interne Kennung musst du nicht
 kennen:
 
 ```
-/brpp partner remove Alice
+/bcraft partner remove Alice
 ```
 
 Einschraenkung: Der Gildenkanal faellt fuer einen gildenlosen Spieler

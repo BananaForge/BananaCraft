@@ -14,12 +14,12 @@
 --      miteinander kommunizieren koennen.
 -- ============================================================
 
-BRPP_Locales = {}
-BRPP_Locales["enUS"] = {}
-BRPP_Locales["deDE"] = {}
+BCRAFT_Locales = {}
+BCRAFT_Locales["enUS"] = {}
+BCRAFT_Locales["deDE"] = {}
 
-local en = BRPP_Locales["enUS"]
-local de = BRPP_Locales["deDE"]
+local en = BCRAFT_Locales["enUS"]
+local de = BCRAFT_Locales["deDE"]
 
 
 -- ---------- Interface strings ----------
@@ -185,44 +185,44 @@ de.SHARE_SHORT = "Datenbank an Gilde teilen"
 en.CMD_HEADER = "Commands:"
 de.CMD_HEADER = "Befehle:"
 
-en.CMD_SHOW = "/brpp show      - open/close the UI"
-de.CMD_SHOW = "/brpp show      - UI oeffnen/schliessen"
+en.CMD_SHOW = "/bcraft show      - open/close the UI"
+de.CMD_SHOW = "/bcraft show      - UI oeffnen/schliessen"
 
-en.CMD_SCAN = "/brpp scan      - scan the open profession"
-de.CMD_SCAN = "/brpp scan      - aktuell geoeffneten Beruf scannen"
+en.CMD_SCAN = "/bcraft scan      - scan the open profession"
+de.CMD_SCAN = "/bcraft scan      - aktuell geoeffneten Beruf scannen"
 
-en.CMD_RESCAN = "/brpp rescan    - allow rescanning (clears session cache)"
-de.CMD_RESCAN = "/brpp rescan    - erlaube erneutes Scannen (cleart Session-Cache)"
+en.CMD_RESCAN = "/bcraft rescan    - allow rescanning (clears session cache)"
+de.CMD_RESCAN = "/bcraft rescan    - erlaube erneutes Scannen (cleart Session-Cache)"
 
-en.CMD_SEND = "/brpp send      - send all professions to the guild"
-de.CMD_SEND = "/brpp send      - alle Berufe an Gilde senden"
+en.CMD_SEND = "/bcraft send      - send all professions to the guild"
+de.CMD_SEND = "/bcraft send      - alle Berufe an Gilde senden"
 
-en.CMD_SYNC = "/brpp sync      - lightweight sync: only pulls what's outdated"
-de.CMD_SYNC = "/brpp sync      - leichter Abgleich: holt nur veraltete Daten nach"
+en.CMD_SYNC = "/bcraft sync      - lightweight sync: only pulls what's outdated"
+de.CMD_SYNC = "/bcraft sync      - leichter Abgleich: holt nur veraltete Daten nach"
 
-en.CMD_VERSIONCHECK = "/brpp versioncheck - see which BRPP version guildmates run"
-de.CMD_VERSIONCHECK = "/brpp versioncheck - zeigt BRPP-Version der Gildenmitglieder"
+en.CMD_VERSIONCHECK = "/bcraft versioncheck - see which BananaCraft version guildmates run"
+de.CMD_VERSIONCHECK = "/bcraft versioncheck - zeigt BananaCraft-Version der Gildenmitglieder"
 
-en.CMD_DELETE = "/brpp delete [prof] - delete a profession (e.g. /brpp delete Alchemy)"
-de.CMD_DELETE = "/brpp delete [prof] - Beruf loeschen (z.B. /brpp delete Alchemy)"
+en.CMD_DELETE = "/bcraft delete [prof] - delete a profession (e.g. /bcraft delete Alchemy)"
+de.CMD_DELETE = "/bcraft delete [prof] - Beruf loeschen (z.B. /bcraft delete Alchemy)"
 
-en.CMD_DELETE_ALL = "/brpp delete all    - delete ALL professions"
-de.CMD_DELETE_ALL = "/brpp delete all    - ALLE Berufe loeschen"
+en.CMD_DELETE_ALL = "/bcraft delete all    - delete ALL professions"
+de.CMD_DELETE_ALL = "/bcraft delete all    - ALLE Berufe loeschen"
 
-en.CMD_SCANBANK = "/brpp scanbank  - scan bank manually"
-de.CMD_SCANBANK = "/brpp scanbank  - Bank manuell scannen"
+en.CMD_SCANBANK = "/bcraft scanbank  - scan bank manually"
+de.CMD_SCANBANK = "/bcraft scanbank  - Bank manuell scannen"
 
-en.CMD_EXPORT = "/brpp export    - CSV export for Discord/Excel"
-de.CMD_EXPORT = "/brpp export    - CSV-Export fuer Discord/Excel"
+en.CMD_EXPORT = "/bcraft export    - CSV export for Discord/Excel"
+de.CMD_EXPORT = "/bcraft export    - CSV-Export fuer Discord/Excel"
 
-en.CMD_DEBUG = "/brpp debug     - toggle debug"
-de.CMD_DEBUG = "/brpp debug     - Debug an/aus"
+en.CMD_DEBUG = "/bcraft debug     - toggle debug"
+de.CMD_DEBUG = "/bcraft debug     - Debug an/aus"
 
-en.CMD_ABOUT = "/brpp about     - info & support"
-de.CMD_ABOUT = "/brpp about     - Info & Unterstuetzung"
+en.CMD_ABOUT = "/bcraft about     - info & support"
+de.CMD_ABOUT = "/bcraft about     - Info & Unterstuetzung"
 
-en.CMD_LANG = "/brpp lang en|de|auto - language"
-de.CMD_LANG = "/brpp lang en|de|auto - Sprache"
+en.CMD_LANG = "/bcraft lang en|de|auto - language"
+de.CMD_LANG = "/bcraft lang en|de|auto - Sprache"
 
 en.SYNC_REQUESTING = "Sync: requesting updated data for professions:"
 de.SYNC_REQUESTING = "Abgleich: fordere aktualisierte Daten an fuer Berufe:"
@@ -230,8 +230,8 @@ de.SYNC_REQUESTING = "Abgleich: fordere aktualisierte Daten an fuer Berufe:"
 en.SYNC_UP_TO_DATE = "Sync: everything already up to date."
 de.SYNC_UP_TO_DATE = "Abgleich: bereits alles aktuell."
 
-en.VERSIONCHECK_ASKING = "Asking guild which BRPP version they run..."
-de.VERSIONCHECK_ASKING = "Frage Gilde nach BRPP-Version..."
+en.VERSIONCHECK_ASKING = "Asking guild which BananaCraft version they run..."
+de.VERSIONCHECK_ASKING = "Frage Gilde nach BananaCraft-Version..."
 
 en.VERSIONCHECK_RUNS = "runs"
 de.VERSIONCHECK_RUNS = "nutzt"
@@ -248,11 +248,11 @@ de.ON = "AN"
 en.OFF = "OFF"
 de.OFF = "AUS"
 
-en.USAGE_DELETE = "Usage: /brpp delete [profession] or /brpp delete all"
-de.USAGE_DELETE = "Benutzung: /brpp delete [Beruf] oder /brpp delete all"
+en.USAGE_DELETE = "Usage: /bcraft delete [profession] or /bcraft delete all"
+de.USAGE_DELETE = "Benutzung: /bcraft delete [Beruf] oder /bcraft delete all"
 
-en.EXAMPLE_DELETE = "Example: /brpp delete Alchemy"
-de.EXAMPLE_DELETE = "Beispiel: /brpp delete Alchemy"
+en.EXAMPLE_DELETE = "Example: /bcraft delete Alchemy"
+de.EXAMPLE_DELETE = "Beispiel: /bcraft delete Alchemy"
 
 en.DB_WIPED = "ENTIRE DATABASE DELETED:"
 de.DB_WIPED = "KOMPLETTE DATENBANK GELOESCHT:"
@@ -416,11 +416,11 @@ de.PROF["Poisons"] = "Gifte"
 
 
 -- ---------- Runtime language handling ----------
--- BRPP_L is the active table used everywhere in the addon.
-BRPP_L = BRPP_Locales["enUS"]
+-- BCRAFT_L is the active table used everywhere in the addon.
+BCRAFT_L = BCRAFT_Locales["enUS"]
 
 -- Detect a sensible default from the game client
-function BRPP_DetectLocale()
+function BCRAFT_DetectLocale()
   local loc = "enUS"
   if GetLocale then
     local g = GetLocale()
@@ -430,69 +430,69 @@ function BRPP_DetectLocale()
 end
 
 -- Apply a language: "enUS", "deDE" or "auto"
-function BRPP_SetLocale(which)
+function BCRAFT_SetLocale(which)
   if which == "auto" or which == nil then
-    which = BRPP_DetectLocale()
+    which = BCRAFT_DetectLocale()
   end
-  if not BRPP_Locales[which] then which = "enUS" end
+  if not BCRAFT_Locales[which] then which = "enUS" end
 
-  BRPP_L = BRPP_Locales[which]
+  BCRAFT_L = BCRAFT_Locales[which]
 
-  if BRPPDB then
-    if not BRPPDB.settings then BRPPDB.settings = {} end
-    BRPPDB.settings.locale = which
+  if BananaCraftDB then
+    if not BananaCraftDB.settings then BananaCraftDB.settings = {} end
+    BananaCraftDB.settings.locale = which
   end
 
   return which
 end
 
 -- Current language code
-function BRPP_GetLocale()
-  if BRPPDB and BRPPDB.settings and BRPPDB.settings.locale then
-    return BRPPDB.settings.locale
+function BCRAFT_GetLocale()
+  if BananaCraftDB and BananaCraftDB.settings and BananaCraftDB.settings.locale then
+    return BananaCraftDB.settings.locale
   end
-  return BRPP_DetectLocale()
+  return BCRAFT_DetectLocale()
 end
 
 -- Translate a category key for display (falls back to the key itself)
-function BRPP_CatName(key)
+function BCRAFT_CatName(key)
   if not key then return "" end
-  if BRPP_L and BRPP_L.CAT and BRPP_L.CAT[key] then return BRPP_L.CAT[key] end
+  if BCRAFT_L and BCRAFT_L.CAT and BCRAFT_L.CAT[key] then return BCRAFT_L.CAT[key] end
   return key
 end
 
 -- Translate a profession key for display (falls back to the key itself)
-function BRPP_ProfName(key)
+function BCRAFT_ProfName(key)
   if not key then return "" end
-  if BRPP_L and BRPP_L.PROF and BRPP_L.PROF[key] then return BRPP_L.PROF[key] end
+  if BCRAFT_L and BCRAFT_L.PROF and BCRAFT_L.PROF[key] then return BCRAFT_L.PROF[key] end
   return key
 end
 -- -------------------------
 -- Partnergilden
 -- -------------------------
-en.CMD_PARTNER = "/brpp partner   - partner guild setup (invite code)"
-de.CMD_PARTNER = "/brpp partner   - Partnergilde einrichten (Einladecode)"
+en.CMD_PARTNER = "/bcraft partner   - partner guild setup (invite code)"
+de.CMD_PARTNER = "/bcraft partner   - Partnergilde einrichten (Einladecode)"
 
-en.CMD_PARTNER_CREATE = "  /brpp partner create        - create a new invite code"
-de.CMD_PARTNER_CREATE = "  /brpp partner create        - neuen Einladecode erzeugen"
+en.CMD_PARTNER_CREATE = "  /bcraft partner create        - create a new invite code"
+de.CMD_PARTNER_CREATE = "  /bcraft partner create        - neuen Einladecode erzeugen"
 
-en.CMD_PARTNER_ADD = "  /brpp partner add <code>    - join with a code you received"
-de.CMD_PARTNER_ADD = "  /brpp partner add <Code>    - mit erhaltenem Code verbinden"
+en.CMD_PARTNER_ADD = "  /bcraft partner add <code>    - join with a code you received"
+de.CMD_PARTNER_ADD = "  /bcraft partner add <Code>    - mit erhaltenem Code verbinden"
 
-en.CMD_PARTNER_CODE = "  /brpp partner code          - show the current code"
-de.CMD_PARTNER_CODE = "  /brpp partner code          - aktuellen Code anzeigen"
+en.CMD_PARTNER_CODE = "  /bcraft partner code          - show the current code"
+de.CMD_PARTNER_CODE = "  /bcraft partner code          - aktuellen Code anzeigen"
 
-en.CMD_PARTNER_NEWCODE = "  /brpp partner newcode       - generate a new code (old one stops working)"
-de.CMD_PARTNER_NEWCODE = "  /brpp partner newcode       - neuen Code erzeugen (alter wird ungueltig)"
+en.CMD_PARTNER_NEWCODE = "  /bcraft partner newcode       - generate a new code (old one stops working)"
+de.CMD_PARTNER_NEWCODE = "  /bcraft partner newcode       - neuen Code erzeugen (alter wird ungueltig)"
 
-en.CMD_PARTNER_LIST = "  /brpp partner list          - list known partner guilds"
-de.CMD_PARTNER_LIST = "  /brpp partner list          - bekannte Partnergilden auflisten"
+en.CMD_PARTNER_LIST = "  /bcraft partner list          - list known partner guilds"
+de.CMD_PARTNER_LIST = "  /bcraft partner list          - bekannte Partnergilden auflisten"
 
-en.CMD_PARTNER_REMOVE = "  /brpp partner remove <guild> - drop that guild's data"
-de.CMD_PARTNER_REMOVE = "  /brpp partner remove <Gilde> - Daten dieser Gilde rauswerfen"
+en.CMD_PARTNER_REMOVE = "  /bcraft partner remove <guild> - drop that guild's data"
+de.CMD_PARTNER_REMOVE = "  /bcraft partner remove <Gilde> - Daten dieser Gilde rauswerfen"
 
-en.CMD_PARTNER_LEAVE = "  /brpp partner leave         - end partnership, remove all foreign data"
-de.CMD_PARTNER_LEAVE = "  /brpp partner leave         - Partnerschaft beenden, alle Fremddaten loeschen"
+en.CMD_PARTNER_LEAVE = "  /bcraft partner leave         - end partnership, remove all foreign data"
+de.CMD_PARTNER_LEAVE = "  /bcraft partner leave         - Partnerschaft beenden, alle Fremddaten loeschen"
 
 en.PARTNER_CREATED = "Partnership opened."
 de.PARTNER_CREATED = "Partnerschaft eroeffnet."
@@ -500,11 +500,11 @@ de.PARTNER_CREATED = "Partnerschaft eroeffnet."
 en.PARTNER_CODE_IS = "Invite code:"
 de.PARTNER_CODE_IS = "Einladecode:"
 
-en.PARTNER_SHARE_HINT = "Share this code with the partner guild. They enter: /brpp partner add <code>"
-de.PARTNER_SHARE_HINT = "Diesen Code an die Partnergilde geben. Dort eingeben: /brpp partner add <Code>"
+en.PARTNER_SHARE_HINT = "Share this code with the partner guild. They enter: /bcraft partner add <code>"
+de.PARTNER_SHARE_HINT = "Diesen Code an die Partnergilde geben. Dort eingeben: /bcraft partner add <Code>"
 
-en.PARTNER_NEED_CODE = "Please provide a code: /brpp partner add <code>"
-de.PARTNER_NEED_CODE = "Bitte Code angeben: /brpp partner add <Code>"
+en.PARTNER_NEED_CODE = "Please provide a code: /bcraft partner add <code>"
+de.PARTNER_NEED_CODE = "Bitte Code angeben: /bcraft partner add <Code>"
 
 en.PARTNER_BAD_CODE = "Invalid code. A code has 12 characters."
 de.PARTNER_BAD_CODE = "Ungueltiger Code. Ein Code hat 12 Zeichen."
@@ -512,8 +512,8 @@ de.PARTNER_BAD_CODE = "Ungueltiger Code. Ein Code hat 12 Zeichen."
 en.PARTNER_JOINED = "Connected. Recipes will now be shared with the partner guild."
 de.PARTNER_JOINED = "Verbunden. Rezepte werden ab jetzt mit der Partnergilde geteilt."
 
-en.PARTNER_NO_CODE = "No code set yet. Use /brpp partner create"
-de.PARTNER_NO_CODE = "Noch kein Code gesetzt. Nutze /brpp partner create"
+en.PARTNER_NO_CODE = "No code set yet. Use /bcraft partner create"
+de.PARTNER_NO_CODE = "Noch kein Code gesetzt. Nutze /bcraft partner create"
 
 en.PARTNER_NEWCODE = "New code generated."
 de.PARTNER_NEWCODE = "Neuer Code erzeugt."
@@ -533,8 +533,8 @@ de.PARTNER_CHARS = "Charaktere"
 en.PARTNER_GUILDS = "guilds"
 de.PARTNER_GUILDS = "Gilden"
 
-en.PARTNER_NEED_GUILD = "Please provide a guild name: /brpp partner remove <guild>"
-de.PARTNER_NEED_GUILD = "Bitte Gildennamen angeben: /brpp partner remove <Gilde>"
+en.PARTNER_NEED_GUILD = "Please provide a guild name: /bcraft partner remove <guild>"
+de.PARTNER_NEED_GUILD = "Bitte Gildennamen angeben: /bcraft partner remove <Gilde>"
 
 en.PARTNER_CANT_REMOVE_OWN = "That's your own guild - not removing it."
 de.PARTNER_CANT_REMOVE_OWN = "Das ist deine eigene Gilde - wird nicht entfernt."
@@ -581,14 +581,14 @@ de.BTN_CONNECT_TIP2 = "Sie werden automatisch verbunden - niemand muss den Code 
 en.PARTNER_AUTO_JOINED = "Automatically connected to the partnership. Code received from:"
 de.PARTNER_AUTO_JOINED = "Automatisch mit der Partnerschaft verbunden. Code erhalten von:"
 
-en.PARTNER_AUTO_HINT = "Leave any time with /brpp partner leave"
-de.PARTNER_AUTO_HINT = "Jederzeit verlassen mit /brpp partner leave"
+en.PARTNER_AUTO_HINT = "Leave any time with /bcraft partner leave"
+de.PARTNER_AUTO_HINT = "Jederzeit verlassen mit /bcraft partner leave"
 
 en.PARTNER_PUSHED = "Partner code sent to the guild. Members with the addon join automatically."
 de.PARTNER_PUSHED = "Partnercode an die Gilde gesendet. Mitglieder mit dem Addon verbinden sich automatisch."
 
-en.CMD_PARTNER_PUSH = "  /brpp partner push          - send the code to your own guild"
-de.CMD_PARTNER_PUSH = "  /brpp partner push          - Code an die eigene Gilde senden"
+en.CMD_PARTNER_PUSH = "  /bcraft partner push          - send the code to your own guild"
+de.CMD_PARTNER_PUSH = "  /bcraft partner push          - Code an die eigene Gilde senden"
 
 en.PARTNER_NOT_IN_CHANNEL = "not reachable"
 de.PARTNER_NOT_IN_CHANNEL = "nicht erreichbar"
