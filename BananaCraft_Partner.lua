@@ -1,5 +1,5 @@
 -- =========================================================================
--- BananaRepublik Partnerguild -- Partnergilden-Modul
+-- BananaCraft -- Partnergilden-Modul
 --
 -- Stellt die Verbindung zwischen zwei Gilden her. Wichtig zum Verstaendnis:
 -- WoW 1.12 kann Addon-Nachrichten NUR an die eigene Gilde schicken

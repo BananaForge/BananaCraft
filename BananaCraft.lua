@@ -1,4 +1,4 @@
--- BananaRepublik_Partnerguild (BRPP) v1.0.1
+-- BananaCraft (intern: BRPP) -- vormals BananaRepublik Partnerguild
 -- Guild profession recipe database with sharing and search functionality
 --
 -- v1.0.1:
@@ -10,7 +10,7 @@
 -- Total: 1,513 recipes across 7 professions
 
 
--- Recipe maps loaded from BananaRepublik_Partnerguild_RecipeMaps.lua
+-- Recipe maps loaded from BananaCraft_RecipeMaps.lua
 -- Access via: BRPP_RecipeMaps[professionName][recipeName] = categoryName
 
 -- -------------------------
@@ -41,7 +41,7 @@ local function normalizeProfessionName(profName)
   return ProfessionNameMap[profName] or profName
 end
 
-local ADDON_NAME = "BananaRepublik_Partnerguild"
+local ADDON_NAME = "BananaCraft"
 local DB_NAME = "BRPPDB"
 local PREFIX = "BRPP0"
 local DEBUG = false  -- Debug messages OFF by default (use /brpp debug to enable)
@@ -2431,12 +2431,12 @@ local function uiCreate()
   f:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
 
   -- Logo oben links. Der 1.12-Client liest nur BLP und unkomprimierte TGA
-  -- mit Zweierpotenz-Kantenlaengen, daher BRPP_Logo.tga (128x128).
+  -- mit Zweierpotenz-Kantenlaengen, daher BananaCraft_Logo.tga (128x128).
   local logo = f:CreateTexture(nil, "ARTWORK")
   logo:SetWidth(48)
   logo:SetHeight(48)
   logo:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -10)
-  logo:SetTexture("Interface\\AddOns\\BananaRepublik_Partnerguild\\BRPP_Logo")
+  logo:SetTexture("Interface\\AddOns\\BananaCraft\\BananaCraft_Logo")
 
   local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOP", f, "TOP", 0, -18)
@@ -3775,7 +3775,7 @@ function BRPP_ShowThanksFrame()
         end
         SendMailNameEditBox:SetText(BRPP_AUTHOR_CHAR)
         if SendMailSubjectEditBox and SendMailSubjectEditBox:GetText() == "" then
-          SendMailSubjectEditBox:SetText("BananaRepublik_Partnerguild")
+          SendMailSubjectEditBox:SetText("BananaCraft")
         end
         msg(BRPP_L.RECIPIENT_SET .. " |cff00ff00" .. BRPP_AUTHOR_CHAR .. "|r " .. BRPP_L.RECIPIENT_THANKS)
         BRPP_ThanksFrame:Hide()
@@ -3846,7 +3846,7 @@ end
 
 function BRPP_MinimapButton_OnEnter()
   GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-  GameTooltip:SetText("BananaRepublik_Partnerguild")
+  GameTooltip:SetText("BananaCraft")
   GameTooltipTextLeft1:SetTextColor(1, 1, 1)
   GameTooltip:AddLine(BRPP_L.MM_LEFTCLICK)
   GameTooltip:AddLine(BRPP_L.MM_RIGHTCLICK)

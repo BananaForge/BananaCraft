@@ -1,4 +1,4 @@
--- BananaRepublik_Partnerguild - Recipe Mappings
+-- BananaCraft - Recipe Mappings
 -- Auto-generated from Excel data
 -- Total: 1513 recipes across 7 professions
 

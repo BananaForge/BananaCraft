@@ -14,7 +14,7 @@
 		</Anchors>
 		<Layers>
 			<Layer level="BACKGROUND">
-				<Texture name="$parentIcon" file="Interface\AddOns\BananaRepublik_Partnerguild\BRPP_MinimapIcon">
+				<Texture name="$parentIcon" file="Interface\AddOns\BananaCraft\BananaCraft_MinimapIcon">
 					<Size>
 						<AbsDimension x="20" y="20"/>
 					</Size>

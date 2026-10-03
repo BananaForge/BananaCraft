@@ -1,4 +1,4 @@
--- BananaRepublik_Partnerguild - Localization
+-- BananaCraft - Localization
 -- ============================================================
 --  IMPORTANT ARCHITECTURE NOTE / WICHTIGER HINWEIS:
 --
@@ -56,8 +56,8 @@ de.SCAN_FIRST = "Scanne zuerst deine Berufe!"
 en.REMAINING = "remaining"
 de.REMAINING = "verbleibend"
 
-en.WINDOW_TITLE = "BananaRepublik_Partnerguild - Craft Search"
-de.WINDOW_TITLE = "BananaRepublik_Partnerguild - Craft-Suche"
+en.WINDOW_TITLE = "BananaCraft - Craft Search"
+de.WINDOW_TITLE = "BananaCraft - Craft-Suche"
 
 en.SEARCH_LABEL = "Search:"
 de.SEARCH_LABEL = "Suche:"

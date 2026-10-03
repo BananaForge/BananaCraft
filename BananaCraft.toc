@@ -1,0 +1,12 @@
+## Interface: 11200
+## Title: BananaCraft
+## Notes: Berufe & Rezepte teilen - inkl. Partnergilden ueber Einladecode
+## Author: Lumihunt
+## Version: 2.2.1
+## SavedVariables: BRPPDB
+
+BananaCraft_Locale.lua
+BananaCraft_RecipeMaps.lua
+BananaCraft_Partner.lua
+BananaCraft.lua
+BananaCraft.xml

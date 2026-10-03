@@ -1,7 +1,7 @@
 name: Release
 
 # Trigger: a tag like v2.2.1. The version in the tag must match
-# "## Version:" in BananaRepublik_Partnerguild.toc.
+# "## Version:" in BananaCraft.toc.
 on:
   push:
     tags: [ 'v*' ]
@@ -24,23 +24,23 @@ jobs:
       - name: Check version
         run: |
           TAG="${GITHUB_REF_NAME#v}"
-          TOC="$(grep '^## Version:' BananaRepublik_Partnerguild.toc | sed 's/## Version: *//' | tr -d '\r')"
+          TOC="$(grep '^## Version:' BananaCraft.toc | sed 's/## Version: *//' | tr -d '\r')"
           if [ "$TAG" != "$TOC" ]; then
             echo "Tag $TAG does not match .toc version $TOC"; exit 1
           fi
           echo "VERSION=$TAG" >> "$GITHUB_ENV"
 
-      # The folder inside the ZIP MUST be called "BananaRepublik_Partnerguild",
+      # The folder inside the ZIP MUST be called "BananaCraft",
       # otherwise the client does not find the addon. GitHub's own
       # "Download ZIP" gives "...-main", hence this package.
       - name: Build package
         run: |
-          mkdir -p dist/BananaRepublik_Partnerguild
-          cp BananaRepublik_Partnerguild.toc BananaRepublik_Partnerguild.xml *.lua *.tga README.md LICENSE CHANGELOG.md dist/BananaRepublik_Partnerguild/
-          cd dist && zip -r "BananaRepublik_Partnerguild-${VERSION}.zip" BananaRepublik_Partnerguild
+          mkdir -p dist/BananaCraft
+          cp BananaCraft.toc BananaCraft.xml *.lua *.tga README.md LICENSE CHANGELOG.md dist/BananaCraft/
+          cd dist && zip -r "BananaCraft-${VERSION}.zip" BananaCraft
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/BananaRepublik_Partnerguild-${{ env.VERSION }}.zip
+          files: dist/BananaCraft-${{ env.VERSION }}.zip
           generate_release_notes: true

@@ -1,4 +1,6 @@
-# BananaRepublik Partnerguild — Technical Documentation
+# BananaCraft — Technical Documentation
+
+(Vormals BananaRepublik Partnerguild. Die internen Namen `BRPP_*`, `BRPPDB`, `BRPP0` und `/brpp` sind bewusst geblieben.)
 
 Zweite Variante von BananaRepublicProfs mit Partnergilden-Unterstuetzung.
 
@@ -243,5 +245,5 @@ alles wie gewohnt.
 ## ToDo
 
 - [ ] Die ~20 fehlenden Enchanting-Rezepte (Runed Rods, Wands, Oils) in
-      `BananaRepublik_Partnerguild_RecipeMaps.lua` ergaenzen. Reine
+      `BananaCraft_RecipeMaps.lua` ergaenzen. Reine
       Datenluecke, unabhaengig vom Partnergilden-Modul.
