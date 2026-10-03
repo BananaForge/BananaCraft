@@ -1,82 +1,70 @@
-# BananaRepublik Partnerguild
+# 🍌 BananaRepublik Partnerguild
 
-WoW 1.12 addon for sharing profession and recipe data between the own guild and a partner guild via a shared password-protected chat channel.
+**Share professions and recipes with your guild and a partner guild: find the crafter, whisper them, done.**
 
-## Repository
+![Version](https://img.shields.io/badge/version-2.2.1-ffd100) ![Client](https://img.shields.io/badge/client-1.12.1-blue) ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-This repository is prepared for GitHub and can be uploaded directly with Git for Windows.
+Every guild member scans their professions, the addon shares the recipes over the guild channel, and everyone can search who can craft what. With a 12-character invite code, a second guild joins in: vanilla 1.12 cannot send addon messages across guilds, so the partner guild's data travels over a hidden, password-protected chat channel. Built for the guild **Banana Republic**. Lua 5.0, no libraries.
 
-### Addon files
+## Features
 
-- `BananaRepublik_Partnerguild.toc` — addon manifest
-- `BananaRepublik_Partnerguild.lua` — main addon logic
-- `BananaRepublik_Partnerguild_Partner.lua` — partner-guild communication
-- `BananaRepublik_Partnerguild_Locale.lua` — German/English localization
-- `BananaRepublik_Partnerguild_RecipeMaps.lua` — recipe mappings
-- `BananaRepublik_Partnerguild.xml` — UI definitions
-- `BRPP_MinimapIcon.tga` — minimap icon
-- `BananaRepublik_Partnerguild_TestData.lua` — optional test data
+- **Recipe database for the whole guild:** open a profession window and the addon scans it. Search by recipe, filter by profession and subcategory, see reagents, icon and crafter.
+- **Partner guild via invite code:** one guild creates a code, the other enters it. The code holds channel and password; the addon hides its protocol messages from the chat and throttles sending.
+- **Partner markers:** crafters from the partner guild carry a blue `<Guild>` tag. Partners show as *online* or *not reachable* (the addon cannot tell logged out from no addon) and appear in the whisper menu automatically.
+- **Guildless partners work too:** they are listed as `<no guild (Name)>` and shared via the partner channel only.
+- **Connect members without typing:** *Connect guild members* sends the code to everyone in your guild who has the addon. New members ask for it themselves 8 seconds after login.
+- **Sync that only fetches what is outdated:** `/brpp sync` compares hashes, `/brpp send` sends everything. CSV export for Discord and Excel.
+- German and English, minimap button.
 
 ## Installation
 
-1. Download/clone this repository.
-2. Copy the repository folder into:
-   `World of Warcraft/Interface/AddOns/`
-3. Make sure the folder contains `BananaRepublik_Partnerguild.toc` directly.
-4. Start WoW and enable the addon.
+1. Download the [latest release](https://github.com/BananaForge/BananaRepublik_Partnerguild/releases) and put the `BananaRepublik_Partnerguild` folder into `Interface/AddOns/`.
+2. Enable it on the character screen and open the window with `/brpp show`.
 
-## Main commands
+When updating, delete the old folder first. **Every member needs the addon.** It is a standalone addon with its own saved variables (`BRPPDB`) and prefix, so it can run next to BananaRepublicProfs, but the two do not share data.
 
-```text
-/brpp partner
-/brpp partner create
-/brpp partner add <Code>
-/brpp partner push
-/brpp partner code
-/brpp partner newcode
-/brpp partner list
-/brpp partner remove <Guild>
-/brpp partner leave
-```
+## Usage
 
-The addon also keeps the existing `/brpp` commands such as sync, export and version checks.
+**Partner setup (once):** guild A runs `/brpp partner create` and passes the code on (whisper, Discord). Guild B runs `/brpp partner add <code>`. Then click *Connect guild members* so everyone in your guild is connected, and send your data with `/brpp send`.
 
-## Partner guild communication
+| Command | Effect |
+|---|---|
+| `/brpp show` | Open or close the window |
+| `/brpp scan` / `rescan` | Scan the open profession / allow rescanning |
+| `/brpp send` / `sync` | Send all professions / fetch only what is outdated |
+| `/brpp versioncheck` | Which addon version do guildmates run? |
+| `/brpp delete [prof\|all]` | Delete one or all professions |
+| `/brpp scanbank` | Scan the bank manually |
+| `/brpp export` | CSV export for Discord/Excel |
+| `/brpp lang en\|de\|auto` | Language |
+| `/brpp debug` / `about` | Debug output / info and support |
+| `/brpp partner` | Partner status |
+| `/brpp partner create` / `add <code>` | Create a code / join with a code |
+| `/brpp partner code` / `newcode` | Show the code / generate a new one (the old one stops working) |
+| `/brpp partner push` | Send the code to your own guild |
+| `/brpp partner list` | List known partner guilds |
+| `/brpp partner remove <guild>` | Drop that guild's data |
+| `/brpp partner leave` | End the partnership and remove all foreign data |
 
-WoW 1.12 does not provide cross-guild addon messaging. The partner-guild module therefore uses a shared chat channel protected by an invite code.
+## Technical notes
 
-The 12-character code contains the channel identifier and password. The addon filters its protocol messages from the visible chat and throttles transmissions to reduce chat spam.
+- Client 1.12.1 (Interface 11200), saved variables `BRPPDB`, addon prefix `BRPP0`.
+- Database keys are `Charname@Guild`, the same string goes over the wire. Bank data is never shared with partner guilds.
+- Limits: the partner channel is joined 5 seconds after login. A partner sync takes noticeably longer than a guild sync on purpose (server spam protection). Private servers may behave differently from original vanilla; if chunks arrive broken, `/brpp debug` shows why.
+- Details on the design, the code and the limits: [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).
 
-## Testing
+## To do
 
-Test data can be loaded in-game with:
+- [ ] About 20 missing Enchanting recipes (Runed Rods, Wands, Oils) in `BananaRepublik_Partnerguild_RecipeMaps.lua`. A pure data gap.
 
-```text
-/brpptest load
-/brpptest status
-/brpptest clear
-```
+## Contributing
 
-Test entries are marked as test data and are excluded from the real guild broadcast path.
+Pull requests welcome, tested in-game on a 1.12 client. Lua 5.0 rules: no `#`, `%`, `string.match`, `select` or `...`; script handlers read `this`, `event` and `arg1..9` as globals; German texts in `Locale.lua` use umlauts and `ss` instead of `ß`.
 
-## Detailed documentation
+## Changelog
 
-See `PARTNERGUILD_README.md` for the detailed technical documentation and migration notes.
+See [CHANGELOG.md](CHANGELOG.md).
 
-## GitHub upload with Git for Windows
+## Credits and license
 
-Open **Git Bash** and run:
-
-```bash
-cd /c/PATH/ZU/DEINEM/ORDNER/BananaRepublik_Partnerguild
-git init
-git add .
-git commit -m "Initial release of BananaRepublik Partnerguild"
-git branch -M main
-git remote add origin https://github.com/BananaForge/BananaRepublik_Partnerguild.git
-git push -u origin main
-```
-
-If the repository already exists on GitHub, these commands upload the complete package to it.
-
-> If your GitHub repository has a different name, replace the URL in the `git remote add origin ...` command.
+Part of **BananaForge** (with [BananaRepublicProfs](https://github.com/BananaForge/BananaRepublicProfs), [BananaBank](https://github.com/BananaForge/BananaBank) and [BananaLootline](https://github.com/BananaForge/BananaLootline)). Development: **Lumihunt**, guild Banana Republic. Free forever; if you want to support it, send in-game mail to Lumihunt. MIT, see [LICENSE](LICENSE).

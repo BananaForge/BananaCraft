@@ -7,7 +7,7 @@ Zweite Variante von BananaRepublicProfs mit Partnergilden-Unterstuetzung.
 Das ist ein **eigenstaendiges Addon**, kein Update. Es hat:
 - eigene SavedVariables (`BRPPDB`) -- ruehrt `BRPDB` des Originals nicht an
 - eigenen Netzwerkprefix (`BRPP0`) -- redet nicht mit dem Original-Addon
-- eigene Befehle (`/brpp`, `/brpptest`)
+- eigener Befehl (`/brpp`)
 
 Du kannst beide parallel installiert lassen. Sie stoeren sich nicht, teilen
 aber auch keine Daten. Wenn beide laufen, hast du zwei Minimap-Buttons und
@@ -97,28 +97,11 @@ ist nicht ermittelbar, und ein vorgetaeuschtes "offline" waere irrefuehrend.
 Alle bisherigen Befehle funktionieren weiter, nur mit `/brpp` statt `/brp`
 (also auch `/brpp sync`, `/brpp versioncheck`, `/brpp export` usw.).
 
-## So testest du
+## Praxistest
 
-### Alleine (ohne zweiten Client)
+Die Oberflaeche wurde mit Testdaten geprueft; die Testdaten (`/brpptest`) sind seit 2.2.1 entfernt.
 
-1. Ordner nach `Interface\AddOns\` kopieren, WoW neu starten
-2. `/brpp show` -- Fenster muss aufgehen
-3. `/brpptest load` -- spielt Testdaten ein. **Jeder Crafter existiert
-   doppelt**: einmal in deiner Gilde, einmal als `P-<Name>` in der fiktiven
-   Gilde "Testgilde Partner". Damit hat jeder der sieben Berufe garantiert
-   beide Seiten
-4. Ein beliebiges Rezept anklicken -- in der Crafterliste muss neben dem
-   normalen Eintrag immer auch ein `P-...` mit blauem
-   `<Testgilde Partner>` stehen
-5. `/brpp partner list` -- muss "Testgilde Partner" zeigen
-6. `/brpp partner remove Testgilde Partner` -- die Eintraege muessen
-   verschwinden, deine eigenen bleiben
-7. `/brpptest clear` -- raeumt auch die fiktive Partnergilde wieder weg
-8. `/brpp partner create` -- Code muss erscheinen, Format `XXXX-XXXX-XXXX`
-9. `/brpp partner code` -- muss denselben Code zeigen
-10. `/brpp partner newcode` -- muss einen anderen Code zeigen
-
-### Zu zweit (echter Test)
+### Zu zweit
 
 Das ist der Teil, der sich nur im Spiel verifizieren laesst.
 
@@ -138,7 +121,6 @@ Das ist der Teil, der sich nur im Spiel verifizieren laesst.
 - Max. Upvalues pro Funktion: 20 (Limit 32)
 - Alle Locale-Keys in DE und EN vorhanden
 - Namensraum vollstaendig getrennt (kein `BRP_`, `BRPDB` oder `BRP0` mehr)
-- Testdaten-Schutz greift auf beiden Sendewegen (Gilde + Partnerkanal)
 - Stub-Tests bestanden: Code-Format inkl. Kleinschreibung/Bindestriche,
   Schluessel-Roundtrip mit Apostroph/Leerzeichen/`&`, Migration inkl.
   Kollision, Gilden-Purge, Schleifenschutz, kompletter Chunk-Roundtrip
@@ -256,7 +238,10 @@ alles wie gewohnt.
 
 ## Nicht enthalten
 
-- Die ~20 fehlenden Enchanting-Rezepte (Runed Rods, Wands, Oils) aus dem
-  frueheren Vergleich stecken auch hier noch nicht drin -- das ist eine
-  reine Datenluecke in der RecipeMaps-Datei, unabhaengig von diesem Umbau.
 - Bankdaten werden bewusst nicht mit Partnergilden geteilt.
+
+## ToDo
+
+- [ ] Die ~20 fehlenden Enchanting-Rezepte (Runed Rods, Wands, Oils) in
+      `BananaRepublik_Partnerguild_RecipeMaps.lua` ergaenzen. Reine
+      Datenluecke, unabhaengig vom Partnergilden-Modul.

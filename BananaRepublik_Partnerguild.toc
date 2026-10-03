@@ -2,7 +2,7 @@
 ## Title: BananaRepublik Partnerguild
 ## Notes: Berufe & Rezepte teilen - inkl. Partnergilden ueber Einladecode
 ## Author: Luminarr / Tel'Abim
-## Version: 2.0.0
+## Version: 2.2.1
 ## SavedVariables: BRPPDB
 
 BananaRepublik_Partnerguild_Locale.lua
@@ -10,6 +10,3 @@ BananaRepublik_Partnerguild_RecipeMaps.lua
 BananaRepublik_Partnerguild_Partner.lua
 BananaRepublik_Partnerguild.lua
 BananaRepublik_Partnerguild.xml
-
-# --- Nur zum Testen der Oberflaeche. Vor dem Release diese Zeile entfernen! ---
-BananaRepublik_Partnerguild_TestData.lua

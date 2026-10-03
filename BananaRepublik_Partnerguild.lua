@@ -45,7 +45,7 @@ local ADDON_NAME = "BananaRepublik_Partnerguild"
 local DB_NAME = "BRPPDB"
 local PREFIX = "BRPP0"
 local DEBUG = false  -- Debug messages OFF by default (use /brpp debug to enable)
-local ADDON_VERSION = "2.0.0"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "2.2.1"  -- keep in sync with the .toc "## Version:" line
 
 -- /brpp versioncheck state (see startHashSync section for PING/PONG, this is
 -- the separate, simpler VCHECK/VERSION request/response pair)
@@ -141,6 +141,15 @@ local function ensureDB()
   if not _G[DB_NAME] then _G[DB_NAME] = {} end
   local db = _G[DB_NAME]
   if not db.guild then db.guild = {} end
+
+  -- Einmalig: Reste der entfernten Testdaten (/brpptest) aus alten
+  -- SavedVariables loeschen, damit sie nie an echte Gilden gehen.
+  if not db.testPurged then
+    for key, data in pairs(db.guild) do
+      if type(data) == "table" and data.isTestData then db.guild[key] = nil end
+    end
+    db.testPurged = true
+  end
 
   -- MIGRATION auf gildenbewusste Schluessel.
   -- Laeuft genau einmal (db.schema wird danach gesetzt). Alte Eintraege
@@ -1059,10 +1068,7 @@ local function broadcastAll()
   -- Send ALL professions from guild database (most up-to-date)
   if db.guild then
     for playerName, playerData in pairs(db.guild) do
-      -- SAFETY: never broadcast locally generated test data to the real guild
-      if type(playerData) == "table" and playerData.isTestData then
-        debug("Skipped test data: " .. playerName)
-      elseif type(playerData) == "table" and playerData.profs then
+      if type(playerData) == "table" and playerData.profs then
         for profName, profData in pairs(playerData.profs) do
           if type(profData) == "table" and profData.recipes and tlen(profData.recipes) > 0 then
             table.insert(BroadcastQueue, {
@@ -1161,7 +1167,7 @@ local function startHashSync()
   local knownProfs = {}  -- knownProfs[profName] = { hash = n, updatedAt = ts }
 
   for player, data in pairs(db.guild) do
-    if type(data) == "table" and data.profs and not data.isTestData then
+    if type(data) == "table" and data.profs then
       for profName, profData in pairs(data.profs) do
         if type(profData) == "table" and profData.recipes and tlen(profData.recipes) > 0 then
           local h = professionHash(profData)
