@@ -3815,35 +3815,12 @@ end
 -- -------------------------
 -- Minimap Button Functions
 -- -------------------------
+local MINIMAP_ICON = "Interface\\AddOns\\BananaCraft\\BananaCraft_MinimapIcon"
+
 function BCRAFT_MinimapButton_OnClick(button)
   if button == "LeftButton" then
     uiToggle()
   end
-end
-
-function BCRAFT_MinimapButton_Init()
-  local db = ensureDB()
-  
-  -- Initialize settings if not exist
-  if db.settings.minimapButton == nil then
-    db.settings.minimapButton = true
-  end
-  if db.settings.minimapButtonPos == nil then
-    db.settings.minimapButtonPos = 315
-  end
-  if db.settings.minimapButtonRadius == nil then
-    db.settings.minimapButtonRadius = 78
-  end
-  
-  -- Show/hide button
-  if db.settings.minimapButton == true then
-    BCRAFT_MinimapButtonFrame:Show()
-  else
-    BCRAFT_MinimapButtonFrame:Hide()
-  end
-  
-  -- Update position
-  BCRAFT_MinimapButton_UpdatePosition()
 end
 
 function BCRAFT_MinimapButton_OnEnter()
@@ -3855,39 +3832,90 @@ function BCRAFT_MinimapButton_OnEnter()
   GameTooltip:Show()
 end
 
+-- Position als Winkel (Grad, 0 = rechts, gegen den Uhrzeigersinn) um die Kartenmitte.
 function BCRAFT_MinimapButton_UpdatePosition()
+  local b = BCRAFT_MinimapButtonFrame
+  if not b then return end
   local db = ensureDB()
-  local pos = db.settings.minimapButtonPos or 315
-  local radius = db.settings.minimapButtonRadius or 78
-  
-  -- Convert degrees to radians for Lua's math functions
-  local posRad = math.rad(pos)
-  
-  BCRAFT_MinimapButtonFrame:SetPoint(
-    "TOPLEFT",
-    "Minimap",
-    "TOPLEFT",
-    54 - (radius * math.cos(posRad)),
-    (radius * math.sin(posRad)) - 55
-  )
+  local a = math.rad(db.settings.minimapButtonPos or 315)
+  local radius = db.settings.minimapButtonRadius or 80
+  b:ClearAllPoints()
+  b:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * radius, math.sin(a) * radius)
 end
 
 function BCRAFT_MinimapButton_OnDrag()
-  local xpos, ypos = GetCursorPosition()
-  local xmin, ymin = Minimap:GetLeft(), Minimap:GetBottom()
-  
-  xpos = xmin - xpos/UIParent:GetScale() + 70
-  ypos = ypos/UIParent:GetScale() - ymin - 70
-  
-  BCRAFT_MinimapButton_SetPosition(math.deg(math.atan2(ypos, xpos)))
+  local mx, my = Minimap:GetCenter()
+  local scale = Minimap:GetEffectiveScale()
+  local cx, cy = GetCursorPosition()
+  BCRAFT_MinimapButton_SetPosition(math.deg(math.atan2(cy / scale - my, cx / scale - mx)))
 end
 
 function BCRAFT_MinimapButton_SetPosition(v)
   if v < 0 then
     v = v + 360
   end
-  
+
   local db = ensureDB()
   db.settings.minimapButtonPos = v
+  BCRAFT_MinimapButton_UpdatePosition()
+end
+
+-- Der Button wird komplett in Lua gebaut (ein Button, Icon und Rahmen direkt
+-- darauf), genau wie bei den anderen BananaForge-Addons. Die fruehere
+-- XML-Variante mit Frame + Kind-Button wurde von UI-Addons (pfUI & Co.)
+-- beim Umgestalten der Minimap-Buttons leergeraeumt.
+function BCRAFT_MinimapButton_Init()
+  local db = ensureDB()
+
+  if db.settings.minimapButton == nil then
+    db.settings.minimapButton = true
+  end
+  if db.settings.minimapButtonPos == nil then
+    db.settings.minimapButtonPos = 315
+  end
+  if db.settings.minimapButtonRadius == nil then
+    db.settings.minimapButtonRadius = 80
+  end
+
+  if not BCRAFT_MinimapButtonFrame then
+    local b = CreateFrame("Button", "BCRAFT_MinimapButtonFrame", Minimap)
+    b:SetWidth(33)
+    b:SetHeight(33)
+    b:SetFrameStrata("MEDIUM")
+    b:SetFrameLevel(8)
+    b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+    b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    b:RegisterForDrag("RightButton")
+
+    local icon = b:CreateTexture(nil, "BACKGROUND")
+    icon:SetTexture(MINIMAP_ICON)
+    icon:SetWidth(24)
+    icon:SetHeight(24)
+    icon:SetPoint("CENTER", b, "CENTER", 0, 1)
+    b.icon = icon
+
+    local border = b:CreateTexture(nil, "OVERLAY")
+    border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+    border:SetWidth(56)
+    border:SetHeight(56)
+    border:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
+
+    b:SetScript("OnClick", function() BCRAFT_MinimapButton_OnClick(arg1) end)
+    b:SetScript("OnEnter", function() BCRAFT_MinimapButton_OnEnter() end)
+    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    b:SetScript("OnDragStart", function()
+      this:SetScript("OnUpdate", function() BCRAFT_MinimapButton_OnDrag() end)
+    end)
+    b:SetScript("OnDragStop", function()
+      this:SetScript("OnUpdate", nil)
+    end)
+  end
+
+  if db.settings.minimapButton == true then
+    BCRAFT_MinimapButtonFrame:Show()
+  else
+    BCRAFT_MinimapButtonFrame:Hide()
+  end
+
   BCRAFT_MinimapButton_UpdatePosition()
 end

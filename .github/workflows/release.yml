@@ -36,7 +36,7 @@ jobs:
       - name: Build package
         run: |
           mkdir -p dist/BananaCraft
-          cp BananaCraft.toc BananaCraft.xml *.lua *.tga README.md LICENSE CHANGELOG.md dist/BananaCraft/
+          cp BananaCraft.toc *.lua *.tga README.md LICENSE CHANGELOG.md dist/BananaCraft/
           cd dist && zip -r "BananaCraft-${VERSION}.zip" BananaCraft
 
       - name: Create release

@@ -9,4 +9,3 @@ BananaCraft_Locale.lua
 BananaCraft_RecipeMaps.lua
 BananaCraft_Partner.lua
 BananaCraft.lua
-BananaCraft.xml

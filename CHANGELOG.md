@@ -9,6 +9,7 @@ Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 - **Versionsnummer angeglichen.** `.toc`, Addon-Code (`/bc versioncheck`) und Changelog nennen jetzt alle 2.2.1.
 - **Fix: Unterkategorie-Dropdown.** Beim Berufswechsel wurde das Dropdown mit `nil` initialisiert.
 - **Fix: Oberfläche nach „Datenbank löschen".** Das Fenster wurde nicht neu gezeichnet, weil der Code den nicht vorhandenen Frame `BCRAFT_Frame` prüfte statt `BRPP_MainFrame`.
+- **Fix: Minimap-Button ohne Bild.** Der Button wird jetzt komplett in Lua gebaut (ein Button mit Icon und Rahmen) statt per XML mit Frame und Kind-Button, wie bei den anderen BananaForge-Addons. Die XML-Datei entfällt. UI-Addons wie pfUI räumten die alte Bauweise leer.
 - **Neues Logo** oben links im Fenster und als Minimap-Button.
 - Repository wie die anderen BananaForge-Addons aufgebaut: README, MIT-Lizenz, Release-Workflow.
 
