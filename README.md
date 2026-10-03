@@ -18,9 +18,9 @@ Every guild member scans their professions, the addon shares the recipes over th
 
 ## Screenshots
 
-| Recipes | Crafters | Partner setup | Admin |
+| Recipes | Crafters | Partner setup | Sharing |
 |---|---|---|---|
-| ![Recipes](screenshots/01-recipes.png) | ![Crafters](screenshots/02-crafters.png) | ![Partner setup](screenshots/03-partner-setup.png) | ![Admin](screenshots/04-admin.png) |
+| ![Recipes](screenshots/01-recipes.png) | ![Crafters](screenshots/02-crafters.png) | ![Partner setup](screenshots/03-partner-setup.png) | ![Sharing](screenshots/04-sharing.png) |
 
 ## Installation
 
