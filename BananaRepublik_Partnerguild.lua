@@ -2430,6 +2430,14 @@ local function uiCreate()
   f:SetScript("OnDragStart", function() this:StartMoving() end)
   f:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
 
+  -- Logo oben links. Der 1.12-Client liest nur BLP und unkomprimierte TGA
+  -- mit Zweierpotenz-Kantenlaengen, daher BRPP_Logo.tga (128x128).
+  local logo = f:CreateTexture(nil, "ARTWORK")
+  logo:SetWidth(48)
+  logo:SetHeight(48)
+  logo:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -10)
+  logo:SetTexture("Interface\\AddOns\\BananaRepublik_Partnerguild\\BRPP_Logo")
+
   local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOP", f, "TOP", 0, -18)
   title:SetText(BRPP_L.WINDOW_TITLE)
