@@ -6,7 +6,7 @@
 --           (GUILD_ROSTER_UPDATE keeps it accurate, 10s TTL as fallback)
 --   * FIX:  removed emoji from chat output - the 1.12 client font has no
 --           glyphs for them and rendered empty boxes. Replaced with colour codes.
--- Author: Luminarr / Tel'Abim
+-- Author: Lumihunt
 -- Total: 1,513 recipes across 7 professions
 
 
@@ -2683,7 +2683,7 @@ local function uiCreate()
   -- Copyright text (bottom right, small font)
   local copyrightText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   copyrightText:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -20, 12)
-  copyrightText:SetText("© by Luminarr / Tel'Abim")
+  copyrightText:SetText("© by Lumihunt")
   copyrightText:SetTextColor(0.5, 0.5, 0.5, 1)  -- Gray color
 
   -- Recipe page (existing list)

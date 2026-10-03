@@ -1,7 +1,7 @@
 ## Interface: 11200
 ## Title: BananaRepublik Partnerguild
 ## Notes: Berufe & Rezepte teilen - inkl. Partnergilden ueber Einladecode
-## Author: Luminarr / Tel'Abim
+## Author: Lumihunt
 ## Version: 2.2.1
 ## SavedVariables: BRPPDB
 

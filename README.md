@@ -16,6 +16,12 @@ Every guild member scans their professions, the addon shares the recipes over th
 - **Sync that only fetches what is outdated:** `/brpp sync` compares hashes, `/brpp send` sends everything. CSV export for Discord and Excel.
 - German and English, minimap button.
 
+## Screenshots
+
+| Recipes | Crafters | Partner setup | Admin |
+|---|---|---|---|
+| ![Recipes](screenshots/01-recipes.png) | ![Crafters](screenshots/02-crafters.png) | ![Partner setup](screenshots/03-partner-setup.png) | ![Admin](screenshots/04-admin.png) |
+
 ## Installation
 
 1. Download the [latest release](https://github.com/BananaForge/BananaRepublik_Partnerguild/releases) and put the `BananaRepublik_Partnerguild` folder into `Interface/AddOns/`.
