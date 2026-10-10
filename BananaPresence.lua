@@ -189,7 +189,3 @@ if ChatFrame_OnEvent and not P.hooked then
 		return orig(ev)
 	end
 end
-
-BananaGuild = BananaGuild or {}
-BananaGuild.files = BananaGuild.files or {}
-BananaGuild.files.BananaPresence = true

@@ -5,6 +5,8 @@
 ## Version: 2.2.1
 ## SavedVariables: BananaCraftDB
 
+BananaPresence.lua
+BananaPresenceReg.lua
 BananaCraft_Locale.lua
 BananaCraft_RecipeMaps.lua
 BananaCraft_Partner.lua
