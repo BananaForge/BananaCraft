@@ -245,6 +245,44 @@ local function ensureDB()
   -- Keep db.me for backward compatibility (points to current character)
   db.me = db.characters[myChar]
   
+  -- Verwaiste Solo-Eintraege aufraeumen, sobald die Gilde bekannt ist.
+  -- Wer frueher gildenlos war und inzwischen in einer Gilde ist, steht
+  -- sonst doppelt in der Liste: einmal als "Name@Gilde" und einmal als
+  -- "Name@Solo:Name" ("<no guild (Name)>", nicht erreichbar).
+  if not BCRAFT_SoloPurged and GetGuildInfo and GetGuildInfo("player") then
+    BCRAFT_SoloPurged = true
+    local me = playerName()
+    local stale = {}
+    for key in pairs(db.guild) do
+      local at = string.find(key, "@Solo:", 1, true)
+      if at then
+        local nm = string.sub(key, 1, at - 1)
+        local soloOf = string.sub(key, at + 6)
+        if nm == soloOf then
+          -- Eigener Solo-Eintrag ist immer veraltet; fremde nur, wenn derselbe
+          -- Spieler inzwischen unter einer echten Gilde bekannt ist.
+          local dup = (nm == me)
+          if not dup then
+            local prefix = nm .. "@"
+            for k2 in pairs(db.guild) do
+              if k2 ~= key and string.sub(k2, 1, string.len(prefix)) == prefix
+                 and not string.find(k2, "@Solo:", 1, true) then
+                dup = true
+                break
+              end
+            end
+          end
+          if dup then table.insert(stale, key) end
+        end
+      end
+    end
+    for i = 1, table.getn(stale) do db.guild[stale[i]] = nil end
+    if db.partner.guilds["Solo:" .. me] then db.partner.guilds["Solo:" .. me] = nil end
+    if table.getn(stale) > 0 then
+      debug("Aufgeraeumt: " .. table.getn(stale) .. " veraltete Solo-Eintraege entfernt")
+    end
+  end
+
   if not db.settings then db.settings = {} end
   if db.settings.onlineOnly == nil then db.settings.onlineOnly = false end
   if not db.bank then db.bank = {} end  -- Bank inventory storage
@@ -1908,6 +1946,7 @@ function BCRAFT_ShowRecipePopup(data)
   if not BCRAFT_RecipePopup then
     local pop = CreateFrame("Frame", "BCRAFT_RecipePopup", UIParent)
     BCRAFT_RecipePopup = pop
+    tinsert(UISpecialFrames, "BCRAFT_RecipePopup")
     pop:SetWidth(400)  -- Wider for table layout
     pop:SetHeight(380)  -- Taller for editbox + summary
     pop:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -2417,6 +2456,7 @@ local function uiCreate()
 
   local f = CreateFrame("Frame", "BCRAFT_MainFrame", UIParent)
   BCRAFT_UI = f
+  tinsert(UISpecialFrames, "BCRAFT_MainFrame")  -- Esc schliesst das Fenster
   f:SetWidth(650)
   f:SetHeight(480)  -- Extended for statistics display
   f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -3052,6 +3092,7 @@ local function exportToCSV()
     end)
     
     BCRAFT_ExportFrame = f
+    tinsert(UISpecialFrames, "BCRAFT_ExportFrame")
   end
   
   -- Set CSV text

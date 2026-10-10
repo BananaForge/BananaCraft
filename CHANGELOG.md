@@ -2,6 +2,11 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## Unveröffentlicht
+
+- **Fix: Esc schließt BananaCraft.** Hauptfenster, Rezept-Popup und Export-Fenster sind jetzt in `UISpecialFrames` eingetragen.
+- **Fix: Eigener Charakter doppelt in der Crafter-Liste.** Wer vor dem Gildenbeitritt gildenlos war, stand als `<no guild (Name)>` (nicht erreichbar) zusätzlich zum echten Eintrag in der Liste. Solche veralteten Solo-Einträge werden jetzt beim Start entfernt, sobald die Gilde bekannt ist.
+
 ## 2.2.1
 
 - **Neuer Name: BananaCraft** (vorher BananaRepublik Partnerguild). Addon-Ordner, alle Dateien, Fenstertitel, Minimap-Tooltip und Logo-Dateien heißen jetzt BananaCraft. Auch intern ist alles umbenannt: Befehl `/bc` (statt `/brpp`), gespeicherte Daten `BananaCraftDB`, Netzwerkprefix `BCRAFT0`, Funktionen `BCRAFT_*`. Da das Addon noch nicht veröffentlicht war, gibt es keine Übernahme alter Daten und keine Kompatibilität zu Testständen der alten Version. Den alten Ordner `BananaRepublik_Partnerguild` löschen.
