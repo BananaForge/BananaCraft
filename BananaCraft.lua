@@ -520,6 +520,13 @@ BroadcastTimer:SetScript("OnUpdate", function()
     this.elapsed = 0
     
     if tlen(BroadcastQueue) == 0 then
+      -- "Gesendet" erst melden, wenn auch die Sendewarteschlangen leer sind.
+      -- Der Partnerkanal arbeitet im Hintergrund noch Minuten weiter.
+      local pending = tlen(SendQueue)
+      if BCRAFT_Partner and BCRAFT_Partner.QueueLength then
+        pending = pending + BCRAFT_Partner.QueueLength()
+      end
+      if pending > 0 then return end
       BroadcastTimer:Hide()
       msg("|cff00ff00" .. BCRAFT_L.ALL_SENT .. "|r")
       return

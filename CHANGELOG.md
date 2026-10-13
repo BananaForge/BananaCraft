@@ -4,6 +4,7 @@ Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
 ## Unveröffentlicht
 
+- **Fix: „Alle Berufe wurden gesendet!" kam zu früh.** Die Meldung erscheint jetzt erst, wenn auch die Sendewarteschlangen (Gilde und Partnerkanal) leer sind. Der Partnerkanal sendet zusätzlich langsamer (1 Nachricht alle 1,5 Sekunden), weil der Server bei schnellerem Tempo weiter „You must wait N seconds before speaking again" meldete.
 - **Fix: Versionsanzeige im Fenster.** Links unten stand fest `v1.0.0`, jetzt wird die echte Version (`ADDON_VERSION`) angezeigt.
 - **Fix: „You must wait N seconds before speaking again" beim Teilen.** Der Partnerkanal lief mit 2,5 Nachrichten/Sekunde in den Chat-Spamschutz des Servers. Er sendet jetzt höchstens 1 Nachricht/Sekunde. Meldet der Server trotzdem die Sperre, pausiert die Warteschlange für die genannte Zeit und sendet die verworfene Nachricht danach erneut.
 - **Fix: Esc schließt BananaCraft.** Hauptfenster, Rezept-Popup und Export-Fenster sind jetzt in `UISpecialFrames` eingetragen.

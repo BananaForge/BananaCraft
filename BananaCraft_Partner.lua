@@ -112,7 +112,7 @@ local PartnerQueue = {}
 local PartnerThrottle = CreateFrame("Frame")
 PartnerThrottle:Hide()
 PartnerThrottle.elapsed = 0
-PartnerThrottle.delay = 1.0   -- max 1 Nachricht/Sekunde (0.4s loeste den Chat-Spamschutz aus)
+PartnerThrottle.delay = 1.5   -- 0.4s und 1.0s liefen noch in den Chat-Spamschutz des Servers
 PartnerThrottle.pauseUntil = 0
 local lastLine = nil              -- zuletzt gesendeter Text, falls der Server ihn verwirft
 
