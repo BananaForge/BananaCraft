@@ -4,6 +4,7 @@ Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
 ## Unveröffentlicht
 
+- **Fix: Versionsanzeige im Fenster.** Links unten stand fest `v1.0.0`, jetzt wird die echte Version (`ADDON_VERSION`) angezeigt.
 - **Fix: „You must wait N seconds before speaking again" beim Teilen.** Der Partnerkanal lief mit 2,5 Nachrichten/Sekunde in den Chat-Spamschutz des Servers. Er sendet jetzt höchstens 1 Nachricht/Sekunde. Meldet der Server trotzdem die Sperre, pausiert die Warteschlange für die genannte Zeit und sendet die verworfene Nachricht danach erneut.
 - **Fix: Esc schließt BananaCraft.** Hauptfenster, Rezept-Popup und Export-Fenster sind jetzt in `UISpecialFrames` eingetragen.
 - **Fix: Eigener Charakter doppelt in der Crafter-Liste.** Wer vor dem Gildenbeitritt gildenlos war, stand als `<no guild (Name)>` (nicht erreichbar) zusätzlich zum echten Eintrag in der Liste. Solche veralteten Solo-Einträge werden jetzt beim Start entfernt, sobald die Gilde bekannt ist.

@@ -2721,7 +2721,7 @@ local function uiCreate()
   -- Version text (bottom left, small font)
   local versionText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   versionText:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 20, 12)
-  versionText:SetText("v1.0.0")
+  versionText:SetText("v" .. ADDON_VERSION)
   versionText:SetTextColor(0.5, 0.5, 0.5, 1)  -- Gray color
   
   -- Statistics text (bottom center, small font - below share button)
