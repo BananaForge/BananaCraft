@@ -31,7 +31,9 @@ When updating, delete the old folder first (if you come from *BananaRepublik Par
 
 ## Usage
 
-**Partner setup (once):** guild A runs `/bc partner create` and passes the code on (whisper, Discord). Guild B runs `/bc partner add <code>`. Then click *Connect guild members* so everyone in your guild is connected, and send your data with `/bc send`.
+**Partner setup (once):** guild A runs `/bc partner create` and passes the code on (whisper, Discord). Guild B runs `/bc partner add <code>`. Then click *Connect guild members* so everyone in your guild is connected, and click *Share with partner* (or `/bc partner share`) to send your data.
+
+The partner channel is **optional and off until you set it up**. Without a code the window only shows the guild button. The main button *Share database with guild* only ever sends to your own guild. With a code saved, the *Partner: ON/OFF* button turns the channel on or off without losing the code or the partner data, and *Share with partner* and *Connect guild members* appear while it is on.
 
 | Command | Effect |
 |---|---|
@@ -47,6 +49,8 @@ When updating, delete the old folder first (if you come from *BananaRepublik Par
 | `/bc partner` | Partner status |
 | `/bc partner create` / `add <code>` | Create a code / join with a code |
 | `/bc partner code` / `newcode` | Show the code / generate a new one (the old one stops working) |
+| `/bc partner on` / `off` | Turn the partner channel on / off (keeps code and data) |
+| `/bc partner share` | Send your own data to the partner guild (separate from the guild sync) |
 | `/bc partner push` | Send the code to your own guild |
 | `/bc partner list` | List known partner guilds |
 | `/bc partner remove <guild>` | Drop that guild's data |

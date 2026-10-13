@@ -4,6 +4,7 @@ Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
 ## Unveröffentlicht
 
+- **Partnerkanal ist optional und vom Gilden-Sync getrennt.** „Datenbank mit der Gilde teilen" sendet nur noch in den Gildenkanal und fasst die Partnerschaft nie an. Ohne Partnercode zeigt das Fenster nur diesen einen Button. Mit Code gibt es den Schalter *Partner: AN/AUS* (Kanal schließen und öffnen, Code und Partnerdaten bleiben) und, solange er an ist, *An Partner teilen* und *Gildenmitglieder verbinden*. Neue Befehle: `/bc partner on`, `off` und `share`. `/bc partner off` beendet die Partnerschaft nicht mehr (dafür gibt es weiter `/bc partner leave`). Eigene Scans gehen nicht mehr automatisch an den Partner, nur über *An Partner teilen*.
 - **Fix: „Alle Berufe wurden gesendet!" kam zu früh.** Die Meldung erscheint jetzt erst, wenn auch die Sendewarteschlangen (Gilde und Partnerkanal) leer sind. Der Partnerkanal sendet zusätzlich langsamer (1 Nachricht alle 1,5 Sekunden), weil der Server bei schnellerem Tempo weiter „You must wait N seconds before speaking again" meldete.
 - **Fix: Versionsanzeige im Fenster.** Links unten stand fest `v1.0.0`, jetzt wird die echte Version (`ADDON_VERSION`) angezeigt.
 - **Fix: „You must wait N seconds before speaking again" beim Teilen.** Der Partnerkanal lief mit 2,5 Nachrichten/Sekunde in den Chat-Spamschutz des Servers. Er sendet jetzt höchstens 1 Nachricht/Sekunde. Meldet der Server trotzdem die Sperre, pausiert die Warteschlange für die genannte Zeit und sendet die verworfene Nachricht danach erneut.

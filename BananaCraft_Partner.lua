@@ -152,7 +152,12 @@ function BCRAFT_Partner.QueueLength()
   return tlen(PartnerQueue)
 end
 
+function BCRAFT_Partner.SendDelay()
+  return PartnerThrottle.delay
+end
+
 function BCRAFT_Partner.ClearQueue()
+  BCRAFT_Partner.announceDone = nil
   PartnerQueue = {}
   PartnerThrottle:Hide()
 end
@@ -168,6 +173,10 @@ PartnerThrottle:SetScript("OnUpdate", function()
 
   if tlen(PartnerQueue) == 0 then
     PartnerThrottle:Hide()
+    if BCRAFT_Partner.announceDone then
+      BCRAFT_Partner.announceDone = nil
+      pmsg("|cff00ff00" .. BCRAFT_L.PARTNER_SHARE_DONE .. "|r")
+    end
     return
   end
 
@@ -178,6 +187,9 @@ PartnerThrottle:SetScript("OnUpdate", function()
   if not idx then
     -- Kanal (noch) nicht verfuegbar: Warteschlange verwerfen statt ewig
     -- weiterzulaufen, sonst staut sich beim naechsten Login alles auf.
+    if BCRAFT_Partner.announceDone then
+      pmsg("|cffff8800" .. BCRAFT_L.PARTNER_CHANNEL_MISSING .. "|r")
+    end
     BCRAFT_Partner.ClearQueue()
     return
   end

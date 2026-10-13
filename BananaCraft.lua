@@ -520,13 +520,9 @@ BroadcastTimer:SetScript("OnUpdate", function()
     this.elapsed = 0
     
     if tlen(BroadcastQueue) == 0 then
-      -- "Gesendet" erst melden, wenn auch die Sendewarteschlangen leer sind.
-      -- Der Partnerkanal arbeitet im Hintergrund noch Minuten weiter.
-      local pending = tlen(SendQueue)
-      if BCRAFT_Partner and BCRAFT_Partner.QueueLength then
-        pending = pending + BCRAFT_Partner.QueueLength()
-      end
-      if pending > 0 then return end
+      -- "Gesendet" erst melden, wenn auch die Gilden-Sendewarteschlange leer
+      -- ist. Der Partnerkanal hat seinen eigenen Button und eine eigene Meldung.
+      if tlen(SendQueue) > 0 then return end
       BroadcastTimer:Hide()
       msg("|cff00ff00" .. BCRAFT_L.ALL_SENT .. "|r")
       return
@@ -984,7 +980,10 @@ end)
 -- -------------------------
 -- Broadcast
 -- -------------------------
-function BCRAFT_BroadcastProfession(profName, characterName, profData)
+-- target: nil/"guild" = nur Gilden-Addonkanal (Standard), "partner" = nur
+-- Partnerkanal. Beides ist bewusst getrennt: der Hauptbutton darf die
+-- Partnerschaft nie anfassen, sonst bremst sie die interne Funktion aus.
+function BCRAFT_BroadcastProfession(profName, characterName, profData, target)
   -- profData is now passed directly instead of using db.me
   if not profData then
     -- Fallback: try to get from db.me (for backward compatibility)
@@ -1066,20 +1065,24 @@ function BCRAFT_BroadcastProfession(profName, characterName, profData)
 
   local total = tlen(chunks)
   
-  debug("[SEND] Broadcasting to GUILD: " .. p .. " - " .. profName .. " (" .. total .. " chunks)")
-  
   local startMsg = "S" .. SEP .. safe(p) .. SEP .. safe(profName) .. SEP .. tostring(rank) .. SEP .. tostring(maxRank) .. SEP .. tostring(total)
-  enqueueSend("GUILD", startMsg)
+  local endMsg = "E" .. SEP .. safe(p) .. SEP .. safe(profName)
 
-  for idx = 1, total do
-    local chunkMsg = "C" .. SEP .. safe(p) .. SEP .. safe(profName) .. SEP .. tostring(idx) .. SEP .. chunks[idx]
-    enqueueSend("GUILD", chunkMsg)
+  if target ~= "partner" then
+    debug("[SEND] Broadcasting to GUILD: " .. p .. " - " .. profName .. " (" .. total .. " chunks)")
+
+    enqueueSend("GUILD", startMsg)
+
+    for idx = 1, total do
+      local chunkMsg = "C" .. SEP .. safe(p) .. SEP .. safe(profName) .. SEP .. tostring(idx) .. SEP .. chunks[idx]
+      enqueueSend("GUILD", chunkMsg)
+    end
+
+    enqueueSend("GUILD", endMsg)
   end
 
-  local endMsg = "E" .. SEP .. safe(p) .. SEP .. safe(profName)
-  enqueueSend("GUILD", endMsg)
-
-  -- Punkt 3.1: dieselben Rezeptdaten zusaetzlich in den Partnerkanal.
+  -- Punkt 3.1: Rezeptdaten in den Partnerkanal -- nur auf ausdruecklichen
+  -- Wunsch (Button "An Partner teilen", target == "partner").
   --
   -- Bewusst NUR eigene Daten (Schluessel endet auf die eigene Gilde).
   -- Wuerden wir auch fremde Datensaetze weiterreichen, wuerde jede
@@ -1089,7 +1092,7 @@ function BCRAFT_BroadcastProfession(profName, characterName, profData)
   -- Bankdaten verlassen den eigenen Client an dieser Stelle NICHT: hier
   -- laufen ausschliesslich Berufs-/Rezeptdaten durch.
   local pdb = ensureDB()
-  if pdb.partner and pdb.partner.enabled and BCRAFT_Partner then
+  if target == "partner" and pdb.partner and pdb.partner.enabled and BCRAFT_Partner then
     local _, pg = BCRAFT_SplitKey(p)
     if pg == BCRAFT_OwnGuild() then
       BCRAFT_Partner.Enqueue(startMsg)
@@ -1140,6 +1143,67 @@ local function broadcastAll()
   else
     msg("|cffff0000" .. BCRAFT_L.NOTHING_TO_SEND .. "|r " .. BCRAFT_L.SCAN_FIRST)
   end
+end
+
+-- Eigene Daten an die Partnergilde senden (eigener Button, eigene Warteschlange).
+-- Es werden nur Charaktere der eigenen Gilde gesendet, nie weitergereichte
+-- Fremddaten (sonst entstuende eine Schleife zwischen den Gilden).
+local function partnerShareAll()
+  local db = ensureDB()
+  if not (db.partner and db.partner.enabled and db.partner.code and BCRAFT_Partner) then
+    msg("|cffff0000" .. BCRAFT_L.PARTNER_NOT_ACTIVE .. "|r")
+    return
+  end
+
+  BCRAFT_Partner.ClearQueue()   -- doppeltes Klicken soll nichts verdoppeln
+  local own = BCRAFT_OwnGuild()
+  local jobs = 0
+  for key, data in pairs(db.guild) do
+    local _, g = BCRAFT_SplitKey(key)
+    if g == own and type(data) == "table" and data.profs then
+      for profName, profData in pairs(data.profs) do
+        if type(profData) == "table" and profData.recipes and tlen(profData.recipes) > 0 then
+          BCRAFT_BroadcastProfession(profName, key, profData, "partner")
+          jobs = jobs + 1
+        end
+      end
+    end
+  end
+
+  if jobs == 0 then
+    msg("|cffff0000" .. BCRAFT_L.NOTHING_TO_SEND .. "|r " .. BCRAFT_L.SCAN_FIRST)
+    return
+  end
+
+  local n = BCRAFT_Partner.QueueLength()
+  msg("|cffffff00" .. BCRAFT_L.PARTNER_SHARE_START .. "|r " .. jobs .. " " .. BCRAFT_L.PROFS_QUEUED
+    .. " (" .. n .. " " .. BCRAFT_L.PARTNER_MESSAGES .. ", ~" .. math.floor(n * BCRAFT_Partner.SendDelay() + 0.5) .. " " .. BCRAFT_L.SECONDS .. ")")
+  BCRAFT_Partner.announceDone = true
+end
+
+-- Partnerkanal pausieren / fortsetzen. Code und Fremddaten bleiben erhalten,
+-- im Gegensatz zu /bc partner leave. Pausiert: Kanal verlassen, nichts
+-- senden, nichts empfangen, Codes anderer werden ignoriert.
+local function partnerSetActive(on)
+  local db = ensureDB()
+  if on then
+    if not db.partner.code then
+      msg("|cffff0000" .. BCRAFT_L.PARTNER_NO_CODE .. "|r")
+      return
+    end
+    db.partner.enabled = true
+    db.partner.declined = nil
+    BCRAFT_Partner.JoinChannel(db)
+    msg("|cff00ff00" .. BCRAFT_L.PARTNER_RESUMED .. "|r")
+  else
+    BCRAFT_Partner.LeaveChannel(db)
+    BCRAFT_Partner.ClearQueue()
+    db.partner.enabled = false
+    db.partner.declined = true
+    msg("|cffff8800" .. BCRAFT_L.PARTNER_PAUSED .. "|r")
+  end
+  if BCRAFT_UI and BCRAFT_UI.updatePartnerButtons then BCRAFT_UI.updatePartnerButtons() end
+  if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
 end
 
 -- -------------------------
@@ -2355,6 +2419,7 @@ end
 function BCRAFT_UI_Refresh()
   local f = BCRAFT_UI
   if not f or not f:IsShown() then return end
+  if f.updatePartnerButtons then f.updatePartnerButtons() end
 
   local allData = uiBuildData()
   local filtered = uiFilterData(allData)
@@ -2689,16 +2754,53 @@ local function uiCreate()
 
   -- Clean UI - no logos
 
-  -- Share button (bottom center)
+  -- Gilden-Button: sendet NUR in den Gildenkanal. Die Partnerschaft hat
+  -- eigene Buttons (unten), damit die interne Funktion nie eingeschraenkt wird.
   local shareBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  shareBtn:SetWidth(200)
+  shareBtn:SetWidth(190)
   shareBtn:SetHeight(28)
-  shareBtn:SetPoint("BOTTOM", f, "BOTTOM", -103, 30)  -- Higher for statistics space
+  shareBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 30)  -- Higher for statistics space
   shareBtn:SetText(BCRAFT_L.SHARE_BUTTON)
   shareBtn:SetScript("OnClick", function()
     broadcastAll()
   end)
   f.shareBtn = shareBtn
+
+  -- Partner-Schalter: erscheint nur, wenn ein Partnercode hinterlegt ist.
+  local partnerToggleBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  partnerToggleBtn:SetWidth(80)
+  partnerToggleBtn:SetHeight(28)
+  partnerToggleBtn:SetScript("OnClick", function()
+    local d = ensureDB()
+    partnerSetActive(not d.partner.enabled)
+  end)
+  partnerToggleBtn:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(this, "ANCHOR_TOP")
+    GameTooltip:SetText(BCRAFT_L.BTN_PARTNER_TOGGLE_TIP1, 1, 1, 1)
+    GameTooltip:AddLine(BCRAFT_L.BTN_PARTNER_TOGGLE_TIP2, 0.8, 0.8, 0.8, 1)
+    GameTooltip:Show()
+  end)
+  partnerToggleBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  partnerToggleBtn:Hide()
+  f.partnerToggleBtn = partnerToggleBtn
+
+  -- "An Partner teilen": eigener Sync nur fuer den Partnerkanal.
+  local partnerShareBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  partnerShareBtn:SetWidth(140)
+  partnerShareBtn:SetHeight(28)
+  partnerShareBtn:SetText(BCRAFT_L.BTN_PARTNER_SHARE)
+  partnerShareBtn:SetScript("OnClick", function()
+    partnerShareAll()
+  end)
+  partnerShareBtn:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(this, "ANCHOR_TOP")
+    GameTooltip:SetText(BCRAFT_L.BTN_PARTNER_SHARE, 1, 1, 1)
+    GameTooltip:AddLine(BCRAFT_L.BTN_PARTNER_SHARE_TIP, 0.8, 0.8, 0.8, 1)
+    GameTooltip:Show()
+  end)
+  partnerShareBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  partnerShareBtn:Hide()
+  f.partnerShareBtn = partnerShareBtn
 
   -- "Gildenmitglieder verbinden": schickt den Partnercode ueber den
   -- Gilden-Addonkanal an alle, die das Addon haben. Neue Mitglieder muessen
@@ -2708,9 +2810,8 @@ local function uiCreate()
   -- zwar angelegt, aber nie eingeblendet (kein Tab fuehrt dorthin), waere
   -- also unsichtbar.
   local connectBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  connectBtn:SetWidth(200)
+  connectBtn:SetWidth(170)
   connectBtn:SetHeight(28)
-  connectBtn:SetPoint("BOTTOM", f, "BOTTOM", 103, 30)
   connectBtn:SetText(BCRAFT_L.BTN_CONNECT_MEMBERS)
   connectBtn:SetScript("OnClick", function()
     pushPartnerCodeToGuild()
@@ -2723,8 +2824,44 @@ local function uiCreate()
     GameTooltip:Show()
   end)
   connectBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  connectBtn:Hide()
   f.connectBtn = connectBtn
-  
+
+  -- Button-Zeile je nach Partnerstatus:
+  --   kein Partnercode  -> nur der Gilden-Button, mittig
+  --   Code, pausiert    -> Gilden-Button + Partner-Schalter (AUS)
+  --   Code, aktiv       -> alle vier Buttons
+  f.updatePartnerButtons = function()
+    local d = ensureDB()
+    local hasCode = d.partner and d.partner.code
+    local active = hasCode and d.partner.enabled
+    shareBtn:ClearAllPoints()
+    if not hasCode then
+      shareBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 30)
+      partnerToggleBtn:Hide()
+      partnerShareBtn:Hide()
+      connectBtn:Hide()
+      return
+    end
+    shareBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 18, 30)
+    partnerToggleBtn:ClearAllPoints()
+    partnerToggleBtn:SetPoint("LEFT", shareBtn, "RIGHT", 4, 0)
+    partnerToggleBtn:SetText(active and BCRAFT_L.BTN_PARTNER_ON or BCRAFT_L.BTN_PARTNER_OFF)
+    partnerToggleBtn:Show()
+    if active then
+      partnerShareBtn:ClearAllPoints()
+      partnerShareBtn:SetPoint("LEFT", partnerToggleBtn, "RIGHT", 4, 0)
+      partnerShareBtn:Show()
+      connectBtn:ClearAllPoints()
+      connectBtn:SetPoint("LEFT", partnerShareBtn, "RIGHT", 4, 0)
+      connectBtn:Show()
+    else
+      partnerShareBtn:Hide()
+      connectBtn:Hide()
+    end
+  end
+  f.updatePartnerButtons()
+
   -- Version text (bottom left, small font)
   local versionText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   versionText:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 20, 12)
@@ -3305,8 +3442,24 @@ SlashCmdList["BCRAFT"] = function(input)
       return
     end
 
+    -- Pausieren / fortsetzen: Code und Daten bleiben, nur der Kanal ist zu.
+    if sub == "on" or sub == "resume" then
+      partnerSetActive(true)
+      return
+    end
+    if sub == "off" or sub == "pause" then
+      partnerSetActive(false)
+      return
+    end
+
+    -- Eigene Daten an die Partnergilde senden (getrennt vom Gilden-Sync)
+    if sub == "share" or sub == "sync" or sub == "send" then
+      partnerShareAll()
+      return
+    end
+
     -- Partnerschaft komplett beenden: Kanal verlassen, alle Fremddaten weg
-    if sub == "leave" or sub == "off" then
+    if sub == "leave" then
       local removedGuilds = 0
       local removedChars = 0
       local list = BCRAFT_Partner.ListGuilds(db)
@@ -3340,6 +3493,8 @@ SlashCmdList["BCRAFT"] = function(input)
         else
           msg("|cffff8800" .. BCRAFT_L.PARTNER_CHANNEL_MISSING .. "|r")
         end
+      elseif db.partner.code then
+        msg(BCRAFT_L.PARTNER_STATUS_PAUSED)
       else
         msg(BCRAFT_L.PARTNER_STATUS_OFF)
       end
@@ -3350,6 +3505,9 @@ SlashCmdList["BCRAFT"] = function(input)
       msg(BCRAFT_L.CMD_PARTNER_NEWCODE)
       msg(BCRAFT_L.CMD_PARTNER_LIST)
       msg(BCRAFT_L.CMD_PARTNER_REMOVE)
+      msg(BCRAFT_L.CMD_PARTNER_ON)
+      msg(BCRAFT_L.CMD_PARTNER_OFF)
+      msg(BCRAFT_L.CMD_PARTNER_SHARE)
       msg(BCRAFT_L.CMD_PARTNER_LEAVE)
       return
     end
@@ -3705,6 +3863,8 @@ function BCRAFT_ApplyLocale()
     if f.searchLabelFS then f.searchLabelFS:SetText(BCRAFT_L.SEARCH_LABEL) end
     if f.shareBtn then f.shareBtn:SetText(BCRAFT_L.SHARE_BUTTON) end
     if f.connectBtn then f.connectBtn:SetText(BCRAFT_L.BTN_CONNECT_MEMBERS) end
+    if f.partnerShareBtn then f.partnerShareBtn:SetText(BCRAFT_L.BTN_PARTNER_SHARE) end
+    if f.updatePartnerButtons then f.updatePartnerButtons() end
 
     -- Highlight the active language button
     local cur = BCRAFT_GetLocale()
