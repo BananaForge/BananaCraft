@@ -112,7 +112,9 @@ local PartnerQueue = {}
 local PartnerThrottle = CreateFrame("Frame")
 PartnerThrottle:Hide()
 PartnerThrottle.elapsed = 0
-PartnerThrottle.delay = 0.4   -- max 2,5 Nachrichten/Sekunde
+PartnerThrottle.delay = 1.0   -- max 1 Nachricht/Sekunde (0.4s loeste den Chat-Spamschutz aus)
+PartnerThrottle.pauseUntil = 0
+local lastLine = nil              -- zuletzt gesendeter Text, falls der Server ihn verwirft
 
 -- Zeilenumbrueche vertragen sich nicht mit SendChatMessage: der Chat
 -- schneidet bei "\n" ab. Die Chunk-Daten des Kerns benutzen "\n" aber als
@@ -160,6 +162,10 @@ PartnerThrottle:SetScript("OnUpdate", function()
   if this.elapsed < this.delay then return end
   this.elapsed = 0
 
+  -- Server hat "You must wait N seconds before speaking again" gemeldet:
+  -- so lange gar nichts senden.
+  if GetTime() < this.pauseUntil then return end
+
   if tlen(PartnerQueue) == 0 then
     PartnerThrottle:Hide()
     return
@@ -185,8 +191,32 @@ PartnerThrottle:SetScript("OnUpdate", function()
   end
 
   if SendChatMessage then
+    lastLine = payload
+    PartnerThrottle.lastSendAt = GetTime()
     pcall(SendChatMessage, line, "CHANNEL", nil, idx)
   end
+end)
+
+-- Chat-Spamschutz des Servers: meldet "You must wait N seconds before
+-- speaking again" und verwirft die Nachricht. Dann pausieren wir die
+-- Partner-Warteschlange fuer die genannte Zeit und stellen die verworfene
+-- Zeile wieder vorne an, damit keine Daten fehlen.
+local FloodWatcher = CreateFrame("Frame")
+FloodWatcher:RegisterEvent("UI_ERROR_MESSAGE")
+FloodWatcher:RegisterEvent("CHAT_MSG_SYSTEM")
+FloodWatcher:SetScript("OnEvent", function()
+  local text = arg1
+  if not text or tlen(PartnerQueue) == 0 and not lastLine then return end
+  if not (string.find(text, "must wait", 1, true) or string.find(text, "warten", 1, true)) then return end
+  local _, _, secs = string.find(text, "(%d+)")
+  secs = tonumber(secs) or 5
+  if GetTime() - (PartnerThrottle.lastSendAt or 0) > 3 then return end
+  PartnerThrottle.pauseUntil = GetTime() + secs + 1
+  if lastLine then
+    table.insert(PartnerQueue, 1, lastLine)
+    lastLine = nil
+  end
+  PartnerThrottle:Show()
 end)
 
 -- -------------------------------------------------------------------------
