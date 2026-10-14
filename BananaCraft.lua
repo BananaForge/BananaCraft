@@ -41,6 +41,15 @@ local function normalizeProfessionName(profName)
   return ProfessionNameMap[profName] or profName
 end
 
+-- GetTradeSkillLine()/GetCraftDisplaySkillLine() liefern den Platzhalter
+-- "UNKNOWN" (Rang 0/0), solange das Berufsfenster seine Daten noch nicht
+-- geladen hat. Der darf nie als Berufsname gespeichert oder weitergegeben
+-- werden.
+local function isBadProfName(name)
+  if not name or name == "" then return true end
+  return string.upper(name) == "UNKNOWN"
+end
+
 local ADDON_NAME = "BananaCraft"
 local DB_NAME = "BananaCraftDB"
 local PREFIX = "BCRAFT0"
@@ -280,6 +289,72 @@ local function ensureDB()
     if db.partner.guilds["Solo:" .. me] then db.partner.guilds["Solo:" .. me] = nil end
     if table.getn(stale) > 0 then
       debug("Aufgeraeumt: " .. table.getn(stale) .. " veraltete Solo-Eintraege entfernt")
+    end
+  end
+
+  -- Partnermodus ist nach JEDEM Login aus. Code und Fremddaten bleiben, aber
+  -- der Modus muss jede Sitzung per /bc partner on neu eingeschaltet werden.
+  if not BCRAFT_PartnerSessionInit then
+    BCRAFT_PartnerSessionInit = true
+    db.partner.enabled = false
+    db.partner.channel = nil
+  end
+
+  -- Rezepte reparieren, die wegen eines zu fruehen Scans unter dem
+  -- Platzhalter-Beruf "UNKNOWN" gelandet sind: das Addon kennt zu jedem
+  -- Rezept der 7 Berufe den richtigen Beruf (BCRAFT_RecipeMaps).
+  if not BCRAFT_UnknownRepaired then
+    BCRAFT_UnknownRepaired = true
+    local owner = {}
+    if BCRAFT_RecipeMaps then
+      for prof, recipes in pairs(BCRAFT_RecipeMaps) do
+        for rname, _ in pairs(recipes) do
+          if owner[rname] == nil then owner[rname] = prof else owner[rname] = false end
+        end
+      end
+    end
+    local fixed = 0
+    local function repairProfs(profs)
+      if type(profs) ~= "table" then return end
+      local badKeys = {}
+      for pname, _ in pairs(profs) do
+        if isBadProfName(pname) then table.insert(badKeys, pname) end
+      end
+      for b = 1, tlen(badKeys) do
+        local bad = profs[badKeys[b]]
+        profs[badKeys[b]] = nil
+        if type(bad) == "table" and type(bad.recipes) == "table" then
+          for i = 1, tlen(bad.recipes) do
+            local rec = bad.recipes[i]
+            local rname = type(rec) == "table" and rec.name or rec
+            local prof = rname and owner[rname]
+            if prof then
+              if not profs[prof] then
+                profs[prof] = { rank = 0, maxRank = 0, recipes = {}, scannedAt = bad.scannedAt }
+              end
+              if not profs[prof].recipes then profs[prof].recipes = {} end
+              local have = false
+              for j = 1, tlen(profs[prof].recipes) do
+                local r2 = profs[prof].recipes[j]
+                if (type(r2) == "table" and r2.name or r2) == rname then have = true break end
+              end
+              if not have then
+                table.insert(profs[prof].recipes, rec)
+                fixed = fixed + 1
+              end
+            end
+          end
+        end
+      end
+    end
+    for _, data in pairs(db.guild) do
+      if type(data) == "table" then repairProfs(data.profs) end
+    end
+    for _, data in pairs(db.characters) do
+      if type(data) == "table" then repairProfs(data.profs) end
+    end
+    if fixed > 0 then
+      debug("UNKNOWN repariert: " .. fixed .. " Rezepte")
     end
   end
 
@@ -653,6 +728,10 @@ local function scanCurrentTradeSkill()
     debug("Kein Beruf geöffnet")
     return
   end
+  if isBadProfName(profName) then
+    debug("Beruf noch nicht geladen (UNKNOWN) - spaeter nochmal")
+    return false  -- Signal failure for retry
+  end
 
   -- IMPORTANT: Normalize profession name (German → English)
   local profNameOriginal = profName
@@ -778,6 +857,10 @@ local function scanCurrentCraft()
   if not profName or profName == "" then
     debug("Kein Craft-Beruf geöffnet")
     return
+  end
+  if isBadProfName(profName) then
+    debug("Craft-Beruf noch nicht geladen (UNKNOWN) - spaeter nochmal")
+    return false  -- Signal failure for retry
   end
 
   local profNameOriginal = profName
@@ -1181,28 +1264,31 @@ local function partnerShareAll()
   BCRAFT_Partner.announceDone = true
 end
 
--- Partnerkanal pausieren / fortsetzen. Code und Fremddaten bleiben erhalten,
--- im Gegensatz zu /bc partner leave. Pausiert: Kanal verlassen, nichts
--- senden, nichts empfangen, Codes anderer werden ignoriert.
+-- Partnermodus ein-/ausschalten. Standard ist AUS, und zwar nach jedem Login
+-- (siehe ensureDB). Eingeschaltet wird nur per /bc partner on (oder create/add).
+-- Aus: Kanal verlassen, nichts senden, nichts empfangen, Codes anderer werden
+-- ignoriert. Code und Fremddaten bleiben erhalten (anders als /bc partner leave).
 local function partnerSetActive(on)
   local db = ensureDB()
   if on then
-    if not db.partner.code then
-      msg("|cffff0000" .. BCRAFT_L.PARTNER_NO_CODE .. "|r")
-      return
-    end
     db.partner.enabled = true
     db.partner.declined = nil
-    BCRAFT_Partner.JoinChannel(db)
-    msg("|cff00ff00" .. BCRAFT_L.PARTNER_RESUMED .. "|r")
+    if db.partner.code then
+      BCRAFT_Partner.JoinChannel(db)
+      msg("|cff00ff00" .. BCRAFT_L.PARTNER_RESUMED .. "|r")
+    else
+      -- Noch kein Code: in der eigenen Gilde nachfragen. Wer den Modus an hat
+      -- und einen Code kennt, antwortet.
+      enqueueSend("GUILD", "PCODEREQ" .. SEP .. safe(playerName()))
+      msg("|cffffff00" .. BCRAFT_L.PARTNER_ON_WAITING .. "|r")
+    end
   else
     BCRAFT_Partner.LeaveChannel(db)
     BCRAFT_Partner.ClearQueue()
     db.partner.enabled = false
-    db.partner.declined = true
     msg("|cffff8800" .. BCRAFT_L.PARTNER_PAUSED .. "|r")
   end
-  if BCRAFT_UI and BCRAFT_UI.updatePartnerButtons then BCRAFT_UI.updatePartnerButtons() end
+  if BCRAFT_RefreshSettings then BCRAFT_RefreshSettings() end
   if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
 end
 
@@ -1510,6 +1596,13 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         return
       end
 
+      -- Partnermodus ist standardmaessig aus und wird nur per /bc partner on
+      -- (oder create/add) eingeschaltet. Ein Code von aussen schaltet ihn nie ein.
+      if not db.partner.enabled then
+        debug("[PCODE] Ignoriert (Partnermodus ist aus)")
+        return
+      end
+
       if db.partner.code == code and db.partner.enabled then
         debug("[PCODE] Code bereits aktiv, nichts zu tun")
         return
@@ -1581,6 +1674,11 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         end
       end
     end
+    return
+  end
+
+  -- Datensaetze mit Platzhalter-Beruf "UNKNOWN" (alte Versionen) verwerfen
+  if (cmd == "S" or cmd == "C" or cmd == "E") and tlen(parts) >= 3 and isBadProfName(parts[3]) then
     return
   end
 
@@ -1915,8 +2013,16 @@ local function uiFilterData(data)
         end
       end
       
-      -- Always show all recipes (no online filter)
-      if searchMatch and slotMatch then
+      -- "Nur online": Rezepte ohne einen einzigen Online-Crafter ausblenden
+      local onlineMatch = true
+      if ensureDB().settings.onlineOnly then
+        onlineMatch = false
+        for c = 1, tlen(row.crafters) do
+          if row.crafters[c].online then onlineMatch = true break end
+        end
+      end
+
+      if searchMatch and slotMatch and onlineMatch then
         table.insert(filtered, row)
       end
     end
@@ -2419,7 +2525,6 @@ end
 function BCRAFT_UI_Refresh()
   local f = BCRAFT_UI
   if not f or not f:IsShown() then return end
-  if f.updatePartnerButtons then f.updatePartnerButtons() end
 
   local allData = uiBuildData()
   local filtered = uiFilterData(allData)
@@ -2509,6 +2614,15 @@ end
 -- -------------------------
 -- UI: Create
 -- -------------------------
+-- "Nur online" setzen (Haken im Hauptfenster und in den Einstellungen).
+function BCRAFT_SetOnlineOnly(on)
+  ensureDB().settings.onlineOnly = on and true or false
+  if BCRAFT_UI and BCRAFT_UI.onlineCB then BCRAFT_UI.onlineCB:SetChecked(on) end
+  if BCRAFT_SettingsFrame and BCRAFT_SettingsFrame.onlineCB then BCRAFT_SettingsFrame.onlineCB:SetChecked(on) end
+  UI_ScrollOffset = 0
+  BCRAFT_UI_Refresh()
+end
+
 local function uiCreate()
   -- Defensive check: if a previous session already built BCRAFT_UI but somehow
   -- without the info/language buttons (e.g. an older cached UI state after
@@ -2516,7 +2630,7 @@ local function uiCreate()
   -- half-built frame around. This is what caused the info/language buttons
   -- to "disappear" even though the button-creation code was present.
   if BCRAFT_UI then
-    if BCRAFT_UI.infoBtn and BCRAFT_UI.deBtn and BCRAFT_UI.enBtn and BCRAFT_UI.connectBtn then
+    if BCRAFT_UI.infoBtn and BCRAFT_UI.deBtn and BCRAFT_UI.enBtn and BCRAFT_UI.gearBtn and BCRAFT_UI.onlineCB then
       return
     else
       debug("[UI] BCRAFT_UI existierte bereits, aber ohne Info/Sprach-Buttons - baue Fenster neu auf.")
@@ -2616,7 +2730,25 @@ local function uiCreate()
     return b
   end
 
-  local deBtn = makeLangButton("deDE", "DE", infoBtn, -4)
+  -- Zahnrad: oeffnet das Einstellungsfenster (links vom Herz)
+  local gearBtn = CreateFrame("Button", nil, f)
+  gearBtn:SetWidth(16)
+  gearBtn:SetHeight(16)
+  gearBtn:SetPoint("RIGHT", infoBtn, "LEFT", -4, 0)
+  local gearTex = gearBtn:CreateTexture(nil, "ARTWORK")
+  gearTex:SetAllPoints(gearBtn)
+  gearTex:SetTexture("Interface\\Icons\\INV_Misc_Gear_01")
+  gearBtn.tex = gearTex
+  gearBtn:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(this, "ANCHOR_LEFT")
+    GameTooltip:SetText(BCRAFT_L.GEAR_TOOLTIP)
+    GameTooltip:Show()
+  end)
+  gearBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  gearBtn:SetScript("OnClick", function() BCRAFT_ToggleSettings() end)
+  f.gearBtn = gearBtn
+
+  local deBtn = makeLangButton("deDE", "DE", gearBtn, -4)
   local enBtn = makeLangButton("enUS", "EN", deBtn, -2)
   f.deBtn = deBtn
   f.enBtn = enBtn
@@ -2639,6 +2771,20 @@ local function uiCreate()
     UI_ScrollOffset = 0
     scheduleUIRefresh()  -- debounced: collapses fast keystrokes into one rebuild
   end)
+
+  -- "Nur online": zeigt nur Rezepte mit mindestens einem Online-Crafter
+  local onlineCB = CreateFrame("CheckButton", "BCRAFT_OnlineOnlyCB", f, "UICheckButtonTemplate")
+  onlineCB:SetWidth(24)
+  onlineCB:SetHeight(24)
+  onlineCB:SetPoint("LEFT", search, "RIGHT", 10, -1)
+  local onlineCBText = getglobal("BCRAFT_OnlineOnlyCBText")
+  onlineCBText:SetText(BCRAFT_L.FILTER_ONLINE_ONLY)
+  onlineCB:SetChecked(ensureDB().settings.onlineOnly)
+  onlineCB:SetScript("OnClick", function()
+    BCRAFT_SetOnlineOnly(this:GetChecked() and true or false)
+  end)
+  f.onlineCB = onlineCB
+  f.onlineCBText = onlineCBText
 
   local BCRAFT_SubDD_Initialize  -- forward declaration (defined below, used by the filter dropdown)
   local dd = CreateFrame("Frame", "BCRAFT_FilterDropDown", f, "UIDropDownMenuTemplate")
@@ -2754,10 +2900,10 @@ local function uiCreate()
 
   -- Clean UI - no logos
 
-  -- Gilden-Button: sendet NUR in den Gildenkanal. Die Partnerschaft hat
-  -- eigene Buttons (unten), damit die interne Funktion nie eingeschraenkt wird.
+  -- Gilden-Button: sendet NUR in den Gildenkanal. Alles Partner-Bezogene
+  -- liegt im Einstellungsfenster und erscheint erst nach /bc partner on.
   local shareBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  shareBtn:SetWidth(190)
+  shareBtn:SetWidth(220)
   shareBtn:SetHeight(28)
   shareBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 30)  -- Higher for statistics space
   shareBtn:SetText(BCRAFT_L.SHARE_BUTTON)
@@ -2765,102 +2911,6 @@ local function uiCreate()
     broadcastAll()
   end)
   f.shareBtn = shareBtn
-
-  -- Partner-Schalter: erscheint nur, wenn ein Partnercode hinterlegt ist.
-  local partnerToggleBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  partnerToggleBtn:SetWidth(80)
-  partnerToggleBtn:SetHeight(28)
-  partnerToggleBtn:SetScript("OnClick", function()
-    local d = ensureDB()
-    partnerSetActive(not d.partner.enabled)
-  end)
-  partnerToggleBtn:SetScript("OnEnter", function()
-    GameTooltip:SetOwner(this, "ANCHOR_TOP")
-    GameTooltip:SetText(BCRAFT_L.BTN_PARTNER_TOGGLE_TIP1, 1, 1, 1)
-    GameTooltip:AddLine(BCRAFT_L.BTN_PARTNER_TOGGLE_TIP2, 0.8, 0.8, 0.8, 1)
-    GameTooltip:Show()
-  end)
-  partnerToggleBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  partnerToggleBtn:Hide()
-  f.partnerToggleBtn = partnerToggleBtn
-
-  -- "An Partner teilen": eigener Sync nur fuer den Partnerkanal.
-  local partnerShareBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  partnerShareBtn:SetWidth(140)
-  partnerShareBtn:SetHeight(28)
-  partnerShareBtn:SetText(BCRAFT_L.BTN_PARTNER_SHARE)
-  partnerShareBtn:SetScript("OnClick", function()
-    partnerShareAll()
-  end)
-  partnerShareBtn:SetScript("OnEnter", function()
-    GameTooltip:SetOwner(this, "ANCHOR_TOP")
-    GameTooltip:SetText(BCRAFT_L.BTN_PARTNER_SHARE, 1, 1, 1)
-    GameTooltip:AddLine(BCRAFT_L.BTN_PARTNER_SHARE_TIP, 0.8, 0.8, 0.8, 1)
-    GameTooltip:Show()
-  end)
-  partnerShareBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  partnerShareBtn:Hide()
-  f.partnerShareBtn = partnerShareBtn
-
-  -- "Gildenmitglieder verbinden": schickt den Partnercode ueber den
-  -- Gilden-Addonkanal an alle, die das Addon haben. Neue Mitglieder muessen
-  -- dadurch nichts abtippen und koennen direkt danach beteilt werden.
-  --
-  -- Bewusst hier am Hauptfenster und NICHT auf der adminPage: die wird
-  -- zwar angelegt, aber nie eingeblendet (kein Tab fuehrt dorthin), waere
-  -- also unsichtbar.
-  local connectBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  connectBtn:SetWidth(170)
-  connectBtn:SetHeight(28)
-  connectBtn:SetText(BCRAFT_L.BTN_CONNECT_MEMBERS)
-  connectBtn:SetScript("OnClick", function()
-    pushPartnerCodeToGuild()
-  end)
-  connectBtn:SetScript("OnEnter", function()
-    GameTooltip:SetOwner(this, "ANCHOR_TOP")
-    GameTooltip:SetText(BCRAFT_L.BTN_CONNECT_MEMBERS, 1, 1, 1)
-    GameTooltip:AddLine(BCRAFT_L.BTN_CONNECT_TIP1, 0.8, 0.8, 0.8, 1)
-    GameTooltip:AddLine(BCRAFT_L.BTN_CONNECT_TIP2, 1, 0.6, 0.2, 1)
-    GameTooltip:Show()
-  end)
-  connectBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  connectBtn:Hide()
-  f.connectBtn = connectBtn
-
-  -- Button-Zeile je nach Partnerstatus:
-  --   kein Partnercode  -> nur der Gilden-Button, mittig
-  --   Code, pausiert    -> Gilden-Button + Partner-Schalter (AUS)
-  --   Code, aktiv       -> alle vier Buttons
-  f.updatePartnerButtons = function()
-    local d = ensureDB()
-    local hasCode = d.partner and d.partner.code
-    local active = hasCode and d.partner.enabled
-    shareBtn:ClearAllPoints()
-    if not hasCode then
-      shareBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 30)
-      partnerToggleBtn:Hide()
-      partnerShareBtn:Hide()
-      connectBtn:Hide()
-      return
-    end
-    shareBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 18, 30)
-    partnerToggleBtn:ClearAllPoints()
-    partnerToggleBtn:SetPoint("LEFT", shareBtn, "RIGHT", 4, 0)
-    partnerToggleBtn:SetText(active and BCRAFT_L.BTN_PARTNER_ON or BCRAFT_L.BTN_PARTNER_OFF)
-    partnerToggleBtn:Show()
-    if active then
-      partnerShareBtn:ClearAllPoints()
-      partnerShareBtn:SetPoint("LEFT", partnerToggleBtn, "RIGHT", 4, 0)
-      partnerShareBtn:Show()
-      connectBtn:ClearAllPoints()
-      connectBtn:SetPoint("LEFT", partnerShareBtn, "RIGHT", 4, 0)
-      connectBtn:Show()
-    else
-      partnerShareBtn:Hide()
-      connectBtn:Hide()
-    end
-  end
-  f.updatePartnerButtons()
 
   -- Version text (bottom left, small font)
   local versionText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -3252,6 +3302,264 @@ local function exportToCSV()
 end
 
 -- -------------------------
+-- Einstellungsfenster (Zahnrad)
+--
+-- Buendelt, was frueher nur ueber /bc-Befehle ging. Die Befehle bleiben
+-- zusaetzlich nutzbar. Der Partner-Bereich ist NUR sichtbar, solange der
+-- Partnermodus per /bc partner on eingeschaltet ist (nach jedem Relog aus).
+-- -------------------------
+StaticPopupDialogs["BCRAFT_CONFIRM"] = {
+  text = "%s",
+  button1 = YES or "Yes",
+  button2 = NO or "No",
+  OnAccept = function()
+    local action = BCRAFT_PendingAction
+    BCRAFT_PendingAction = nil
+    if action then action() end
+  end,
+  timeout = 0,
+  whileDead = 1,
+  hideOnEscape = 1,
+}
+
+local function confirmAction(text, fn)
+  BCRAFT_PendingAction = fn
+  StaticPopup_Show("BCRAFT_CONFIRM", text)
+end
+
+local function buildSettings()
+  local f = CreateFrame("Frame", "BCRAFT_SettingsFrame", UIParent)
+  BCRAFT_SettingsFrame = f
+  f:SetWidth(400)
+  f:SetHeight(322)
+  f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+  f:SetFrameStrata("DIALOG")
+  f:SetBackdrop({
+    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+    tile = true, tileSize = 32, edgeSize = 32,
+    insets = { left = 11, right = 12, top = 12, bottom = 11 },
+  })
+  f:SetMovable(true)
+  f:EnableMouse(true)
+  f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", function() this:StartMoving() end)
+  f:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
+  tinsert(UISpecialFrames, "BCRAFT_SettingsFrame")  -- Esc schliesst
+
+  local texts = {}   -- {obj, key}: wird beim Sprachwechsel neu gesetzt
+  f.texts = texts
+
+  local function label(key, x, y, font, parent)
+    local fs = (parent or f):CreateFontString(nil, "OVERLAY", font or "GameFontNormal")
+    fs:SetPoint("TOPLEFT", f, "TOPLEFT", x, y)
+    fs:SetText(BCRAFT_L[key])
+    table.insert(texts, { fs, key })
+    return fs
+  end
+
+  local function button(parent, key, w, x, y, fn)
+    local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    b:SetWidth(w)
+    b:SetHeight(24)
+    b:SetPoint("TOPLEFT", f, "TOPLEFT", x, y)
+    b:SetText(BCRAFT_L[key])
+    b:SetScript("OnClick", fn)
+    table.insert(texts, { b, key })
+    return b
+  end
+
+  local function check(name, key, y, fn)
+    local cb = CreateFrame("CheckButton", name, f, "UICheckButtonTemplate")
+    cb:SetWidth(24)
+    cb:SetHeight(24)
+    cb:SetPoint("TOPLEFT", f, "TOPLEFT", 18, y)
+    local t = getglobal(name .. "Text")
+    t:SetText(BCRAFT_L[key])
+    table.insert(texts, { t, key })
+    cb:SetScript("OnClick", function() fn(this:GetChecked() and true or false) end)
+    return cb
+  end
+
+  local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  title:SetPoint("TOP", f, "TOP", 0, -18)
+  title:SetText(BCRAFT_L.SET_TITLE)
+  table.insert(texts, { title, "SET_TITLE" })
+
+  local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+  close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -6)
+
+  -- Sprache
+  label("SET_LANG", 22, -54)
+  f.langBtns = {}
+  local function langBtn(code, text, x, w)
+    local b = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    b:SetWidth(w)
+    b:SetHeight(22)
+    b:SetPoint("TOPLEFT", f, "TOPLEFT", x, -50)
+    b:SetText(text)
+    b.code = code
+    b:SetScript("OnClick", function()
+      BCRAFT_SetLocale(this.code)
+      BCRAFT_ApplyLocale()
+      msg(BCRAFT_L.LANG_SWITCHED)
+    end)
+    table.insert(f.langBtns, b)
+    return b
+  end
+  langBtn("enUS", "EN", 110, 40)
+  langBtn("deDE", "DE", 154, 40)
+  local autoB = langBtn("auto", BCRAFT_L.SET_LANG_AUTO, 198, 54)
+  table.insert(texts, { autoB, "SET_LANG_AUTO" })
+
+  -- Schalter
+  f.onlineCB = check("BCRAFT_SetOnlineCB", "FILTER_ONLINE_ONLY", -82, function(on)
+    BCRAFT_SetOnlineOnly(on)
+  end)
+  f.mmCB = check("BCRAFT_SetMinimapCB", "SET_MINIMAP", -106, function(on)
+    ensureDB().settings.minimapButton = on
+    BCRAFT_MinimapButton_Init()
+  end)
+  f.dbgCB = check("BCRAFT_SetDebugCB", "SET_DEBUG", -130, function(on)
+    DEBUG = on
+    msg("Debug: " .. (DEBUG and "|cff00ff00AN|r" or "|cffff0000AUS|r"))
+  end)
+
+  -- Daten
+  label("SET_SECTION_DATA", 22, -166)
+  button(f, "BTN_RESCAN", 172, 22, -188, function() SlashCmdList["BCRAFT"]("rescan") end)
+  button(f, "BTN_SEND_ALL", 172, 206, -188, function() broadcastAll() end)
+  button(f, "BTN_SYNC", 172, 22, -216, function() startHashSync() end)
+  button(f, "BTN_EXPORT", 172, 206, -216, function() exportToCSV() end)
+  button(f, "BTN_SCANBANK", 172, 22, -244, function() scanBank() end)
+  button(f, "BTN_VERSIONCHECK", 172, 206, -244, function() SlashCmdList["BCRAFT"]("versioncheck") end)
+
+  -- Loeschen
+  local delDD = CreateFrame("Frame", "BCRAFT_DeleteDropDown", f, "UIDropDownMenuTemplate")
+  delDD:SetPoint("TOPLEFT", f, "TOPLEFT", 6, -270)
+  local function delDDInit()
+    local db = ensureDB()
+    local mine = db.characters[playerName()]
+    if not (mine and mine.profs) then return end
+    for pname, _ in pairs(mine.profs) do
+      local info = {}
+      info.text = BCRAFT_ProfName(pname)
+      info.value = pname
+      info.func = function()
+        local pn = this.value
+        UIDropDownMenu_SetText(BCRAFT_L.SET_DELETE_PROF, delDD)
+        confirmAction(string.format(BCRAFT_L.CONFIRM_DELETE_PROF, BCRAFT_ProfName(pn)), function()
+          SlashCmdList["BCRAFT"]("delete " .. pn)
+        end)
+      end
+      UIDropDownMenu_AddButton(info)
+    end
+  end
+  UIDropDownMenu_Initialize(delDD, delDDInit)
+  UIDropDownMenu_SetWidth(140, delDD)
+  UIDropDownMenu_SetText(BCRAFT_L.SET_DELETE_PROF, delDD)
+  f.delDD = delDD
+  button(f, "BTN_DELETE_ALL", 172, 206, -272, function()
+    confirmAction(BCRAFT_L.CONFIRM_DELETE_ALL, function()
+      SlashCmdList["BCRAFT"]("delete all")
+    end)
+  end)
+
+  -- Partner-Bereich: nur sichtbar, solange der Partnermodus an ist
+  local pb = CreateFrame("Frame", nil, f)
+  pb:SetAllPoints(f)
+  pb:Hide()
+  f.partnerBox = pb
+  label("SET_SECTION_PARTNER", 22, -314, nil, pb)
+  local codeFS = pb:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+  codeFS:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -338)
+  f.codeFS = codeFS
+
+  local codeBox = CreateFrame("EditBox", nil, pb, "InputBoxTemplate")
+  codeBox:SetWidth(150)
+  codeBox:SetHeight(20)
+  codeBox:SetPoint("TOPLEFT", f, "TOPLEFT", 30, -358)
+  codeBox:SetAutoFocus(false)
+  codeBox:SetMaxLetters(20)
+  local function joinWithCode()
+    local c = codeBox:GetText() or ""
+    if c ~= "" then
+      SlashCmdList["BCRAFT"]("partner add " .. c)
+      codeBox:SetText("")
+      codeBox:ClearFocus()
+    end
+  end
+  codeBox:SetScript("OnEnterPressed", joinWithCode)
+  codeBox:SetScript("OnEscapePressed", function() this:ClearFocus() end)
+  button(pb, "BTN_PARTNER_ENTER", 150, 206, -356, joinWithCode)
+  button(pb, "BTN_PARTNER_CREATE", 172, 22, -384, function() SlashCmdList["BCRAFT"]("partner create") end)
+  button(pb, "BTN_PARTNER_SHARE", 172, 206, -384, function() partnerShareAll() end)
+  button(pb, "BTN_CONNECT_MEMBERS", 172, 22, -412, function() pushPartnerCodeToGuild() end)
+  button(pb, "BTN_PARTNER_MODE_OFF", 172, 206, -412, function() partnerSetActive(false) end)
+
+  f:SetScript("OnShow", function() BCRAFT_RefreshSettings() end)
+  -- Zustand des Partnermodus beobachten (Befehle koennen ihn jederzeit aendern)
+  f:SetScript("OnUpdate", function()
+    this.poll = (this.poll or 0) + arg1
+    if this.poll < 0.5 then return end
+    this.poll = 0
+    local d = ensureDB()
+    local sig = tostring(d.partner.enabled) .. ":" .. tostring(d.partner.code)
+    if sig ~= this.sig then BCRAFT_RefreshSettings() end
+  end)
+
+  f:Hide()
+  return f
+end
+
+function BCRAFT_RefreshSettings(retext)
+  local f = BCRAFT_SettingsFrame
+  if not f then return end
+  local db = ensureDB()
+
+  if retext then
+    for i = 1, tlen(f.texts) do
+      local e = f.texts[i]
+      e[1]:SetText(BCRAFT_L[e[2]])
+    end
+    UIDropDownMenu_SetText(BCRAFT_L.SET_DELETE_PROF, f.delDD)
+  end
+
+  f.onlineCB:SetChecked(db.settings.onlineOnly)
+  f.mmCB:SetChecked(db.settings.minimapButton == true)
+  f.dbgCB:SetChecked(DEBUG)
+
+  local cur = db.settings.locale or "auto"
+  for i = 1, tlen(f.langBtns) do
+    local b = f.langBtns[i]
+    local fs = b:GetFontString()
+    if fs then
+      if b.code == cur then fs:SetTextColor(1, 0.82, 0) else fs:SetTextColor(0.8, 0.8, 0.8) end
+    end
+  end
+
+  local on = db.partner and db.partner.enabled
+  if on then
+    f:SetHeight(450)
+    f.partnerBox:Show()
+    if db.partner.code then
+      f.codeFS:SetText(BCRAFT_L.SET_PARTNER_CODE .. " |cffffff00" .. BCRAFT_Partner.FormatCode(db.partner.code) .. "|r")
+    else
+      f.codeFS:SetText(BCRAFT_L.SET_PARTNER_CODE .. " |cff888888" .. BCRAFT_L.SET_PARTNER_NOCODE .. "|r")
+    end
+  else
+    f:SetHeight(322)
+    f.partnerBox:Hide()
+  end
+  f.sig = tostring(db.partner.enabled) .. ":" .. tostring(db.partner.code)
+end
+
+function BCRAFT_ToggleSettings()
+  local f = BCRAFT_SettingsFrame or buildSettings()
+  if f:IsShown() then f:Hide() else f:Show() end
+end
+
+-- -------------------------
 -- Slash commands
 -- -------------------------
 SLASH_BCRAFT1 = "/bc"
@@ -3604,8 +3912,8 @@ SlashCmdList["BCRAFT"] = function(input)
         db.characters[myChar].profs[normalizedProf] = nil
         
         -- Also clear from guild
-        if db.guild[myChar] and db.guild[myChar].profs then
-          db.guild[myChar].profs[normalizedProf] = nil
+        if db.guild[myKey()] and db.guild[myKey()].profs then
+          db.guild[myKey()].profs[normalizedProf] = nil
         end
         
         msg("|cffff0000" .. BCRAFT_L.DELETED .. "|r " .. normalizedProf)
@@ -3750,23 +4058,8 @@ eventFrame:SetScript("OnEvent", function()
         end)
         joiner:Show()
 
-      elseif db.partner and not db.partner.code and not db.partner.declined then
-        -- Noch kein Code vorhanden und die Partnerschaft wurde nie bewusst
-        -- verlassen: einmalig in der Gilde nachfragen. Damit muss ein neues
-        -- Mitglied gar nichts tun -- weder Code eintippen noch warten, bis
-        -- jemand den Button drueckt.
-        local asker = CreateFrame("Frame")
-        asker:Hide()
-        asker.elapsed = 0
-        asker:SetScript("OnUpdate", function()
-          this.elapsed = this.elapsed + arg1
-          if this.elapsed < 8.0 then return end
-          this:Hide()
-          this:SetScript("OnUpdate", nil)
-          enqueueSend("GUILD", "PCODEREQ" .. SEP .. safe(playerName()))
-          debug("[PCODE] Partnercode in der Gilde angefragt")
-        end)
-        asker:Show()
+      -- Kein automatisches Nachfragen nach einem Partnercode mehr: der
+      -- Partnermodus ist nach jedem Login aus und startet nur per /bc partner on.
       end
     end
     
@@ -3862,9 +4155,8 @@ function BCRAFT_ApplyLocale()
     if f.titleFS then f.titleFS:SetText(BCRAFT_L.WINDOW_TITLE) end
     if f.searchLabelFS then f.searchLabelFS:SetText(BCRAFT_L.SEARCH_LABEL) end
     if f.shareBtn then f.shareBtn:SetText(BCRAFT_L.SHARE_BUTTON) end
-    if f.connectBtn then f.connectBtn:SetText(BCRAFT_L.BTN_CONNECT_MEMBERS) end
-    if f.partnerShareBtn then f.partnerShareBtn:SetText(BCRAFT_L.BTN_PARTNER_SHARE) end
-    if f.updatePartnerButtons then f.updatePartnerButtons() end
+    if f.onlineCBText then f.onlineCBText:SetText(BCRAFT_L.FILTER_ONLINE_ONLY) end
+    if BCRAFT_RefreshSettings then BCRAFT_RefreshSettings(true) end
 
     -- Highlight the active language button
     local cur = BCRAFT_GetLocale()

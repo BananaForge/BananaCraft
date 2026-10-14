@@ -14,6 +14,7 @@
 - **Guildless partners work too:** they are listed as `<no guild (Name)>` and shared via the partner channel only.
 - **Connect members without typing:** *Connect guild members* sends the code to everyone in your guild who has the addon. New members ask for it themselves 8 seconds after login.
 - **Sync that only fetches what is outdated:** `/bc sync` compares hashes, `/bc send` sends everything. CSV export for Discord and Excel.
+- **Settings window (gear icon)** with language, *Online only* filter, minimap button, rescan, send, sync, CSV export, bank scan, version check and delete. The `/bc` commands still work.
 - German and English, minimap button.
 
 ## Screenshots
@@ -33,7 +34,7 @@ When updating, delete the old folder first (if you come from *BananaRepublik Par
 
 **Partner setup (once):** guild A runs `/bc partner create` and passes the code on (whisper, Discord). Guild B runs `/bc partner add <code>`. Then click *Connect guild members* so everyone in your guild is connected, and click *Share with partner* (or `/bc partner share`) to send your data.
 
-The partner channel is **optional and off until you set it up**. Without a code the window only shows the guild button. The main button *Share database with guild* only ever sends to your own guild. With a code saved, the *Partner: ON/OFF* button turns the channel on or off without losing the code or the partner data, and *Share with partner* and *Connect guild members* appear while it is on.
+The partner mode is **optional and off after every login**. You turn it on with `/bc partner on` (or `create` / `add`). The main window only has the button *Share database with guild*, which only ever sends to your own guild. While the mode is on, the settings window (gear icon) shows a *Partner guild* section with *Create code*, *Join with code*, *Share with partner*, *Connect guild members* and *Turn partner mode off*. Turning it off keeps the code and the partner data.
 
 | Command | Effect |
 |---|---|
@@ -49,7 +50,7 @@ The partner channel is **optional and off until you set it up**. Without a code 
 | `/bc partner` | Partner status |
 | `/bc partner create` / `add <code>` | Create a code / join with a code |
 | `/bc partner code` / `newcode` | Show the code / generate a new one (the old one stops working) |
-| `/bc partner on` / `off` | Turn the partner channel on / off (keeps code and data) |
+| `/bc partner on` / `off` | Turn partner mode on / off (off after every login, keeps code and data) |
 | `/bc partner share` | Send your own data to the partner guild (separate from the guild sync) |
 | `/bc partner push` | Send the code to your own guild |
 | `/bc partner list` | List known partner guilds |
