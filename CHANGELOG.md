@@ -2,6 +2,12 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 2.4.0
+
+- **Neu: Alts von anderen Accounts per Export/Import.** Im Einstellungsfenster gibt es *Alts exportieren* und *Alts importieren*. Auf dem Account mit den Alts exportieren und den Text mit Strg+C kopieren, auf dem Hauptaccount im Importfenster mit Strg+V einfügen. Der Text wird nur als Daten gelesen (nichts wird ausgeführt), eine Prüfsumme erkennt abgeschnittene oder kaputte Texte. Importierte Charaktere verhalten sich wie eigene Alts: Abwählen im Einstellungsfenster, Teilen als „Alt von …" mit *Share database with guild*. Eigene, selbst gescannte Charaktere werden nie überschrieben. Befehle: `/bc altexport`, `/bc altimport`, `/bc altclear` (entfernt alle importierten Charaktere).
+- **Fix: CSV-Export** schlug im Spiel fehl (`string.gmatch` gibt es in WoW 1.12 nicht, dort heißt es `string.gfind`).
+- **Fix: Alts verschwanden nach 14 Tagen** aus der Liste, wenn sie lange nicht eingeloggt waren. Beim Veröffentlichen gilt ihr Stand jetzt als frisch.
+
 ## 2.3.0
 
 - **Neu: Alts des Accounts.** „Datenbank mit der Gilde teilen" nimmt jetzt auch die Berufe aller anderen Charaktere deines Accounts mit (die Daten liegen schon account-weit in `BananaCraftDB`; der Alt muss einmal mit dem Addon eingeloggt gewesen sein und seine Berufsfenster geöffnet haben). Sie erscheinen in der Gilde als Mitglied mit dem Zusatz „Alt von <Charakter>", unabhängig davon, ob der Alt in einer anderen Gilde oder gildenlos ist. Ist der Alt offline, aber der Besitzer online, gilt er als erreichbar und der Whisper geht an den Besitzer. Alts anderer Realms werden nicht geteilt. Im Einstellungsfenster lässt sich jeder Alt abwählen („Haken = wird geteilt"). Ohne Gilde werden keine Alts veröffentlicht.

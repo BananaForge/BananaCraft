@@ -54,7 +54,7 @@ local ADDON_NAME = "BananaCraft"
 local DB_NAME = "BananaCraftDB"
 local PREFIX = "BCRAFT0"
 local DEBUG = false  -- Debug messages OFF by default (use /bc debug to enable)
-local ADDON_VERSION = "2.3.0"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "2.4.0"  -- keep in sync with the .toc "## Version:" line
 
 -- /bc versioncheck state (see startHashSync section for PING/PONG, this is
 -- the separate, simpler VCHECK/VERSION request/response pair)
@@ -1226,6 +1226,11 @@ local function publishAccountAlts()
       end
       if sameRealm and hasRecipes and not data.noShare then
         db.guild[key] = { updated = data.updated or now(), profs = copyTable(data.profs) }
+        -- Beim Veroeffentlichen gilt der Stand als frisch, sonst raeumt die
+        -- 14-Tage-Bereinigung Alts weg, die lange nicht eingeloggt waren.
+        for _, pd in pairs(db.guild[key].profs) do
+          if type(pd) == "table" then pd.scannedAt = now() end
+        end
         db.altOf[key] = me
         count = count + 1
       elseif db.altOf[key] == me then
@@ -3299,7 +3304,7 @@ local function exportToCSV()
   
   -- Count lines
   local lineCount = 0
-  for _ in string.gmatch(csv, "[^\n]+") do
+  for _ in string.gfind(csv, "[^\n]+") do
     lineCount = lineCount + 1
   end
   
@@ -3385,6 +3390,354 @@ local function exportToCSV()
   debug("|cffffff00Strg+A|r → ganzen Text markieren")
   debug("|cffffff00Strg+C|r → kopieren")
   debug("Dann in Notepad einfügen und als .csv speichern!")
+end
+
+
+-- -------------------------
+-- Alt-Export / -Import (Text ueber die Zwischenablage)
+--
+-- Fuer Alts auf ANDEREN Accounts: dort "Alts exportieren", Text mit Strg+C
+-- kopieren, auf dem Hauptaccount "Alts importieren" und mit Strg+V einfuegen.
+-- Das Addon liest den Text nur als Daten (nichts wird ausgefuehrt). Danach
+-- gelten die Charaktere wie eigene Alts: sie werden mit "Share database with
+-- guild" als "Alt von <Charakter>" geteilt.
+--
+-- Format (reiner Text, ohne "|" und ohne Zeilenumbrueche):
+--   BCX1@@<Eintrag>@@<Eintrag>...@@END~<Anzahl>~<Pruefsumme>
+--   Eintrag = Name~Realm~Beruf~Rang~Max~Rezept^Rezept^...
+--   Rezept  = Name#Reagenzien#ItemID  (wie im Netzwerkprotokoll)
+-- -------------------------
+local ALT_FORMAT = "BCX1"
+local ALT_MAX_CHARS = 60
+local ALT_MAX_RECIPES = 600
+
+local function altSafe(str)
+  str = safe(str)
+  str = string.gsub(str, "@", "-")
+  return str
+end
+
+local function altExportString()
+  local db = ensureDB()
+  local myRealm = GetRealmName and GetRealmName() or ""
+
+  local names = {}
+  for name, data in pairs(db.characters) do
+    if type(data) == "table" and data.profs and not data.imported then
+      table.insert(names, name)
+    end
+  end
+  table.sort(names)
+
+  local records = {}
+  local charCount = 0
+  for i = 1, tlen(names) do
+    local name = names[i]
+    local data = db.characters[name]
+    local profNames = {}
+    for pname, pd in pairs(data.profs) do
+      if type(pd) == "table" and pd.recipes and tlen(pd.recipes) > 0 and not isBadProfName(pname) then
+        table.insert(profNames, pname)
+      end
+    end
+    table.sort(profNames)
+    if tlen(profNames) > 0 then
+      charCount = charCount + 1
+      for j = 1, tlen(profNames) do
+        local pd = data.profs[profNames[j]]
+        local recipes = {}
+        for r = 1, tlen(pd.recipes) do
+          local rec = pd.recipes[r]
+          local rname = type(rec) == "table" and rec.name or rec
+          if rname and rname ~= "" then
+            local rs = altSafe(rname)
+            if type(rec) == "table" then
+              local reagents = ""
+              if rec.reagents then
+                for k = 1, tlen(rec.reagents) do
+                  local rg = rec.reagents[k]
+                  reagents = reagents .. (rg.count or 1) .. "x" .. altSafe(rg.name) .. ";"
+                end
+              end
+              rs = rs .. "#" .. reagents
+              if rec.itemID then rs = rs .. "#" .. tostring(rec.itemID) end
+            end
+            table.insert(recipes, rs)
+          end
+        end
+        table.insert(records, altSafe(name) .. "~" .. altSafe(data.realm or myRealm) .. "~" .. altSafe(profNames[j])
+          .. "~" .. tostring(pd.rank or 0) .. "~" .. tostring(pd.maxRank or 0) .. "~" .. table.concat(recipes, LINE_SEP))
+      end
+    end
+  end
+
+  if tlen(records) == 0 then return nil, 0, 0 end
+  local body = table.concat(records, "@@")
+  local text = ALT_FORMAT .. "@@" .. body .. "@@END~" .. tlen(records) .. "~" .. hashString(body)
+  return text, charCount, tlen(records)
+end
+
+-- Rezeptzeile "Name#Reagenzien#ItemID" -> Rezept-Tabelle
+local function altParseRecipe(line)
+  local name = line
+  local reagents = {}
+  local itemID = nil
+  local firstSep = string.find(line, "#", 1, true)
+  if firstSep then
+    name = string.sub(line, 1, firstSep - 1)
+    local remainder = string.sub(line, firstSep + 1)
+    local reagentPart = remainder
+    local secondSep = string.find(remainder, "#", 1, true)
+    if secondSep then
+      reagentPart = string.sub(remainder, 1, secondSep - 1)
+      itemID = tonumber(string.sub(remainder, secondSep + 1))
+    end
+    local idx = 1
+    while idx <= string.len(reagentPart) do
+      local e = string.find(reagentPart, ";", idx, true)
+      if not e then break end
+      local rStr = string.sub(reagentPart, idx, e - 1)
+      local x = string.find(rStr, "x", 1, true)
+      if x then
+        local count = tonumber(string.sub(rStr, 1, x - 1))
+        local rname = string.sub(rStr, x + 1)
+        if count and rname ~= "" then table.insert(reagents, { count = count, name = rname }) end
+      end
+      idx = e + 1
+    end
+  end
+  if name == "" then return nil end
+  return { name = name, header = nil, reagents = reagents, itemID = itemID }
+end
+
+-- Text -> Charaktere in db.characters (als imported markiert).
+-- Rueckgabe: ok, Anzahl Charaktere, Anzahl Berufe, uebersprungene Namen | Fehlertext
+local function altImportString(text)
+  local db = ensureDB()
+  if type(text) ~= "string" then return false end
+
+  text = string.gsub(text, "[\r\n]", "")
+  text = string.gsub(text, "^%s+", "")
+  text = string.gsub(text, "%s+$", "")
+
+  local head = ALT_FORMAT .. "@@"
+  if string.sub(text, 1, string.len(head)) ~= head then return false end
+
+  -- letztes "@@END~" suchen
+  local endPos = nil
+  local from = 1
+  while true do
+    local f = string.find(text, "@@END~", from, true)
+    if not f then break end
+    endPos = f
+    from = f + 1
+  end
+  if not endPos then return false end
+
+  local body = string.sub(text, string.len(head) + 1, endPos - 1)
+  local tail = string.sub(text, endPos + string.len("@@END~"))
+  local _, _, cntS, hashS = string.find(tail, "^(%d+)~(%d+)$")
+  if not cntS or tonumber(hashS) ~= hashString(body) then return false end
+
+  local chars = {}
+  local order = {}
+  local recordCount = 0
+  local idx = 1
+  while idx <= string.len(body) + 1 do
+    local e = string.find(body, "@@", idx, true)
+    local rec
+    if e then rec = string.sub(body, idx, e - 1) idx = e + 2
+    else rec = string.sub(body, idx) idx = string.len(body) + 2 end
+
+    if rec ~= "" then
+      recordCount = recordCount + 1
+      local fields = {}
+      local fi = 1
+      for _ = 1, 5 do
+        local t = string.find(rec, "~", fi, true)
+        if not t then fields = nil break end
+        table.insert(fields, string.sub(rec, fi, t - 1))
+        fi = t + 1
+      end
+      if not fields then return false end
+      local recipeStr = string.sub(rec, fi)
+      local cname, realm, prof = fields[1], fields[2], fields[3]
+      if cname == "" or string.len(cname) > 24 or isBadProfName(prof) then return false end
+
+      local recipes = {}
+      local li = 1
+      while li <= string.len(recipeStr) and tlen(recipes) < ALT_MAX_RECIPES do
+        local le = string.find(recipeStr, LINE_SEP, li, true)
+        local line
+        if le then line = string.sub(recipeStr, li, le - 1) li = le + 1
+        else line = string.sub(recipeStr, li) li = string.len(recipeStr) + 1 end
+        local r = altParseRecipe(line)
+        if r then table.insert(recipes, r) end
+      end
+
+      if not chars[cname] then
+        chars[cname] = { realm = realm, profs = {} }
+        table.insert(order, cname)
+      end
+      chars[cname].profs[prof] = {
+        rank = tonumber(fields[4]) or 0,
+        maxRank = tonumber(fields[5]) or 0,
+        recipes = recipes,
+        scannedAt = now(),
+      }
+    end
+  end
+
+  if recordCount ~= tonumber(cntS) or tlen(order) == 0 or tlen(order) > ALT_MAX_CHARS then return false end
+
+  local me = playerName()
+  local imported, profCount = 0, 0
+  local skipped = {}
+  for i = 1, tlen(order) do
+    local cname = order[i]
+    local existing = db.characters[cname]
+    -- eigene, selbst gescannte Charaktere werden nie ueberschrieben
+    if cname == me or (existing and not existing.imported and existing.profs and next(existing.profs)) then
+      table.insert(skipped, cname)
+    else
+      db.characters[cname] = {
+        profs = chars[cname].profs,
+        updated = now(),
+        realm = chars[cname].realm,
+        imported = true,
+      }
+      imported = imported + 1
+      for _ in pairs(chars[cname].profs) do profCount = profCount + 1 end
+    end
+  end
+  return true, imported, profCount, skipped
+end
+
+-- Importierte Charaktere wieder entfernen
+local function altClearImported()
+  local db = ensureDB()
+  local removed = 0
+  local me = playerName()
+  local guild = BCRAFT_OwnGuild()
+  for name, data in pairs(db.characters) do
+    if type(data) == "table" and data.imported then
+      db.characters[name] = nil
+      local key = BCRAFT_MakeKey(name, guild)
+      if db.altOf[key] == me then
+        db.guild[key] = nil
+        db.altOf[key] = nil
+      end
+      removed = removed + 1
+    end
+  end
+  return removed
+end
+
+-- Fenster mit grossem, kopierbarem Textfeld (Export) bzw. Einfuegefeld (Import)
+local function showAltTextWindow(mode)
+  local f = BCRAFT_AltFrame
+  if not f then
+    f = CreateFrame("Frame", "BCRAFT_AltFrame", UIParent)
+    BCRAFT_AltFrame = f
+    f:SetWidth(600)
+    f:SetHeight(400)
+    f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    f:SetFrameStrata("DIALOG")
+    f:SetBackdrop({
+      bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+      edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+      tile = true, tileSize = 32, edgeSize = 32,
+      insets = { left = 8, right = 8, top = 8, bottom = 8 }
+    })
+    f:EnableMouse(true)
+    f:SetMovable(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", function() this:StartMoving() end)
+    f:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
+    tinsert(UISpecialFrames, "BCRAFT_AltFrame")
+
+    f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    f.title:SetPoint("TOP", f, "TOP", 0, -20)
+
+    f.info = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    f.info:SetPoint("TOP", f.title, "BOTTOM", 0, -10)
+    f.info:SetWidth(540)
+    f.info:SetJustifyH("CENTER")
+
+    local scroll = CreateFrame("ScrollFrame", "BCRAFT_AltScroll", f, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 20, -90)
+    scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -40, 55)
+
+    local editBox = CreateFrame("EditBox", nil, scroll)
+    editBox:SetWidth(520)
+    editBox:SetHeight(260)
+    editBox:SetMultiLine(true)
+    editBox:SetAutoFocus(false)
+    editBox:SetFontObject(GameFontWhite)
+    editBox:SetFont("Fonts\\ARIALN.TTF", 11)
+    editBox:SetMaxLetters(0)  -- unbegrenzt
+    scroll:SetScrollChild(editBox)
+    editBox:SetScript("OnEscapePressed", function() BCRAFT_AltFrame:Hide() end)
+    f.editBox = editBox
+
+    f.actionBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.actionBtn:SetWidth(170)
+    f.actionBtn:SetHeight(24)
+    f.actionBtn:SetPoint("BOTTOM", f, "BOTTOM", -95, 18)
+
+    local closeBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    closeBtn:SetWidth(120)
+    closeBtn:SetHeight(24)
+    closeBtn:SetPoint("BOTTOM", f, "BOTTOM", 95, 18)
+    closeBtn:SetText(BCRAFT_L.BTN_CLOSE)
+    closeBtn:SetScript("OnClick", function() BCRAFT_AltFrame:Hide() end)
+    f.closeBtn = closeBtn
+  end
+
+  f.closeBtn:SetText(BCRAFT_L.BTN_CLOSE)
+  f.mode = mode
+
+  if mode == "export" then
+    local text, charCount, recCount = altExportString()
+    f.title:SetText(BCRAFT_L.ALTX_TITLE_EXPORT)
+    if not text then
+      f.info:SetText("|cffff0000" .. BCRAFT_L.ALTX_NONE .. "|r")
+      f.editBox:SetText("")
+    else
+      f.info:SetText("|cff00ff00" .. BCRAFT_L.ALTX_INFO_EXPORT .. "|r\n|cffaaaaaa"
+        .. charCount .. " " .. BCRAFT_L.ALTX_CHARS .. ", " .. recCount .. " " .. BCRAFT_L.ALTX_PROFS .. "|r")
+      f.editBox:SetText(text)
+    end
+    f.actionBtn:SetText(BCRAFT_L.BTN_SELECT_ALL)
+    f.actionBtn:SetScript("OnClick", function()
+      BCRAFT_AltFrame.editBox:SetFocus()
+      BCRAFT_AltFrame.editBox:HighlightText()
+    end)
+    f:Show()
+    f.editBox:SetFocus()
+    f.editBox:HighlightText()
+  else
+    f.title:SetText(BCRAFT_L.ALTX_TITLE_IMPORT)
+    f.info:SetText("|cff00ff00" .. BCRAFT_L.ALTX_INFO_IMPORT .. "|r")
+    f.editBox:SetText("")
+    f.actionBtn:SetText(BCRAFT_L.BTN_DO_IMPORT)
+    f.actionBtn:SetScript("OnClick", function()
+      local ok, n, profs, skipped = altImportString(BCRAFT_AltFrame.editBox:GetText())
+      if not ok then
+        msg("|cffff0000" .. BCRAFT_L.ALTX_BAD .. "|r")
+        return
+      end
+      msg("|cff00ff00" .. BCRAFT_L.ALTX_DONE .. "|r " .. n .. " (" .. profs .. " " .. BCRAFT_L.ALTX_PROFS .. ")")
+      if tlen(skipped) > 0 then
+        msg("|cffff8800" .. BCRAFT_L.ALTX_SKIPPED .. "|r " .. table.concat(skipped, ", "))
+      end
+      msg("|cff888888" .. BCRAFT_L.ALTX_HINT .. "|r")
+      BCRAFT_AltFrame:Hide()
+      if BCRAFT_RefreshSettings then BCRAFT_RefreshSettings() end
+    end)
+    f:Show()
+    f.editBox:SetFocus()
+  end
 end
 
 -- -------------------------
@@ -3553,7 +3906,11 @@ local function buildSettings()
 
   -- Alts dieses Accounts: angehakt = wird mit "Share database with guild"
   -- geteilt. Die Zeilen werden in BCRAFT_RefreshSettings gefuellt.
-  local altLabel = label("SET_SECTION_ALTS", 22, -308)
+  -- Export/Import fuer Alts auf anderen Accounts
+  button(f, "BTN_ALT_EXPORT", 172, 22, -300, function() showAltTextWindow("export") end)
+  button(f, "BTN_ALT_IMPORT", 172, 206, -300, function() showAltTextWindow("import") end)
+
+  local altLabel = label("SET_SECTION_ALTS", 22, -338)
   f.altLabel = altLabel
   f.altCBs = {}
   for i = 1, 8 do
@@ -3668,7 +4025,7 @@ function BCRAFT_RefreshSettings(retext)
       local col = math.mod(i - 1, 2)
       local row = math.floor((i - 1) / 2)
       cb:ClearAllPoints()
-      cb:SetPoint("TOPLEFT", f, "TOPLEFT", 18 + col * 188, -330 - row * 24)
+      cb:SetPoint("TOPLEFT", f, "TOPLEFT", 18 + col * 188, -360 - row * 24)
       cb.charName = names[i]
       getglobal("BCRAFT_SetAltCB" .. i .. "Text"):SetText(names[i])
       cb:SetChecked(not db.characters[names[i]].noShare)
@@ -3678,10 +4035,10 @@ function BCRAFT_RefreshSettings(retext)
     end
   end
 
-  local contentEnd = 300
+  local contentEnd = 330
   if shown > 0 then
     f.altLabel:Show()
-    contentEnd = 330 + math.floor((shown + 1) / 2) * 24 + 4
+    contentEnd = 360 + math.floor((shown + 1) / 2) * 24 + 4
   else
     f.altLabel:Hide()
   end
@@ -3989,6 +4346,15 @@ SlashCmdList["BCRAFT"] = function(input)
   end
   if cmd == "export" then
     exportToCSV()
+    return
+  end
+  if cmd == "altexport" then showAltTextWindow("export") return end
+  if cmd == "altimport" then showAltTextWindow("import") return end
+  if cmd == "altclear" then
+    local n = altClearImported()
+    msg("|cff00ff00" .. BCRAFT_L.ALTX_CLEARED .. "|r " .. n)
+    if BCRAFT_RefreshSettings then BCRAFT_RefreshSettings() end
+    if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
     return
   end
   if cmd == "debug" then
