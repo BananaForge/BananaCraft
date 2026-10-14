@@ -54,7 +54,7 @@ local ADDON_NAME = "BananaCraft"
 local DB_NAME = "BananaCraftDB"
 local PREFIX = "BCRAFT0"
 local DEBUG = false  -- Debug messages OFF by default (use /bc debug to enable)
-local ADDON_VERSION = "2.4.0"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "2.5.0"  -- keep in sync with the .toc "## Version:" line
 
 -- /bc versioncheck state (see startHashSync section for PING/PONG, this is
 -- the separate, simpler VCHECK/VERSION request/response pair)
@@ -2857,6 +2857,11 @@ local function uiCreate()
   search:SetPoint("LEFT", searchLabel, "RIGHT", 10, 0)
   search:SetAutoFocus(false)
   search:SetScript("OnEnterPressed", function() this:ClearFocus() end)
+  -- Fokus merken: nur wenn das Suchfeld den Cursor hat, uebernimmt es
+  -- Shift-Klick-Links (siehe BCRAFT_InstallLinkHook)
+  search:SetScript("OnEditFocusGained", function() BCRAFT_SearchFocused = true end)
+  search:SetScript("OnEditFocusLost", function() BCRAFT_SearchFocused = false end)
+  f.search = search
   search:SetScript("OnTextChanged", function()
     UI_Search = this:GetText() or ""
     UI_ScrollOffset = 0
@@ -3740,6 +3745,75 @@ local function showAltTextWindow(mode)
   end
 end
 
+
+-- -------------------------
+-- Shift-Klick auf Item/Verzauberung/Rezept -> Name ins Suchfeld
+--
+-- Der 1.12-Client schreibt Shift-Klick-Links nur in die Chat-Eingabezeile,
+-- und nur wenn die sichtbar ist (ChatFrameEditBox:IsVisible()). Hat unser
+-- Suchfeld den Cursor, tun wir so, als waere sie sichtbar, und nehmen den
+-- Text selbst entgegen. Sonst laeuft alles wie gewohnt weiter.
+-- -------------------------
+local LINK_PREFIXES = {
+  "Formula", "Pattern", "Recipe", "Plans", "Schematic", "Manual", "Design",
+  "Formel", "Muster", "Rezept", "Pläne", "Plaene", "Schema", "Handbuch", "Entwurf",
+  "Enchanting", "Alchemy", "Blacksmithing", "Engineering", "Leatherworking",
+  "Tailoring", "Jewelcrafting", "Cooking", "First Aid", "Mining", "Smelting",
+  "Verzauberkunst", "Alchimie", "Schmiedekunst", "Ingenieurskunst",
+  "Lederverarbeitung", "Schneiderei", "Juwelenschleifen", "Kochkunst", "Erste Hilfe",
+  "Bergbau", "Schmelzen",
+}
+
+-- "|cff...|Hitem:123|h[Pattern: Brown Linen Vest]|h|r" -> "Brown Linen Vest"
+local function linkToSearchText(link)
+  if type(link) ~= "string" then return nil end
+  local _, _, name = string.find(link, "%[(.-)%]")
+  if not name then name = link end   -- schon reiner Text
+  local sep = string.find(name, ": ", 1, true)
+  if sep then
+    local prefix = string.sub(name, 1, sep - 1)
+    for i = 1, tlen(LINK_PREFIXES) do
+      if prefix == LINK_PREFIXES[i] then
+        name = string.sub(name, sep + 2)
+        break
+      end
+    end
+  end
+  name = string.gsub(name, "^%s+", "")
+  name = string.gsub(name, "%s+$", "")
+  if name == "" then return nil end
+  return name
+end
+
+local function searchHasLinkFocus()
+  return BCRAFT_SearchFocused and BCRAFT_UI and BCRAFT_UI.search
+    and BCRAFT_UI:IsShown() and IsShiftKeyDown and IsShiftKeyDown()
+end
+
+function BCRAFT_InstallLinkHook()
+  if BCRAFT_LinkHooked or not ChatFrameEditBox then return end
+  BCRAFT_LinkHooked = true
+
+  local origInsert = ChatFrameEditBox.Insert
+  local origIsVisible = ChatFrameEditBox.IsVisible
+
+  ChatFrameEditBox.IsVisible = function(self)
+    if searchHasLinkFocus() then return true end
+    return origIsVisible(self)
+  end
+
+  ChatFrameEditBox.Insert = function(self, text)
+    if searchHasLinkFocus() then
+      local name = linkToSearchText(text)
+      if name then
+        BCRAFT_UI.search:SetText(name)   -- loest die Suche ueber OnTextChanged aus
+        return
+      end
+    end
+    return origInsert(self, text)
+  end
+end
+
 -- -------------------------
 -- Einstellungsfenster (Zahnrad)
 --
@@ -4538,6 +4612,9 @@ eventFrame:SetScript("OnEvent", function()
 
     -- Initialize Minimap Button
     BCRAFT_MinimapButton_Init()
+
+    -- Shift-Klick auf Items/Verzauberungen schreibt in das Suchfeld
+    BCRAFT_InstallLinkHook()
 
     -- Partnerkanal automatisch betreten, damit niemand manuell /join tippen muss.
     -- Leicht verzoegert: direkt bei PLAYER_LOGIN ist das Kanalsystem noch nicht

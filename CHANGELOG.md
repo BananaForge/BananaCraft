@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 2.5.0
+
+- **Neu: Shift-Klick ins Suchfeld.** Steht der Cursor im Suchfeld, schreibt ein Shift-Klick auf ein Item, eine Verzauberung oder ein Rezept (Taschen, Berufsfenster, Händler, Chat-Links) dessen Namen ins Suchfeld und startet die Suche. Vorsilben wie „Formula:", „Pattern:" oder „Enchanting:" werden entfernt. Ohne Cursor im Suchfeld oder ohne Shift verhält sich der Chat wie gewohnt.
+
 ## 2.4.0
 
 - **Neu: Alts von anderen Accounts per Export/Import.** Im Einstellungsfenster gibt es *Alts exportieren* und *Alts importieren*. Auf dem Account mit den Alts exportieren und den Text mit Strg+C kopieren, auf dem Hauptaccount im Importfenster mit Strg+V einfügen. Der Text wird nur als Daten gelesen (nichts wird ausgeführt), eine Prüfsumme erkennt abgeschnittene oder kaputte Texte. Importierte Charaktere verhalten sich wie eigene Alts: Abwählen im Einstellungsfenster, Teilen als „Alt von …" mit *Share database with guild*. Eigene, selbst gescannte Charaktere werden nie überschrieben. Befehle: `/bc altexport`, `/bc altimport`, `/bc altclear` (entfernt alle importierten Charaktere).

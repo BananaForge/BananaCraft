@@ -2,7 +2,7 @@
 ## Title: BananaCraft
 ## Notes: Berufe & Rezepte teilen - inkl. Partnergilden ueber Einladecode
 ## Author: Lumihunt
-## Version: 2.4.0
+## Version: 2.5.0
 ## SavedVariables: BananaCraftDB
 
 BananaPresence.lua
