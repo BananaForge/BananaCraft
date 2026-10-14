@@ -14,6 +14,7 @@
 - **Guildless partners work too:** they are listed as `<no guild (Name)>` and shared via the partner channel only.
 - **Connect members without typing:** *Connect guild members* sends the code to everyone in your guild who has the addon. New members ask for it themselves 8 seconds after login.
 - **Sync that only fetches what is outdated:** `/bc sync` compares hashes, `/bc send` sends everything. CSV export for Discord and Excel.
+- **Alts of your account:** *Share database with guild* also sends the professions of your other characters (same realm). They show up as "Alt of <character>", whether the alt is in another guild or has none. You can untick single alts in the settings window. An alt has to have been logged in once with the addon, with its profession windows opened.
 - **Settings window (gear icon)** with language, *Online only* filter, minimap button, rescan, send, sync, CSV export, bank scan, version check and delete. The `/bc` commands still work.
 - German and English, minimap button.
 

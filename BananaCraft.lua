@@ -253,6 +253,14 @@ local function ensureDB()
   
   -- Keep db.me for backward compatibility (points to current character)
   db.me = db.characters[myChar]
+
+  -- Realm merken: Alts anderer Realms werden nicht veroeffentlicht, man
+  -- koennte sie dort nicht anfluestern.
+  if GetRealmName then db.me.realm = GetRealmName() end
+
+  -- altOf[Name@Gilde] = Besitzer. Wird zusammen mit den Alt-Rezepten verteilt,
+  -- damit jeder "Alt von <Besitzer>" sehen kann.
+  if not db.altOf then db.altOf = {} end
   
   -- Verwaiste Solo-Eintraege aufraeumen, sobald die Gilde bekannt ist.
   -- Wer frueher gildenlos war und inzwischen in einer Gilde ist, steht
@@ -1192,8 +1200,51 @@ function BCRAFT_SendAllRecipesForProfession(profName)
   BCRAFT_BroadcastProfession(profName)
 end
 
+-- Alle anderen Charaktere dieses Accounts (db.characters liegt account-weit in
+-- den SavedVariables) unter der aktuellen Gilde in die Gildenliste uebernehmen
+-- und als "Alt von <aktueller Charakter>" markieren. Danach verschickt
+-- broadcastAll() sie wie jeden anderen Eintrag. Die Gilde des Alts spielt keine
+-- Rolle: er erscheint als Mitglied der Gilde, in der man gerade eingeloggt ist.
+--   * ohne Gilde (Solo): nichts zu veroeffentlichen
+--   * anderer Realm: ausgenommen
+--   * "nicht teilen" (noShare): ausgenommen und aus der eigenen Liste entfernt
+local function publishAccountAlts()
+  local db = ensureDB()
+  local me = playerName()
+  local guild = BCRAFT_OwnGuild()
+  if string.sub(guild, 1, 5) == "Solo:" then return 0 end
+
+  local realm = GetRealmName and GetRealmName() or nil
+  local count = 0
+  for name, data in pairs(db.characters) do
+    if name ~= me and type(data) == "table" and data.profs then
+      local key = BCRAFT_MakeKey(name, guild)
+      local sameRealm = (not data.realm) or (not realm) or (data.realm == realm)
+      local hasRecipes = false
+      for _, pd in pairs(data.profs) do
+        if type(pd) == "table" and pd.recipes and tlen(pd.recipes) > 0 then hasRecipes = true break end
+      end
+      if sameRealm and hasRecipes and not data.noShare then
+        db.guild[key] = { updated = data.updated or now(), profs = copyTable(data.profs) }
+        db.altOf[key] = me
+        count = count + 1
+      elseif db.altOf[key] == me then
+        db.guild[key] = nil
+        db.altOf[key] = nil
+      end
+    end
+  end
+  return count
+end
+
 local function broadcastAll()
   local db = ensureDB()
+
+  -- Alts dieses Accounts zuerst in die Liste uebernehmen
+  local altCount = publishAccountAlts()
+  if altCount > 0 then
+    msg("|cff888888" .. BCRAFT_L.ALTS_INCLUDED .. " " .. altCount .. "|r")
+  end
   
   -- Clear existing queue
   BroadcastQueue = {}
@@ -1219,6 +1270,12 @@ local function broadcastAll()
   local totalJobs = tlen(BroadcastQueue)
   
   if totalJobs > 0 then
+    -- Zuordnung "Alt von ..." mitschicken (klein, eine Nachricht je Alt)
+    for altKey, owner in pairs(db.altOf) do
+      if db.guild[altKey] then
+        enqueueSend("GUILD", "ALT" .. SEP .. safe(altKey) .. SEP .. safe(owner))
+      end
+    end
     msg("|cffffff00" .. BCRAFT_L.TRANSFER_START .. "|r " .. totalJobs .. " " .. BCRAFT_L.PROFS_QUEUED)
     msg("|cff888888" .. BCRAFT_L.EST_TIME .. " " .. (totalJobs * 2) .. " " .. BCRAFT_L.SECONDS .. "|r")
     BroadcastTimer.elapsed = 0
@@ -1677,6 +1734,15 @@ local function handleAddonMessage(prefix, text, distrib, sender)
     return
   end
 
+  -- "Alt von ...": Zuordnung Alt -> Besitzer (Schluessel Name@Gilde)
+  if cmd == "ALT" then
+    if tlen(parts) >= 3 and string.find(parts[2], "@", 1, true) and parts[3] ~= "" and string.len(parts[3]) <= 24 then
+      db.altOf[parts[2]] = parts[3]
+      if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
+    end
+    return
+  end
+
   -- Datensaetze mit Platzhalter-Beruf "UNKNOWN" (alte Versionen) verwerfen
   if (cmd == "S" or cmd == "C" or cmd == "E") and tlen(parts) >= 3 and isBadProfName(parts[3]) then
     return
@@ -1947,8 +2013,20 @@ local function uiBuildData()
               isOnline = isPlayerOnline(pName or player)
             end
 
+            -- Alt eines Gildenmitglieds: ist der Alt selbst offline, aber der
+            -- Besitzer online, zaehlt er als erreichbar und der Whisper geht
+            -- an den Besitzer.
+            local altOf = db.altOf and db.altOf[player] or nil
+            local contact = pName or player
+            if altOf and not isForeign and not isOnline and isPlayerOnline(altOf) then
+              isOnline = true
+              contact = altOf
+            end
+
             table.insert(recipeMap[key].crafters, {
               player = pName or player,
+              altOf = altOf,
+              contact = contact,
               guild = pGuild,
               foreign = isForeign,
               rank = profData.rank or 0,
@@ -2279,11 +2357,14 @@ function BCRAFT_ShowRecipePopup(data)
           hasOnline = true
           local info = {}
           info.text = crafter.player .. " (" .. crafter.rank .. "/" .. crafter.maxRank .. ")"
+          if crafter.altOf then
+            info.text = info.text .. " - " .. BCRAFT_L.ALT_OF .. " " .. crafter.altOf
+          end
           info.notCheckable = true
           info.func = function()
             local editbox = DEFAULT_CHAT_FRAME.editBox or ChatFrameEditBox
             if editbox then
-              editbox:SetText("/w " .. crafter.player .. " ")
+              editbox:SetText("/w " .. (crafter.contact or crafter.player) .. " ")
               editbox:Show()
               editbox:SetFocus()
             end
@@ -2484,6 +2565,11 @@ function BCRAFT_UpdateRecipePopupContent(pop, data)
       local statusText = crafter.online and BCRAFT_L.ONLINE or BCRAFT_L.OFFLINE
       
       infoText = infoText .. "• " .. statusColor .. crafter.player .. "|r"
+
+      -- Alt eines Gildenmitglieds kennzeichnen
+      if crafter.altOf then
+        infoText = infoText .. " |cffcc99ff(" .. BCRAFT_L.ALT_OF .. " " .. crafter.altOf .. ")|r"
+      end
 
       -- Partnergilde sichtbar kennzeichnen
       if crafter.foreign and crafter.guild then
@@ -3352,7 +3438,7 @@ local function buildSettings()
 
   local function label(key, x, y, font, parent)
     local fs = (parent or f):CreateFontString(nil, "OVERLAY", font or "GameFontNormal")
-    fs:SetPoint("TOPLEFT", f, "TOPLEFT", x, y)
+    fs:SetPoint("TOPLEFT", parent or f, "TOPLEFT", x, y)
     fs:SetText(BCRAFT_L[key])
     table.insert(texts, { fs, key })
     return fs
@@ -3362,7 +3448,7 @@ local function buildSettings()
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     b:SetWidth(w)
     b:SetHeight(24)
-    b:SetPoint("TOPLEFT", f, "TOPLEFT", x, y)
+    b:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     b:SetText(BCRAFT_L[key])
     b:SetScript("OnClick", fn)
     table.insert(texts, { b, key })
@@ -3465,20 +3551,45 @@ local function buildSettings()
     end)
   end)
 
-  -- Partner-Bereich: nur sichtbar, solange der Partnermodus an ist
+  -- Alts dieses Accounts: angehakt = wird mit "Share database with guild"
+  -- geteilt. Die Zeilen werden in BCRAFT_RefreshSettings gefuellt.
+  local altLabel = label("SET_SECTION_ALTS", 22, -308)
+  f.altLabel = altLabel
+  f.altCBs = {}
+  for i = 1, 8 do
+    local cb = CreateFrame("CheckButton", "BCRAFT_SetAltCB" .. i, f, "UICheckButtonTemplate")
+    cb:SetWidth(24)
+    cb:SetHeight(24)
+    cb:SetScript("OnClick", function()
+      local d = ensureDB()
+      local rec = d.characters[this.charName]
+      if rec then
+        rec.noShare = (not this:GetChecked()) and true or nil
+        publishAccountAlts()   -- entfernt einen abgewaehlten Alt aus der eigenen Liste
+        if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
+      end
+    end)
+    cb:Hide()
+    f.altCBs[i] = cb
+  end
+
+  -- Partner-Bereich: nur sichtbar, solange der Partnermodus an ist.
+  -- Hoehe/Position richtet sich nach der Alt-Liste (siehe BCRAFT_RefreshSettings).
   local pb = CreateFrame("Frame", nil, f)
-  pb:SetAllPoints(f)
+  pb:SetWidth(396)
+  pb:SetHeight(140)
+  pb:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -310)
   pb:Hide()
   f.partnerBox = pb
-  label("SET_SECTION_PARTNER", 22, -314, nil, pb)
+  label("SET_SECTION_PARTNER", 22, -4, nil, pb)
   local codeFS = pb:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  codeFS:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -338)
+  codeFS:SetPoint("TOPLEFT", pb, "TOPLEFT", 22, -28)
   f.codeFS = codeFS
 
   local codeBox = CreateFrame("EditBox", nil, pb, "InputBoxTemplate")
   codeBox:SetWidth(150)
   codeBox:SetHeight(20)
-  codeBox:SetPoint("TOPLEFT", f, "TOPLEFT", 30, -358)
+  codeBox:SetPoint("TOPLEFT", pb, "TOPLEFT", 30, -48)
   codeBox:SetAutoFocus(false)
   codeBox:SetMaxLetters(20)
   local function joinWithCode()
@@ -3491,11 +3602,11 @@ local function buildSettings()
   end
   codeBox:SetScript("OnEnterPressed", joinWithCode)
   codeBox:SetScript("OnEscapePressed", function() this:ClearFocus() end)
-  button(pb, "BTN_PARTNER_ENTER", 150, 206, -356, joinWithCode)
-  button(pb, "BTN_PARTNER_CREATE", 172, 22, -384, function() SlashCmdList["BCRAFT"]("partner create") end)
-  button(pb, "BTN_PARTNER_SHARE", 172, 206, -384, function() partnerShareAll() end)
-  button(pb, "BTN_CONNECT_MEMBERS", 172, 22, -412, function() pushPartnerCodeToGuild() end)
-  button(pb, "BTN_PARTNER_MODE_OFF", 172, 206, -412, function() partnerSetActive(false) end)
+  button(pb, "BTN_PARTNER_ENTER", 150, 206, -46, joinWithCode)
+  button(pb, "BTN_PARTNER_CREATE", 172, 22, -74, function() SlashCmdList["BCRAFT"]("partner create") end)
+  button(pb, "BTN_PARTNER_SHARE", 172, 206, -74, function() partnerShareAll() end)
+  button(pb, "BTN_CONNECT_MEMBERS", 172, 22, -102, function() pushPartnerCodeToGuild() end)
+  button(pb, "BTN_PARTNER_MODE_OFF", 172, 206, -102, function() partnerSetActive(false) end)
 
   f:SetScript("OnShow", function() BCRAFT_RefreshSettings() end)
   -- Zustand des Partnermodus beobachten (Befehle koennen ihn jederzeit aendern)
@@ -3538,9 +3649,48 @@ function BCRAFT_RefreshSettings(retext)
     end
   end
 
+  -- Alts dieses Accounts (gleicher Realm, ohne den aktuellen Charakter)
+  local realm = GetRealmName and GetRealmName() or nil
+  local me = playerName()
+  local names = {}
+  for name, data in pairs(db.characters) do
+    if name ~= me and type(data) == "table" and data.profs
+       and ((not data.realm) or (not realm) or data.realm == realm) then
+      table.insert(names, name)
+    end
+  end
+  table.sort(names)
+  local shown = tlen(names)
+  if shown > 8 then shown = 8 end
+  for i = 1, 8 do
+    local cb = f.altCBs[i]
+    if i <= shown then
+      local col = math.mod(i - 1, 2)
+      local row = math.floor((i - 1) / 2)
+      cb:ClearAllPoints()
+      cb:SetPoint("TOPLEFT", f, "TOPLEFT", 18 + col * 188, -330 - row * 24)
+      cb.charName = names[i]
+      getglobal("BCRAFT_SetAltCB" .. i .. "Text"):SetText(names[i])
+      cb:SetChecked(not db.characters[names[i]].noShare)
+      cb:Show()
+    else
+      cb:Hide()
+    end
+  end
+
+  local contentEnd = 300
+  if shown > 0 then
+    f.altLabel:Show()
+    contentEnd = 330 + math.floor((shown + 1) / 2) * 24 + 4
+  else
+    f.altLabel:Hide()
+  end
+
   local on = db.partner and db.partner.enabled
   if on then
-    f:SetHeight(450)
+    f:SetHeight(contentEnd + 6 + 140 + 14)
+    f.partnerBox:ClearAllPoints()
+    f.partnerBox:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(contentEnd + 6))
     f.partnerBox:Show()
     if db.partner.code then
       f.codeFS:SetText(BCRAFT_L.SET_PARTNER_CODE .. " |cffffff00" .. BCRAFT_Partner.FormatCode(db.partner.code) .. "|r")
@@ -3548,7 +3698,7 @@ function BCRAFT_RefreshSettings(retext)
       f.codeFS:SetText(BCRAFT_L.SET_PARTNER_CODE .. " |cff888888" .. BCRAFT_L.SET_PARTNER_NOCODE .. "|r")
     end
   else
-    f:SetHeight(322)
+    f:SetHeight(contentEnd + 22)
     f.partnerBox:Hide()
   end
   f.sig = tostring(db.partner.enabled) .. ":" .. tostring(db.partner.code)

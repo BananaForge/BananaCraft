@@ -677,3 +677,11 @@ en.PARTNER_ON_WAITING = "Partner mode on, asking your guild for the code. Or ent
 de.PARTNER_ON_WAITING = "Partnermodus an, frage die Gilde nach dem Code. Oder gib einen ein mit /bc partner add <Code>."
 en.UNKNOWN_REPAIRED = "Repaired recipes that were filed under an unknown profession:"
 de.UNKNOWN_REPAIRED = "Rezepte repariert, die unter einem unbekannten Beruf gespeichert waren:"
+
+-- Alts des Accounts
+en.ALT_OF = "Alt of"
+de.ALT_OF = "Alt von"
+en.SET_SECTION_ALTS = "Alts on this account (checked = shared)"
+de.SET_SECTION_ALTS = "Alts dieses Accounts (Haken = wird geteilt)"
+en.ALTS_INCLUDED = "Alts of this account included:"
+de.ALTS_INCLUDED = "Alts dieses Accounts einbezogen:"
