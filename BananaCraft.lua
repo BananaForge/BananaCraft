@@ -54,7 +54,7 @@ local ADDON_NAME = "BananaCraft"
 local DB_NAME = "BananaCraftDB"
 local PREFIX = "BCRAFT0"
 local DEBUG = false  -- Debug messages OFF by default (use /bc debug to enable)
-local ADDON_VERSION = "2.5.0"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "2.6.0"  -- keep in sync with the .toc "## Version:" line
 
 -- /bc versioncheck state (see startHashSync section for PING/PONG, this is
 -- the separate, simpler VCHECK/VERSION request/response pair)
@@ -261,6 +261,16 @@ local function ensureDB()
   -- altOf[Name@Gilde] = Besitzer. Wird zusammen mit den Alt-Rezepten verteilt,
   -- damit jeder "Alt von <Besitzer>" sehen kann.
   if not db.altOf then db.altOf = {} end
+  if not db.altOfTs then db.altOfTs = {} end       -- Zeitstempel der Zuordnung (neueste gewinnt)
+  if not db.altConfirm then db.altConfirm = {} end -- vom Alt selbst bestaetigte Besitzer
+  -- db.mainChar: Hauptcharakter dieses Accounts (account-weit in den SavedVariables)
+  do
+    -- Alte "geloescht"-Markierungen (Zuordnung entfernt) nach 30 Tagen vergessen
+    local cutoff = time() - 30 * 24 * 60 * 60
+    for key, ts in pairs(db.altOfTs) do
+      if not db.altOf[key] and ts < cutoff then db.altOfTs[key] = nil end
+    end
+  end
   
   -- Verwaiste Solo-Eintraege aufraeumen, sobald die Gilde bekannt ist.
   -- Wer frueher gildenlos war und inzwischen in einer Gilde ist, steht
@@ -368,6 +378,7 @@ local function ensureDB()
 
   if not db.settings then db.settings = {} end
   if db.settings.onlineOnly == nil then db.settings.onlineOnly = false end
+  if db.settings.altConfirm == nil then db.settings.altConfirm = false end
   if not db.bank then db.bank = {} end  -- Bank inventory storage
   if not db.bankScanned then db.bankScanned = nil end  -- Last bank scan timestamp
   return db
@@ -1200,19 +1211,54 @@ function BCRAFT_SendAllRecipesForProfession(profName)
   BCRAFT_BroadcastProfession(profName)
 end
 
--- Alle anderen Charaktere dieses Accounts (db.characters liegt account-weit in
--- den SavedVariables) unter der aktuellen Gilde in die Gildenliste uebernehmen
--- und als "Alt von <aktueller Charakter>" markieren. Danach verschickt
--- broadcastAll() sie wie jeden anderen Eintrag. Die Gilde des Alts spielt keine
--- Rolle: er erscheint als Mitglied der Gilde, in der man gerade eingeloggt ist.
+-- Hauptcharakter dieses Accounts (Besitzer-Name fuer "Alt von ..."). Ohne
+-- Einstellung ist es der aktuell eingeloggte Charakter.
+local function altMainName()
+  local db = ensureDB()
+  if db.mainChar and db.characters[db.mainChar] then return db.mainChar end
+  return playerName()
+end
+
+-- Zuordnung Alt -> Besitzer setzen (owner = nil: kein Alt). Aenderungen
+-- bekommen einen neuen Zeitstempel, damit die neueste Angabe bei den
+-- anderen gewinnt (auch das Entfernen).
+local function setAltOf(db, key, owner)
+  if db.altOf[key] == owner then return end
+  db.altOf[key] = owner
+  db.altOfTs[key] = time()
+end
+
+-- Der Alt bestaetigt selbst "ich bin Alt von <Main>" (nur wenn die optionale
+-- Alt-Bestaetigung eingeschaltet ist und man als Alt eingeloggt ist).
+local function sendAltConfirm()
+  local db = ensureDB()
+  if not db.settings.altConfirm then return end
+  local main = db.mainChar
+  local me = playerName()
+  if not main or main == me or not db.characters[main] then return end
+  if string.sub(BCRAFT_OwnGuild(), 1, 5) == "Solo:" then return end
+  enqueueSend("GUILD", "ALTC" .. SEP .. safe(myKey()) .. SEP .. safe(main))
+end
+
+-- Alle Charaktere dieses Accounts (db.characters liegt account-weit in den
+-- SavedVariables) unter der aktuellen Gilde in die Gildenliste uebernehmen.
+-- Alles ausser dem Hauptcharakter gilt als "Alt von <Main>". Danach
+-- verschickt broadcastAll() sie wie jeden anderen Eintrag. Die Gilde des Alts
+-- spielt keine Rolle: er erscheint als Mitglied der Gilde, in der man gerade
+-- eingeloggt ist.
 --   * ohne Gilde (Solo): nichts zu veroeffentlichen
 --   * anderer Realm: ausgenommen
 --   * "nicht teilen" (noShare): ausgenommen und aus der eigenen Liste entfernt
+--     (der Hauptcharakter wird immer geteilt)
 local function publishAccountAlts()
   local db = ensureDB()
   local me = playerName()
   local guild = BCRAFT_OwnGuild()
   if string.sub(guild, 1, 5) == "Solo:" then return 0 end
+
+  local main = altMainName()
+  -- eigener Eintrag: Alt, wenn ein anderer Charakter als Main eingestellt ist
+  setAltOf(db, myKey(), (me ~= main) and main or nil)
 
   local realm = GetRealmName and GetRealmName() or nil
   local count = 0
@@ -1224,18 +1270,18 @@ local function publishAccountAlts()
       for _, pd in pairs(data.profs) do
         if type(pd) == "table" and pd.recipes and tlen(pd.recipes) > 0 then hasRecipes = true break end
       end
-      if sameRealm and hasRecipes and not data.noShare then
+      if sameRealm and hasRecipes and (name == main or not data.noShare) then
         db.guild[key] = { updated = data.updated or now(), profs = copyTable(data.profs) }
         -- Beim Veroeffentlichen gilt der Stand als frisch, sonst raeumt die
         -- 14-Tage-Bereinigung Alts weg, die lange nicht eingeloggt waren.
         for _, pd in pairs(db.guild[key].profs) do
           if type(pd) == "table" then pd.scannedAt = now() end
         end
-        db.altOf[key] = me
+        setAltOf(db, key, (name ~= main) and main or nil)
         count = count + 1
-      elseif db.altOf[key] == me then
+      elseif db.altOf[key] == main then
         db.guild[key] = nil
-        db.altOf[key] = nil
+        setAltOf(db, key, nil)
       end
     end
   end
@@ -1275,11 +1321,30 @@ local function broadcastAll()
   local totalJobs = tlen(BroadcastQueue)
   
   if totalJobs > 0 then
-    -- Zuordnung "Alt von ..." mitschicken (klein, eine Nachricht je Alt)
-    for altKey, owner in pairs(db.altOf) do
-      if db.guild[altKey] then
-        enqueueSend("GUILD", "ALT" .. SEP .. safe(altKey) .. SEP .. safe(owner))
+    -- Zuordnungen "Alt von ..." der eigenen Charaktere mitschicken (klein, eine
+    -- Nachricht je Charakter). Der eigene Eintrag kommt zuerst: der Empfaenger
+    -- prueft anhand des Absenders, ob die Angabe plausibel ist. Fremde
+    -- Zuordnungen werden nicht weitergereicht.
+    local mk = myKey()
+    local keys = {}
+    if db.altOf[mk] or db.altOfTs[mk] then table.insert(keys, mk) end
+    local seen = {}
+    for k, _ in pairs(db.altOfTs) do seen[k] = true end
+    for k, _ in pairs(db.altOf) do seen[k] = true end
+    for k, _ in pairs(seen) do
+      local nm = BCRAFT_SplitKey(k)
+      if k ~= mk and nm and db.characters[nm] then table.insert(keys, k) end
+    end
+    for i = 1, tlen(keys) do
+      local k = keys[i]
+      local owner = db.altOf[k]
+      if (owner and db.guild[k]) or (not owner and db.altOfTs[k]) then
+        enqueueSend("GUILD", "ALT" .. SEP .. safe(k) .. SEP .. safe(owner or "") .. SEP .. tostring(db.altOfTs[k] or 0))
       end
+    end
+    sendAltConfirm()
+    if not db.mainChar and tlen(keys) > 0 then
+      msg("|cffff8800" .. BCRAFT_L.SET_PICK_MAIN_HINT .. "|r")
     end
     msg("|cffffff00" .. BCRAFT_L.TRANSFER_START .. "|r " .. totalJobs .. " " .. BCRAFT_L.PROFS_QUEUED)
     msg("|cff888888" .. BCRAFT_L.EST_TIME .. " " .. (totalJobs * 2) .. " " .. BCRAFT_L.SECONDS .. "|r")
@@ -1739,11 +1804,48 @@ local function handleAddonMessage(prefix, text, distrib, sender)
     return
   end
 
-  -- "Alt von ...": Zuordnung Alt -> Besitzer (Schluessel Name@Gilde)
+  -- "Alt von ...": Zuordnung Alt -> Besitzer (Schluessel Name@Gilde) mit
+  -- Zeitstempel. Plausibilitaetspruefung anhand des Absenders: er muss der Alt
+  -- selbst, der Besitzer oder ein bereits bekannter Alt desselben Besitzers
+  -- sein. Einen Beweis fuer "gleicher Account" gibt es im 1.12-Client nicht.
   if cmd == "ALT" then
+    if tlen(parts) >= 3 and string.find(parts[2], "@", 1, true) and string.len(parts[3]) <= 24 then
+      local key, owner = parts[2], parts[3]
+      local ts = tonumber(parts[4]) or 0
+      local nName, nGuild = BCRAFT_SplitKey(key)
+      local ok = false
+      if sender == nName then
+        ok = true
+      elseif owner ~= "" then
+        if sender == owner or db.altOf[BCRAFT_MakeKey(sender, nGuild)] == owner then ok = true end
+      else
+        local cur = db.altOf[key]
+        if cur and (sender == cur or db.altOf[BCRAFT_MakeKey(sender, nGuild)] == cur) then ok = true end
+      end
+      -- aeltere Angaben (oder gleich alte) verdraengen keine neueren
+      local oldTs = db.altOfTs[key]
+      if ok and oldTs and ts > 0 and ts <= oldTs then ok = false end
+      if ok and ts == 0 and oldTs and oldTs > 0 then ok = false end
+      if ok and owner == "" and ts == 0 then ok = false end
+      if ok then
+        if owner == "" then db.altOf[key] = nil else db.altOf[key] = owner end
+        db.altOfTs[key] = ts
+        if db.altConfirm[key] and db.altConfirm[key] ~= owner then db.altConfirm[key] = nil end
+        if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
+      end
+    end
+    return
+  end
+
+  -- Der Alt bestaetigt selbst: "ich bin Alt von <Besitzer>". Gilt nur, wenn
+  -- der Absender wirklich der Charakter aus dem Schluessel ist.
+  if cmd == "ALTC" then
     if tlen(parts) >= 3 and string.find(parts[2], "@", 1, true) and parts[3] ~= "" and string.len(parts[3]) <= 24 then
-      db.altOf[parts[2]] = parts[3]
-      if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
+      local nName = BCRAFT_SplitKey(parts[2])
+      if sender == nName then
+        db.altConfirm[parts[2]] = parts[3]
+        if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
+      end
     end
     return
   end
@@ -2028,9 +2130,18 @@ local function uiBuildData()
               contact = altOf
             end
 
+            -- bestaetigt: eigener Account (kennen wir selbst) oder der Alt hat es
+            -- selbst gemeldet
+            local altConfirmed = false
+            if altOf then
+              if db.characters[pName or player] then altConfirmed = true
+              else altConfirmed = (db.altConfirm[player] == altOf) end
+            end
+
             table.insert(recipeMap[key].crafters, {
               player = pName or player,
               altOf = altOf,
+              altConfirmed = altConfirmed,
               contact = contact,
               guild = pGuild,
               foreign = isForeign,
@@ -2573,7 +2684,11 @@ function BCRAFT_UpdateRecipePopupContent(pop, data)
 
       -- Alt eines Gildenmitglieds kennzeichnen
       if crafter.altOf then
-        infoText = infoText .. " |cffcc99ff(" .. BCRAFT_L.ALT_OF .. " " .. crafter.altOf .. ")|r"
+        local altNote = BCRAFT_L.ALT_OF .. " " .. crafter.altOf
+        if db.settings.altConfirm then
+          altNote = altNote .. ", " .. (crafter.altConfirmed and BCRAFT_L.ALT_CONFIRMED or BCRAFT_L.ALT_CLAIMED)
+        end
+        infoText = infoText .. " |cffcc99ff(" .. altNote .. ")|r"
       end
 
       -- Partnergilde sichtbar kennzeichnen
@@ -3628,10 +3743,11 @@ local function altClearImported()
     if type(data) == "table" and data.imported then
       db.characters[name] = nil
       local key = BCRAFT_MakeKey(name, guild)
-      if db.altOf[key] == me then
+      if db.altOf[key] or db.guild[key] then
         db.guild[key] = nil
-        db.altOf[key] = nil
+        setAltOf(db, key, nil)
       end
+      if db.mainChar == name then db.mainChar = nil end
       removed = removed + 1
     end
   end
@@ -3882,11 +3998,11 @@ local function buildSettings()
     return b
   end
 
-  local function check(name, key, y, fn)
+  local function check(name, key, y, fn, x)
     local cb = CreateFrame("CheckButton", name, f, "UICheckButtonTemplate")
     cb:SetWidth(24)
     cb:SetHeight(24)
-    cb:SetPoint("TOPLEFT", f, "TOPLEFT", 18, y)
+    cb:SetPoint("TOPLEFT", f, "TOPLEFT", x or 18, y)
     local t = getglobal(name .. "Text")
     t:SetText(BCRAFT_L[key])
     table.insert(texts, { t, key })
@@ -3937,6 +4053,20 @@ local function buildSettings()
     DEBUG = on
     msg("Debug: " .. (DEBUG and "|cff00ff00AN|r" or "|cffff0000AUS|r"))
   end)
+  -- Optionale Alt-Bestaetigung: Alts melden selbst "ich bin Alt von <Main>",
+  -- und die Anzeige unterscheidet "bestaetigt" und "angegeben".
+  f.confirmCB = check("BCRAFT_SetConfirmCB", "SET_ALT_CONFIRM", -130, function(on)
+    ensureDB().settings.altConfirm = on
+    if on then sendAltConfirm() end
+    if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
+  end, 206)
+  f.confirmCB:SetScript("OnEnter", function()
+    GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
+    GameTooltip:SetText(BCRAFT_L.SET_ALT_CONFIRM, 1, 1, 1)
+    GameTooltip:AddLine(BCRAFT_L.SET_ALT_CONFIRM_TIP, 0.8, 0.8, 0.8, 1)
+    GameTooltip:Show()
+  end)
+  f.confirmCB:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
   -- Daten
   label("SET_SECTION_DATA", 22, -166)
@@ -3987,7 +4117,9 @@ local function buildSettings()
   local altLabel = label("SET_SECTION_ALTS", 22, -338)
   f.altLabel = altLabel
   f.altCBs = {}
-  for i = 1, 8 do
+  f.mainCBs = {}
+  for i = 1, 10 do
+    -- links: teilen (Haken), rechts: Hauptcharakter (genau einer)
     local cb = CreateFrame("CheckButton", "BCRAFT_SetAltCB" .. i, f, "UICheckButtonTemplate")
     cb:SetWidth(24)
     cb:SetHeight(24)
@@ -4002,6 +4134,25 @@ local function buildSettings()
     end)
     cb:Hide()
     f.altCBs[i] = cb
+
+    local mb = CreateFrame("CheckButton", "BCRAFT_SetMainCB" .. i, f, "UICheckButtonTemplate")
+    mb:SetWidth(24)
+    mb:SetHeight(24)
+    mb:SetScript("OnClick", function()
+      local d = ensureDB()
+      if d.characters[this.charName] then
+        d.mainChar = this.charName
+        d.characters[this.charName].noShare = nil
+        publishAccountAlts()
+        sendAltConfirm()
+        BCRAFT_RefreshSettings()
+        if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
+      else
+        this:SetChecked(false)
+      end
+    end)
+    mb:Hide()
+    f.mainCBs[i] = mb
   end
 
   -- Partner-Bereich: nur sichtbar, solange der Partnermodus an ist.
@@ -4080,41 +4231,63 @@ function BCRAFT_RefreshSettings(retext)
     end
   end
 
-  -- Alts dieses Accounts (gleicher Realm, ohne den aktuellen Charakter)
+  -- Charaktere dieses Accounts (gleicher Realm). Der aktuelle steht immer in
+  -- der Liste, die anderen nur mit Berufsdaten.
   local realm = GetRealmName and GetRealmName() or nil
   local me = playerName()
   local names = {}
   for name, data in pairs(db.characters) do
-    if name ~= me and type(data) == "table" and data.profs
-       and ((not data.realm) or (not realm) or data.realm == realm) then
+    if type(data) == "table" and (name == me or (data.profs
+       and ((not data.realm) or (not realm) or data.realm == realm))) then
       table.insert(names, name)
     end
   end
   table.sort(names)
   local shown = tlen(names)
-  if shown > 8 then shown = 8 end
-  for i = 1, 8 do
+  if shown > 10 then shown = 10 end
+  if f.confirmCB then f.confirmCB:SetChecked(db.settings.altConfirm) end
+  for i = 1, 10 do
     local cb = f.altCBs[i]
+    local mb = f.mainCBs[i]
     if i <= shown then
       local col = math.mod(i - 1, 2)
       local row = math.floor((i - 1) / 2)
+      local x = 18 + col * 188
+      local y = -360 - row * 24
+      local name = names[i]
       cb:ClearAllPoints()
-      cb:SetPoint("TOPLEFT", f, "TOPLEFT", 18 + col * 188, -360 - row * 24)
-      cb.charName = names[i]
-      getglobal("BCRAFT_SetAltCB" .. i .. "Text"):SetText(names[i])
-      cb:SetChecked(not db.characters[names[i]].noShare)
+      cb:SetPoint("TOPLEFT", f, "TOPLEFT", x, y)
+      cb.charName = name
+      getglobal("BCRAFT_SetAltCB" .. i .. "Text"):SetText(name)
+      local isMain = (db.mainChar == name)
+      if name == me or isMain then
+        cb:SetChecked(true)       -- aktueller Charakter und Main werden immer geteilt
+        cb:Disable()
+      else
+        cb:SetChecked(not db.characters[name].noShare)
+        cb:Enable()
+      end
       cb:Show()
+      mb:ClearAllPoints()
+      mb:SetPoint("TOPLEFT", f, "TOPLEFT", x + 122, y)
+      mb.charName = name
+      getglobal("BCRAFT_SetMainCB" .. i .. "Text"):SetText(BCRAFT_L.SET_MAIN_RADIO)
+      mb:SetChecked(isMain)
+      mb:Show()
     else
       cb:Hide()
+      mb:Hide()
     end
   end
 
   local contentEnd = 330
-  if shown > 0 then
+  if shown > 1 then
+    f.altLabel:SetText(BCRAFT_L.SET_SECTION_ALTS .. (db.mainChar and "" or (" |cffff8800" .. BCRAFT_L.SET_PICK_MAIN .. "|r")))
     f.altLabel:Show()
     contentEnd = 360 + math.floor((shown + 1) / 2) * 24 + 4
   else
     f.altLabel:Hide()
+    for i = 1, 10 do f.altCBs[i]:Hide() f.mainCBs[i]:Hide() end
   end
 
   local on = db.partner and db.partner.enabled
@@ -4615,6 +4788,20 @@ eventFrame:SetScript("OnEvent", function()
 
     -- Shift-Klick auf Items/Verzauberungen schreibt in das Suchfeld
     BCRAFT_InstallLinkHook()
+
+    -- Optionale Alt-Bestaetigung: als Alt eingeloggt meldet der Charakter kurz
+    -- nach dem Login "ich bin Alt von <Main>" (eine kleine Nachricht)
+    do
+      local confirmer = CreateFrame("Frame")
+      confirmer.elapsed = 0
+      confirmer:SetScript("OnUpdate", function()
+        this.elapsed = this.elapsed + arg1
+        if this.elapsed < 30 then return end
+        this:Hide()
+        this:SetScript("OnUpdate", nil)
+        sendAltConfirm()
+      end)
+    end
 
     -- Partnerkanal automatisch betreten, damit niemand manuell /join tippen muss.
     -- Leicht verzoegert: direkt bei PLAYER_LOGIN ist das Kanalsystem noch nicht

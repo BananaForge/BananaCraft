@@ -2,6 +2,12 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 2.6.0
+
+- **Neu: Hauptcharakter festlegen.** Im Einstellungsfenster (Bereich „Charaktere dieses Accounts") wählt jeder Spieler per Auswahl rechts neben dem Namen seinen **Main**. Alle anderen Charaktere des Accounts sind „Alt von <Main>", egal mit welchem Charakter man eingeloggt ist; links neben dem Namen lässt sich jeder Alt abwählen (der Main und der aktuelle Charakter werden immer geteilt). Ohne gewählten Main gilt wie bisher der eingeloggte Charakter.
+- **Neu: Alt-Bestätigung (optional, standardmäßig aus).** Mit dem Haken „Alt-Bestätigung" melden sich Alts beim Login selbst („ich bin Alt von <Main>"), und die Liste zeigt „bestätigt" oder „angegeben". Eigene Charaktere gelten immer als bestätigt. **Das ist kein Beweis für „derselbe Account":** der 1.12-Client kennt keine Konto-Kennung, die Angabe stammt immer vom Absender.
+- **Neu: Plausibilitätsprüfung der Zuordnung.** Eine Angabe „X ist Alt von Y" wird nur akzeptiert, wenn der Absender X, Y oder ein bekannter Alt von Y ist. Zuordnungen tragen einen Zeitstempel (die neueste gilt), und ein Wechsel des Mains oder Abwählen eines Alts entfernt den Zusatz bei den anderen. Fremde Zuordnungen werden nicht mehr weitergereicht, sie kommen nur vom Besitzer.
+
 ## 2.5.0
 
 - **Neu: Shift-Klick ins Suchfeld.** Steht der Cursor im Suchfeld, schreibt ein Shift-Klick auf ein Item, eine Verzauberung oder ein Rezept (Taschen, Berufsfenster, Händler, Chat-Links) dessen Namen ins Suchfeld und startet die Suche. Vorsilben wie „Formula:", „Pattern:" oder „Enchanting:" werden entfernt. Ohne Cursor im Suchfeld oder ohne Shift verhält sich der Chat wie gewohnt.
