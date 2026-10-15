@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 2.6.1
+
+- **Einstellungsfenster: zwei Auswahlmenüs statt Liste.** Links „Alts von anderen Accounts" (importierte Charaktere, nur teilen/nicht teilen), rechts „Twinks auf selbem Account" (Main wählen und Twinks teilen/nicht teilen). Der Main ist nur rechts wählbar. Die Menüköpfe zeigen den Stand („Main: Lumihunt", „2 importiert").
+
 ## 2.6.0
 
 - **Neu: Hauptcharakter festlegen.** Im Einstellungsfenster (Bereich „Charaktere dieses Accounts") wählt jeder Spieler per Auswahl rechts neben dem Namen seinen **Main**. Alle anderen Charaktere des Accounts sind „Alt von <Main>", egal mit welchem Charakter man eingeloggt ist; links neben dem Namen lässt sich jeder Alt abwählen (der Main und der aktuelle Charakter werden immer geteilt). Ohne gewählten Main gilt wie bisher der eingeloggte Charakter.

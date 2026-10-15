@@ -54,7 +54,7 @@ local ADDON_NAME = "BananaCraft"
 local DB_NAME = "BananaCraftDB"
 local PREFIX = "BCRAFT0"
 local DEBUG = false  -- Debug messages OFF by default (use /bc debug to enable)
-local ADDON_VERSION = "2.6.0"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "2.6.1"  -- keep in sync with the .toc "## Version:" line
 
 -- /bc versioncheck state (see startHashSync section for PING/PONG, this is
 -- the separate, simpler VCHECK/VERSION request/response pair)
@@ -4114,46 +4114,122 @@ local function buildSettings()
   button(f, "BTN_ALT_EXPORT", 172, 22, -300, function() showAltTextWindow("export") end)
   button(f, "BTN_ALT_IMPORT", 172, 206, -300, function() showAltTextWindow("import") end)
 
-  local altLabel = label("SET_SECTION_ALTS", 22, -338)
-  f.altLabel = altLabel
-  f.altCBs = {}
-  f.mainCBs = {}
-  for i = 1, 10 do
-    -- links: teilen (Haken), rechts: Hauptcharakter (genau einer)
-    local cb = CreateFrame("CheckButton", "BCRAFT_SetAltCB" .. i, f, "UICheckButtonTemplate")
-    cb:SetWidth(24)
-    cb:SetHeight(24)
-    cb:SetScript("OnClick", function()
-      local d = ensureDB()
-      local rec = d.characters[this.charName]
-      if rec then
-        rec.noShare = (not this:GetChecked()) and true or nil
-        publishAccountAlts()   -- entfernt einen abgewaehlten Alt aus der eigenen Liste
-        if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
-      end
-    end)
-    cb:Hide()
-    f.altCBs[i] = cb
+  -- Zwei Auswahlmenues nebeneinander:
+  --   links  "Alts von anderen Accounts" (importierte Charaktere): nur teilen/nicht teilen
+  --   rechts "Twinks auf selbem Account": Main waehlen und Alts teilen/nicht teilen
+  -- Der Main ist nur rechts waehlbar, importierte Alts sind reine Zugabe.
+  label("SET_ALTS_OTHER", 22, -338)
+  label("SET_ALTS_SAME", 222, -338)
 
-    local mb = CreateFrame("CheckButton", "BCRAFT_SetMainCB" .. i, f, "UICheckButtonTemplate")
-    mb:SetWidth(24)
-    mb:SetHeight(24)
-    mb:SetScript("OnClick", function()
-      local d = ensureDB()
-      if d.characters[this.charName] then
-        d.mainChar = this.charName
-        d.characters[this.charName].noShare = nil
-        publishAccountAlts()
-        sendAltConfirm()
-        BCRAFT_RefreshSettings()
-        if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
-      else
-        this:SetChecked(false)
-      end
-    end)
-    mb:Hide()
-    f.mainCBs[i] = mb
+  local function afterAltChange()
+    publishAccountAlts()
+    BCRAFT_RefreshSettings()
+    if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
   end
+
+  local function titleEntry(text)
+    local info = {}
+    info.text = text
+    info.isTitle = 1
+    info.notCheckable = 1
+    UIDropDownMenu_AddButton(info)
+  end
+
+  -- links: importierte Charaktere
+  local otherDD = CreateFrame("Frame", "BCRAFT_OtherAltsDropDown", f, "UIDropDownMenuTemplate")
+  otherDD:SetPoint("TOPLEFT", f, "TOPLEFT", 6, -356)
+  UIDropDownMenu_Initialize(otherDD, function()
+    local db = ensureDB()
+    local names = {}
+    for name, data in pairs(db.characters) do
+      if type(data) == "table" and data.imported then table.insert(names, name) end
+    end
+    table.sort(names)
+    titleEntry(BCRAFT_L.SET_MENU_SHARE)
+    if tlen(names) == 0 then
+      local info = {}
+      info.text = BCRAFT_L.SET_DD_NONE
+      info.notCheckable = 1
+      info.func = function() end
+      UIDropDownMenu_AddButton(info)
+    end
+    for i = 1, tlen(names) do
+      local name = names[i]
+      local info = {}
+      info.text = name
+      info.checked = not db.characters[name].noShare
+      info.func = function()
+        local rec = ensureDB().characters[name]
+        if rec then
+          rec.noShare = (not rec.noShare) and true or nil
+          afterAltChange()
+        end
+      end
+      UIDropDownMenu_AddButton(info)
+    end
+  end)
+  UIDropDownMenu_SetWidth(150, otherDD)
+  f.otherDD = otherDD
+
+  -- rechts: Charaktere dieses Accounts
+  local sameDD = CreateFrame("Frame", "BCRAFT_SameAltsDropDown", f, "UIDropDownMenuTemplate")
+  sameDD:SetPoint("TOPLEFT", f, "TOPLEFT", 206, -356)
+  UIDropDownMenu_Initialize(sameDD, function()
+    local db = ensureDB()
+    local realm = GetRealmName and GetRealmName() or nil
+    local me = playerName()
+    local names = {}
+    for name, data in pairs(db.characters) do
+      if type(data) == "table" and not data.imported and (name == me or (data.profs
+         and ((not data.realm) or (not realm) or data.realm == realm))) then
+        table.insert(names, name)
+      end
+    end
+    table.sort(names)
+
+    titleEntry(BCRAFT_L.SET_MENU_MAIN)
+    for i = 1, tlen(names) do
+      local name = names[i]
+      local info = {}
+      info.text = name
+      info.checked = (db.mainChar == name)
+      info.func = function()
+        local d = ensureDB()
+        if d.characters[name] then
+          d.mainChar = name
+          d.characters[name].noShare = nil
+          sendAltConfirm()
+          afterAltChange()
+        end
+      end
+      UIDropDownMenu_AddButton(info)
+    end
+
+    -- Teilen-Haken nur fuer Charaktere, die nicht Main und nicht der aktuelle sind
+    local others = {}
+    for i = 1, tlen(names) do
+      if names[i] ~= me and names[i] ~= db.mainChar then table.insert(others, names[i]) end
+    end
+    if tlen(others) > 0 then
+      titleEntry(BCRAFT_L.SET_MENU_SHARE)
+      for i = 1, tlen(others) do
+        local name = others[i]
+        local info = {}
+        info.text = name
+        info.checked = not db.characters[name].noShare
+        info.func = function()
+          local rec = ensureDB().characters[name]
+          if rec then
+            rec.noShare = (not rec.noShare) and true or nil
+            afterAltChange()
+          end
+        end
+        UIDropDownMenu_AddButton(info)
+      end
+    end
+  end)
+  UIDropDownMenu_SetWidth(150, sameDD)
+  f.sameDD = sameDD
 
   -- Partner-Bereich: nur sichtbar, solange der Partnermodus an ist.
   -- Hoehe/Position richtet sich nach der Alt-Liste (siehe BCRAFT_RefreshSettings).
@@ -4231,64 +4307,20 @@ function BCRAFT_RefreshSettings(retext)
     end
   end
 
-  -- Charaktere dieses Accounts (gleicher Realm). Der aktuelle steht immer in
-  -- der Liste, die anderen nur mit Berufsdaten.
-  local realm = GetRealmName and GetRealmName() or nil
-  local me = playerName()
-  local names = {}
-  for name, data in pairs(db.characters) do
-    if type(data) == "table" and (name == me or (data.profs
-       and ((not data.realm) or (not realm) or data.realm == realm))) then
-      table.insert(names, name)
-    end
-  end
-  table.sort(names)
-  local shown = tlen(names)
-  if shown > 10 then shown = 10 end
+  -- Beschriftung der beiden Auswahlmenues
   if f.confirmCB then f.confirmCB:SetChecked(db.settings.altConfirm) end
-  for i = 1, 10 do
-    local cb = f.altCBs[i]
-    local mb = f.mainCBs[i]
-    if i <= shown then
-      local col = math.mod(i - 1, 2)
-      local row = math.floor((i - 1) / 2)
-      local x = 18 + col * 188
-      local y = -360 - row * 24
-      local name = names[i]
-      cb:ClearAllPoints()
-      cb:SetPoint("TOPLEFT", f, "TOPLEFT", x, y)
-      cb.charName = name
-      getglobal("BCRAFT_SetAltCB" .. i .. "Text"):SetText(name)
-      local isMain = (db.mainChar == name)
-      if name == me or isMain then
-        cb:SetChecked(true)       -- aktueller Charakter und Main werden immer geteilt
-        cb:Disable()
-      else
-        cb:SetChecked(not db.characters[name].noShare)
-        cb:Enable()
-      end
-      cb:Show()
-      mb:ClearAllPoints()
-      mb:SetPoint("TOPLEFT", f, "TOPLEFT", x + 122, y)
-      mb.charName = name
-      getglobal("BCRAFT_SetMainCB" .. i .. "Text"):SetText(BCRAFT_L.SET_MAIN_RADIO)
-      mb:SetChecked(isMain)
-      mb:Show()
-    else
-      cb:Hide()
-      mb:Hide()
-    end
+  local importedCount = 0
+  for _, data in pairs(db.characters) do
+    if type(data) == "table" and data.imported then importedCount = importedCount + 1 end
+  end
+  UIDropDownMenu_SetText(importedCount > 0 and string.format(BCRAFT_L.SET_DD_IMPORTED_N, importedCount) or BCRAFT_L.SET_DD_NONE, f.otherDD)
+  if db.mainChar and db.characters[db.mainChar] then
+    UIDropDownMenu_SetText(string.format(BCRAFT_L.SET_DD_MAIN, db.mainChar), f.sameDD)
+  else
+    UIDropDownMenu_SetText("|cffff8800" .. BCRAFT_L.SET_DD_PICK .. "|r", f.sameDD)
   end
 
-  local contentEnd = 330
-  if shown > 1 then
-    f.altLabel:SetText(BCRAFT_L.SET_SECTION_ALTS .. (db.mainChar and "" or (" |cffff8800" .. BCRAFT_L.SET_PICK_MAIN .. "|r")))
-    f.altLabel:Show()
-    contentEnd = 360 + math.floor((shown + 1) / 2) * 24 + 4
-  else
-    f.altLabel:Hide()
-    for i = 1, 10 do f.altCBs[i]:Hide() f.mainCBs[i]:Hide() end
-  end
+  local contentEnd = 396
 
   local on = db.partner and db.partner.enabled
   if on then
