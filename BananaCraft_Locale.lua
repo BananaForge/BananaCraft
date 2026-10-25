@@ -21,7 +21,6 @@ BCRAFT_Locales["deDE"] = {}
 local en = BCRAFT_Locales["enUS"]
 local de = BCRAFT_Locales["deDE"]
 
-
 -- ---------- Interface strings ----------
 en.ALL_SENT = "All professions have been sent!"
 de.ALL_SENT = "Alle Berufe wurden gesendet!"
@@ -287,7 +286,6 @@ de.NO_DATA_FOR = "Keine Daten fuer"
 en.LANG_SWITCHED = "Language set to English."
 de.LANG_SWITCHED = "Sprache auf Deutsch gestellt."
 
-
 -- ---------- Category names (keys stay English!) ----------
 en.CAT = {}
 de.CAT = {}
@@ -414,7 +412,6 @@ de.PROF["Survival"] = "Ueberleben"
 en.PROF["Poisons"] = "Poisons"
 de.PROF["Poisons"] = "Gifte"
 
-
 -- ---------- Runtime language handling ----------
 -- BCRAFT_L is the active table used everywhere in the addon.
 BCRAFT_L = BCRAFT_Locales["enUS"]
@@ -467,160 +464,6 @@ function BCRAFT_ProfName(key)
   if BCRAFT_L and BCRAFT_L.PROF and BCRAFT_L.PROF[key] then return BCRAFT_L.PROF[key] end
   return key
 end
--- -------------------------
--- Partnergilden
--- -------------------------
-en.CMD_PARTNER = "/bc partner   - partner guild setup (invite code)"
-de.CMD_PARTNER = "/bc partner   - Partnergilde einrichten (Einladecode)"
-
-en.CMD_PARTNER_CREATE = "  /bc partner create        - create a new invite code"
-de.CMD_PARTNER_CREATE = "  /bc partner create        - neuen Einladecode erzeugen"
-
-en.CMD_PARTNER_ADD = "  /bc partner add <code>    - join with a code you received"
-de.CMD_PARTNER_ADD = "  /bc partner add <Code>    - mit erhaltenem Code verbinden"
-
-en.CMD_PARTNER_CODE = "  /bc partner code          - show the current code"
-de.CMD_PARTNER_CODE = "  /bc partner code          - aktuellen Code anzeigen"
-
-en.CMD_PARTNER_NEWCODE = "  /bc partner newcode       - generate a new code (old one stops working)"
-de.CMD_PARTNER_NEWCODE = "  /bc partner newcode       - neuen Code erzeugen (alter wird ungueltig)"
-
-en.CMD_PARTNER_LIST = "  /bc partner list          - list known partner guilds"
-de.CMD_PARTNER_LIST = "  /bc partner list          - bekannte Partnergilden auflisten"
-
-en.CMD_PARTNER_REMOVE = "  /bc partner remove <guild> - drop that guild's data"
-de.CMD_PARTNER_REMOVE = "  /bc partner remove <Gilde> - Daten dieser Gilde rauswerfen"
-
-en.CMD_PARTNER_LEAVE = "  /bc partner leave         - end partnership, remove all foreign data"
-de.CMD_PARTNER_LEAVE = "  /bc partner leave         - Partnerschaft beenden, alle Fremddaten loeschen"
-
-en.PARTNER_CREATED = "Partnership opened."
-de.PARTNER_CREATED = "Partnerschaft eroeffnet."
-
-en.PARTNER_CODE_IS = "Invite code:"
-de.PARTNER_CODE_IS = "Einladecode:"
-
-en.PARTNER_SHARE_HINT = "Share this code with the partner guild. They enter: /bc partner add <code>"
-de.PARTNER_SHARE_HINT = "Diesen Code an die Partnergilde geben. Dort eingeben: /bc partner add <Code>"
-
-en.PARTNER_NEED_CODE = "Please provide a code: /bc partner add <code>"
-de.PARTNER_NEED_CODE = "Bitte Code angeben: /bc partner add <Code>"
-
-en.PARTNER_BAD_CODE = "Invalid code. A code has 12 characters."
-de.PARTNER_BAD_CODE = "Ungueltiger Code. Ein Code hat 12 Zeichen."
-
-en.PARTNER_JOINED = "Connected. Recipes will now be shared with the partner guild."
-de.PARTNER_JOINED = "Verbunden. Rezepte werden ab jetzt mit der Partnergilde geteilt."
-
-en.PARTNER_NO_CODE = "No code set yet. Use /bc partner create"
-de.PARTNER_NO_CODE = "Noch kein Code gesetzt. Nutze /bc partner create"
-
-en.PARTNER_NEWCODE = "New code generated."
-de.PARTNER_NEWCODE = "Neuer Code erzeugt."
-
-en.PARTNER_NEWCODE_WARN = "The old code no longer works. Everyone has to re-enter the new one."
-de.PARTNER_NEWCODE_WARN = "Der alte Code funktioniert nicht mehr. Alle muessen den neuen eintragen."
-
-en.PARTNER_NONE = "No partner guilds known yet."
-de.PARTNER_NONE = "Noch keine Partnergilden bekannt."
-
-en.PARTNER_LIST_HEADER = "Known partner guilds:"
-de.PARTNER_LIST_HEADER = "Bekannte Partnergilden:"
-
-en.PARTNER_CHARS = "characters"
-de.PARTNER_CHARS = "Charaktere"
-
-en.PARTNER_GUILDS = "guilds"
-de.PARTNER_GUILDS = "Gilden"
-
-en.PARTNER_NEED_GUILD = "Please provide a guild name: /bc partner remove <guild>"
-de.PARTNER_NEED_GUILD = "Bitte Gildennamen angeben: /bc partner remove <Gilde>"
-
-en.PARTNER_CANT_REMOVE_OWN = "That's your own guild - not removing it."
-de.PARTNER_CANT_REMOVE_OWN = "Das ist deine eigene Gilde - wird nicht entfernt."
-
-en.PARTNER_REMOVED = "Removed data of:"
-de.PARTNER_REMOVED = "Daten entfernt von:"
-
-en.PARTNER_LEFT = "Partnership ended."
-de.PARTNER_LEFT = "Partnerschaft beendet."
-
-en.PARTNER_STATUS_ON = "Partner sharing: |cff00ff00active|r"
-de.PARTNER_STATUS_ON = "Partnerfreigabe: |cff00ff00aktiv|r"
-
-en.PARTNER_STATUS_OFF = "Partner sharing: |cff888888inactive|r"
-de.PARTNER_STATUS_OFF = "Partnerfreigabe: |cff888888inaktiv|r"
-
-en.PARTNER_CHANNEL_OK = "Partner channel connected."
-de.PARTNER_CHANNEL_OK = "Partnerkanal verbunden."
-
-en.PARTNER_CHANNEL_MISSING = "Partner channel not joined yet (try again in a few seconds)."
-de.PARTNER_CHANNEL_MISSING = "Partnerkanal noch nicht betreten (in ein paar Sekunden nochmal)."
-
-en.PARTNER_UNKNOWN_SUB = "Unknown subcommand:"
-de.PARTNER_UNKNOWN_SUB = "Unbekannter Unterbefehl:"
-
-en.PARTNER_NEW_GUILD = "New partner guild detected:"
-de.PARTNER_NEW_GUILD = "Neue Partnergilde erkannt:"
-
-en.PARTNER_UNKNOWN_STATUS = "partner guild"
-de.PARTNER_UNKNOWN_STATUS = "Partnergilde"
-
-en.PARTNER_NO_GUILD = "no guild"
-de.PARTNER_NO_GUILD = "ohne Gilde"
-
-en.BTN_CONNECT_MEMBERS = "Connect guild members"
-de.BTN_CONNECT_MEMBERS = "Gildenmitglieder verbinden"
-
-en.BTN_CONNECT_TIP1 = "Sends the partner code to everyone in your guild who has this addon."
-de.BTN_CONNECT_TIP1 = "Schickt den Partnercode an alle in deiner Gilde, die dieses Addon haben."
-
-en.BTN_CONNECT_TIP2 = "They join automatically - nobody has to type the code."
-de.BTN_CONNECT_TIP2 = "Sie werden automatisch verbunden - niemand muss den Code eintippen."
-
-en.PARTNER_AUTO_JOINED = "Automatically connected to the partnership. Code received from:"
-de.PARTNER_AUTO_JOINED = "Automatisch mit der Partnerschaft verbunden. Code erhalten von:"
-
-en.PARTNER_AUTO_HINT = "Leave any time with /bc partner leave"
-de.PARTNER_AUTO_HINT = "Jederzeit verlassen mit /bc partner leave"
-
-en.PARTNER_PUSHED = "Partner code sent to the guild. Members with the addon join automatically."
-de.PARTNER_PUSHED = "Partnercode an die Gilde gesendet. Mitglieder mit dem Addon verbinden sich automatisch."
-
-en.CMD_PARTNER_PUSH = "  /bc partner push          - send the code to your own guild"
-de.CMD_PARTNER_PUSH = "  /bc partner push          - Code an die eigene Gilde senden"
-
-en.PARTNER_NOT_IN_CHANNEL = "not reachable"
-de.PARTNER_NOT_IN_CHANNEL = "nicht erreichbar"
-
-en.PARTNER_ONLINE_COUNT = "Partner guild members reachable right now:"
-de.PARTNER_ONLINE_COUNT = "Aktuell erreichbare Partnergilden-Mitglieder:"
-
--- Partnerkanal: optional, getrennter Sync
-en.BTN_PARTNER_SHARE = "Share with partner"
-de.BTN_PARTNER_SHARE = "An Partner teilen"
-en.BTN_PARTNER_SHARE_TIP = "Sends only your own guild's data to the partner guild. The guild button never does this."
-de.BTN_PARTNER_SHARE_TIP = "Sendet nur die Daten deiner eigenen Gilde an die Partnergilde. Der Gilden-Button tut das nie."
-en.PARTNER_NOT_ACTIVE = "Partner mode is off. Turn it on with /bc partner on."
-de.PARTNER_NOT_ACTIVE = "Partnermodus ist aus. Einschalten mit /bc partner on."
-en.PARTNER_SHARE_START = "Partner transfer:"
-de.PARTNER_SHARE_START = "Partner-Transfer:"
-en.PARTNER_MESSAGES = "messages"
-de.PARTNER_MESSAGES = "Nachrichten"
-en.PARTNER_SHARE_DONE = "Partner transfer finished (all messages sent)."
-de.PARTNER_SHARE_DONE = "Partner-Transfer fertig (alle Nachrichten gesendet)."
-en.PARTNER_PAUSED = "Partner mode turned off. Code and data are kept; turn it on again with /bc partner on."
-de.PARTNER_PAUSED = "Partnermodus ausgeschaltet. Code und Daten bleiben erhalten; wieder an mit /bc partner on."
-en.PARTNER_RESUMED = "Partner mode turned on. It is off again after every relog."
-de.PARTNER_RESUMED = "Partnermodus eingeschaltet. Nach jedem Relog ist er wieder aus."
-en.PARTNER_STATUS_PAUSED = "Partner sharing: |cffff8800off (code saved)|r"
-de.PARTNER_STATUS_PAUSED = "Partnerfreigabe: |cffff8800aus (Code gespeichert)|r"
-en.CMD_PARTNER_ON = "  /bc partner on            - turn the partner channel on"
-de.CMD_PARTNER_ON = "  /bc partner on            - Partnerkanal einschalten"
-en.CMD_PARTNER_OFF = "  /bc partner off           - turn it off (keeps code and data)"
-de.CMD_PARTNER_OFF = "  /bc partner off           - ausschalten (Code und Daten bleiben)"
-en.CMD_PARTNER_SHARE = "  /bc partner share         - send your own data to the partner guild"
-de.CMD_PARTNER_SHARE = "  /bc partner share         - eigene Daten an die Partnergilde senden"
 
 -- Einstellungen (Zahnrad) und Online-Filter
 en.GEAR_TOOLTIP = "Settings"
@@ -661,20 +504,6 @@ en.CONFIRM_DELETE_PROF = "Delete your profession %s from the database?"
 de.CONFIRM_DELETE_PROF = "Deinen Beruf %s aus der Datenbank loeschen?"
 en.CONFIRM_DELETE_ALL = "Delete ALL recipe data (yours and your guild's)? This cannot be undone."
 de.CONFIRM_DELETE_ALL = "ALLE Rezeptdaten loeschen (deine und die der Gilde)? Das kann nicht rueckgaengig gemacht werden."
-en.SET_SECTION_PARTNER = "Partner guild (mode is ON)"
-de.SET_SECTION_PARTNER = "Partnergilde (Modus ist AN)"
-en.SET_PARTNER_CODE = "Code:"
-de.SET_PARTNER_CODE = "Code:"
-en.SET_PARTNER_NOCODE = "none yet"
-de.SET_PARTNER_NOCODE = "noch keiner"
-en.BTN_PARTNER_CREATE = "Create code"
-de.BTN_PARTNER_CREATE = "Code erstellen"
-en.BTN_PARTNER_ENTER = "Join with code"
-de.BTN_PARTNER_ENTER = "Mit Code verbinden"
-en.BTN_PARTNER_MODE_OFF = "Turn partner mode off"
-de.BTN_PARTNER_MODE_OFF = "Partnermodus ausschalten"
-en.PARTNER_ON_WAITING = "Partner mode on, asking your guild for the code. Or enter one with /bc partner add <code>."
-de.PARTNER_ON_WAITING = "Partnermodus an, frage die Gilde nach dem Code. Oder gib einen ein mit /bc partner add <Code>."
 en.UNKNOWN_REPAIRED = "Repaired recipes that were filed under an unknown profession:"
 de.UNKNOWN_REPAIRED = "Rezepte repariert, die unter einem unbekannten Beruf gespeichert waren:"
 

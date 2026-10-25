@@ -54,7 +54,7 @@ local ADDON_NAME = "BananaCraft"
 local DB_NAME = "BananaCraftDB"
 local PREFIX = "BCRAFT0"
 local DEBUG = false  -- Debug messages OFF by default (use /bc debug to enable)
-local ADDON_VERSION = "2.6.1"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "2.7.0"  -- keep in sync with the .toc "## Version:" line
 
 -- /bc versioncheck state (see startHashSync section for PING/PONG, this is
 -- the separate, simpler VCHECK/VERSION request/response pair)
@@ -88,10 +88,9 @@ end
 -- -------------------------
 -- Gildenbewusste Schluessel
 --
--- Frueher war der Schluessel in db.guild einfach der Charaktername. Sobald
--- eine Partnergilde dazukommt, reicht das nicht mehr: zwei Gilden koennen
--- denselben Charakternamen haben (und selbst wenn nicht, muss die UI ja
--- anzeigen, zu welcher Gilde jemand gehoert).
+-- Frueher war der Schluessel in db.guild einfach der Charaktername. Mit der
+-- Gilde im Schluessel koennen zwei Gilden denselben Charakternamen haben,
+-- ohne sich zu ueberschreiben.
 --
 -- Neuer Schluessel: "Charname@Gildenname".
 -- Dieselbe Zeichenkette wandert auch ueber das Netzwerk, damit Sender und
@@ -106,22 +105,10 @@ function BCRAFT_OwnGuild()
   -- Zwei gildenlose Spieler haetten sonst dieselbe Kennung. Folge waere,
   -- dass jeder die Daten des anderen fuer eigene haelt -- der
   -- Schleifenschutz beim Senden (Gilde == eigene Gilde) greift dann nicht
-  -- mehr und beide schicken sich die Daten endlos zurueck. Ausserdem wuerde
-  -- "/bc partner remove" alle Gildenlosen auf einmal rauswerfen.
+  -- mehr und beide schicken sich die Daten endlos zurueck.
   --
-  -- Darum eine pro Charakter eindeutige Kennung. In der Oberflaeche wird
-  -- sie ueber BCRAFT_GuildLabel() wieder lesbar gemacht.
+  -- Darum eine pro Charakter eindeutige Kennung.
   return "Solo:" .. (UnitName("player") or "Unknown")
-end
-
--- Anzeigename einer Gilde. Die Solo-Kennung von oben ist technisch
--- notwendig, aber niemand will "Solo:Thrall" im Fenster lesen.
-function BCRAFT_GuildLabel(guild)
-  if not guild or guild == "" then return "" end
-  if string.sub(guild, 1, 5) == "Solo:" then
-    return BCRAFT_L.PARTNER_NO_GUILD .. " (" .. string.sub(guild, 6) .. ")"
-  end
-  return guild
 end
 
 function BCRAFT_MakeKey(player, guild)
@@ -219,18 +206,25 @@ local function ensureDB()
     db.schema = 3
   end
 
-  -- Partnergilden-Bereich
-  if not db.partner then
-    db.partner = {
-      code = nil,      -- aktueller Einladecode (12 Zeichen)
-      channel = nil,   -- abgeleiteter Kanalname, zur Laufzeit gesetzt
-      guilds = {},     -- bekannte Partnergilden
-      enabled = false, -- Partnerfreigabe aktiv?
-    }
+  -- Die Partnerfunktion wurde entfernt (2.7.0): Daten der bisher bekannten
+  -- Partnergilden und den Partnerbereich einmalig aus der Datenbank loeschen.
+  -- Die eigene Gilde wird dabei nie angefasst.
+  if db.partner then
+    if type(db.partner.guilds) == "table" then
+      local own = BCRAFT_OwnGuild()
+      for g, _ in pairs(db.partner.guilds) do
+        if g ~= own then
+          local suffix = "@" .. g
+          for key, _ in pairs(db.guild) do
+            if string.sub(key, -string.len(suffix)) == suffix then db.guild[key] = nil end
+          end
+        end
+      end
+    end
+    db.partner = nil
   end
-  if not db.partner.guilds then db.partner.guilds = {} end
-  
-  -- MIGRATION: Convert old db.me to per-character storage
+
+    -- MIGRATION: Convert old db.me to per-character storage
   if db.me and db.me.profs and not db.characters then
     local myChar = playerName()
     db.characters = {}
@@ -304,18 +298,9 @@ local function ensureDB()
       end
     end
     for i = 1, table.getn(stale) do db.guild[stale[i]] = nil end
-    if db.partner.guilds["Solo:" .. me] then db.partner.guilds["Solo:" .. me] = nil end
     if table.getn(stale) > 0 then
       debug("Aufgeraeumt: " .. table.getn(stale) .. " veraltete Solo-Eintraege entfernt")
     end
-  end
-
-  -- Partnermodus ist nach JEDEM Login aus. Code und Fremddaten bleiben, aber
-  -- der Modus muss jede Sitzung per /bc partner on neu eingeschaltet werden.
-  if not BCRAFT_PartnerSessionInit then
-    BCRAFT_PartnerSessionInit = true
-    db.partner.enabled = false
-    db.partner.channel = nil
   end
 
   -- Rezepte reparieren, die wegen eines zu fruehen Scans unter dem
@@ -382,12 +367,6 @@ local function ensureDB()
   if not db.bank then db.bank = {} end  -- Bank inventory storage
   if not db.bankScanned then db.bankScanned = nil end  -- Last bank scan timestamp
   return db
-end
-
--- Das Partnermodul liegt in einer eigenen Datei und braucht Zugriff auf
--- dieselbe Datenbank -- ensureDB selbst bleibt local, hier nur die Bruecke.
-function BCRAFT_EnsureDB()
-  return ensureDB()
 end
 
 -- STEP 2: Online status via cached roster lookup
@@ -528,9 +507,8 @@ local SEP = "~"
 -- Trenner zwischen den einzelnen Rezepten innerhalb eines Chunks.
 --
 -- Frueher stand hier "\n". Ueber Addon-Nachrichten (Gildenkanal) geht das
--- problemlos, aber der Partnerkanal laeuft ueber SendChatMessage -- und der
--- Chat schneidet bei einem Zeilenumbruch ab. Darum ein druckbares Zeichen,
--- das der Chat unveraendert durchreicht.
+-- problemlos. Ein druckbares Zeichen ist trotzdem robuster, weil es auch
+-- Export-Texte und die Zwischenablage unveraendert uebersteht.
 --
 -- Bewusst KEIN Steuerzeichen: die filtert der Chat genauso weg wie den
 -- Zeilenumbruch. "^" ist druckbar, wird unveraendert durchgereicht und
@@ -614,8 +592,7 @@ BroadcastTimer:SetScript("OnUpdate", function()
     this.elapsed = 0
     
     if tlen(BroadcastQueue) == 0 then
-      -- "Gesendet" erst melden, wenn auch die Gilden-Sendewarteschlange leer
-      -- ist. Der Partnerkanal hat seinen eigenen Button und eine eigene Meldung.
+      -- "Gesendet" erst melden, wenn auch die Gilden-Sendewarteschlange leer ist.
       if tlen(SendQueue) > 0 then return end
       BroadcastTimer:Hide()
       msg("|cff00ff00" .. BCRAFT_L.ALL_SENT .. "|r")
@@ -1082,10 +1059,7 @@ end)
 -- -------------------------
 -- Broadcast
 -- -------------------------
--- target: nil/"guild" = nur Gilden-Addonkanal (Standard), "partner" = nur
--- Partnerkanal. Beides ist bewusst getrennt: der Hauptbutton darf die
--- Partnerschaft nie anfassen, sonst bremst sie die interne Funktion aus.
-function BCRAFT_BroadcastProfession(profName, characterName, profData, target)
+function BCRAFT_BroadcastProfession(profName, characterName, profData)
   -- profData is now passed directly instead of using db.me
   if not profData then
     -- Fallback: try to get from db.me (for backward compatibility)
@@ -1100,8 +1074,8 @@ function BCRAFT_BroadcastProfession(profName, characterName, profData, target)
 
   -- Uebertragen wird immer der gildenbewusste Schluessel "Name@Gilde".
   -- Kommt schon ein Schluessel mit "@" rein, bleibt er unveraendert --
-  -- sonst wuerde beim Weiterreichen von Partnerdaten die fremde Gilde
-  -- faelschlich durch die eigene ersetzt.
+  -- sonst wuerde beim Weiterreichen fremder Daten deren Gilde faelschlich
+  -- durch die eigene ersetzt.
   local p = characterName or playerName()
   if not string.find(p, "@", 1, true) then
     p = BCRAFT_MakeKey(p, BCRAFT_OwnGuild())
@@ -1147,8 +1121,7 @@ function BCRAFT_BroadcastProfession(profName, characterName, profData, target)
   
   -- Calculate overhead: "C~PlayerName~ProfName~ChunkIndex~"
   local overhead = string.len("C" .. SEP .. safe(p) .. SEP .. safe(profName) .. SEP .. "999" .. SEP)
-  -- 240 statt 250: der Partnerkanal haengt noch "BCRAFTG1 " (9 Zeichen) davor,
-  -- die fertige Zeile darf dort 250 nicht ueberschreiten.
+  -- 240 statt 255: Sicherheitsabstand zur Laengengrenze von Addon-Nachrichten.
   local maxChunkSize = 240 - overhead
   
   for i = 1, tlen(recipeData) do
@@ -1170,7 +1143,7 @@ function BCRAFT_BroadcastProfession(profName, characterName, profData, target)
   local startMsg = "S" .. SEP .. safe(p) .. SEP .. safe(profName) .. SEP .. tostring(rank) .. SEP .. tostring(maxRank) .. SEP .. tostring(total)
   local endMsg = "E" .. SEP .. safe(p) .. SEP .. safe(profName)
 
-  if target ~= "partner" then
+  do
     debug("[SEND] Broadcasting to GUILD: " .. p .. " - " .. profName .. " (" .. total .. " chunks)")
 
     enqueueSend("GUILD", startMsg)
@@ -1181,28 +1154,6 @@ function BCRAFT_BroadcastProfession(profName, characterName, profData, target)
     end
 
     enqueueSend("GUILD", endMsg)
-  end
-
-  -- Punkt 3.1: Rezeptdaten in den Partnerkanal -- nur auf ausdruecklichen
-  -- Wunsch (Button "An Partner teilen", target == "partner").
-  --
-  -- Bewusst NUR eigene Daten (Schluessel endet auf die eigene Gilde).
-  -- Wuerden wir auch fremde Datensaetze weiterreichen, wuerde jede
-  -- empfangene Nachricht erneut gesendet -- eine Schleife, die beide
-  -- Gilden zuspammt. Jede Gilde verteilt also ausschliesslich sich selbst.
-  --
-  -- Bankdaten verlassen den eigenen Client an dieser Stelle NICHT: hier
-  -- laufen ausschliesslich Berufs-/Rezeptdaten durch.
-  local pdb = ensureDB()
-  if target == "partner" and pdb.partner and pdb.partner.enabled and BCRAFT_Partner then
-    local _, pg = BCRAFT_SplitKey(p)
-    if pg == BCRAFT_OwnGuild() then
-      BCRAFT_Partner.Enqueue(startMsg)
-      for idx = 1, total do
-        BCRAFT_Partner.Enqueue("C" .. SEP .. safe(p) .. SEP .. safe(profName) .. SEP .. tostring(idx) .. SEP .. chunks[idx])
-      end
-      BCRAFT_Partner.Enqueue(endMsg)
-    end
   end
 end
 
@@ -1353,70 +1304,6 @@ local function broadcastAll()
   else
     msg("|cffff0000" .. BCRAFT_L.NOTHING_TO_SEND .. "|r " .. BCRAFT_L.SCAN_FIRST)
   end
-end
-
--- Eigene Daten an die Partnergilde senden (eigener Button, eigene Warteschlange).
--- Es werden nur Charaktere der eigenen Gilde gesendet, nie weitergereichte
--- Fremddaten (sonst entstuende eine Schleife zwischen den Gilden).
-local function partnerShareAll()
-  local db = ensureDB()
-  if not (db.partner and db.partner.enabled and db.partner.code and BCRAFT_Partner) then
-    msg("|cffff0000" .. BCRAFT_L.PARTNER_NOT_ACTIVE .. "|r")
-    return
-  end
-
-  BCRAFT_Partner.ClearQueue()   -- doppeltes Klicken soll nichts verdoppeln
-  local own = BCRAFT_OwnGuild()
-  local jobs = 0
-  for key, data in pairs(db.guild) do
-    local _, g = BCRAFT_SplitKey(key)
-    if g == own and type(data) == "table" and data.profs then
-      for profName, profData in pairs(data.profs) do
-        if type(profData) == "table" and profData.recipes and tlen(profData.recipes) > 0 then
-          BCRAFT_BroadcastProfession(profName, key, profData, "partner")
-          jobs = jobs + 1
-        end
-      end
-    end
-  end
-
-  if jobs == 0 then
-    msg("|cffff0000" .. BCRAFT_L.NOTHING_TO_SEND .. "|r " .. BCRAFT_L.SCAN_FIRST)
-    return
-  end
-
-  local n = BCRAFT_Partner.QueueLength()
-  msg("|cffffff00" .. BCRAFT_L.PARTNER_SHARE_START .. "|r " .. jobs .. " " .. BCRAFT_L.PROFS_QUEUED
-    .. " (" .. n .. " " .. BCRAFT_L.PARTNER_MESSAGES .. ", ~" .. math.floor(n * BCRAFT_Partner.SendDelay() + 0.5) .. " " .. BCRAFT_L.SECONDS .. ")")
-  BCRAFT_Partner.announceDone = true
-end
-
--- Partnermodus ein-/ausschalten. Standard ist AUS, und zwar nach jedem Login
--- (siehe ensureDB). Eingeschaltet wird nur per /bc partner on (oder create/add).
--- Aus: Kanal verlassen, nichts senden, nichts empfangen, Codes anderer werden
--- ignoriert. Code und Fremddaten bleiben erhalten (anders als /bc partner leave).
-local function partnerSetActive(on)
-  local db = ensureDB()
-  if on then
-    db.partner.enabled = true
-    db.partner.declined = nil
-    if db.partner.code then
-      BCRAFT_Partner.JoinChannel(db)
-      msg("|cff00ff00" .. BCRAFT_L.PARTNER_RESUMED .. "|r")
-    else
-      -- Noch kein Code: in der eigenen Gilde nachfragen. Wer den Modus an hat
-      -- und einen Code kennt, antwortet.
-      enqueueSend("GUILD", "PCODEREQ" .. SEP .. safe(playerName()))
-      msg("|cffffff00" .. BCRAFT_L.PARTNER_ON_WAITING .. "|r")
-    end
-  else
-    BCRAFT_Partner.LeaveChannel(db)
-    BCRAFT_Partner.ClearQueue()
-    db.partner.enabled = false
-    msg("|cffff8800" .. BCRAFT_L.PARTNER_PAUSED .. "|r")
-  end
-  if BCRAFT_RefreshSettings then BCRAFT_RefreshSettings() end
-  if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
 end
 
 -- -------------------------
@@ -1581,50 +1468,6 @@ local function handlePong(parts, sender)
 end
 
 -- -------------------------
--- Verteilung des Partnercodes in der eigenen Gilde
---
--- Damit nicht alle gleichzeitig auf eine Anfrage antworten, wartet jeder
--- Client zufaellig 1 bis 4 Sekunden. Hoert er in der Zeit die Antwort eines
--- anderen, schweigt er.
--- -------------------------
-local PCodeAnswered = 0
-local PCodeAnswerTimer = CreateFrame("Frame")
-PCodeAnswerTimer:Hide()
-PCodeAnswerTimer.due = 0
-
-PCodeAnswerTimer:SetScript("OnUpdate", function()
-  local nowT = GetTime and GetTime() or 0
-  if nowT < this.due then return end
-
-  this:Hide()
-
-  -- Hat in der Wartezeit schon jemand geantwortet?
-  if PCodeAnswered > 0 and (nowT - PCodeAnswered) < 6 then
-    debug("[PCODE] Jemand anderes hat bereits geantwortet - schweige")
-    return
-  end
-
-  local db = ensureDB()
-  if db.partner and db.partner.enabled and db.partner.code then
-    enqueueSend("GUILD", "PCODE" .. SEP .. safe(db.partner.code))
-    debug("[PCODE] Code an die Gilde gesendet")
-  end
-end)
-
--- Wird vom Button "Gildenmitglieder verbinden" aufgerufen.
-local function pushPartnerCodeToGuild()
-  local db = ensureDB()
-
-  if not (db.partner and db.partner.enabled and db.partner.code) then
-    msg("|cffff0000" .. BCRAFT_L.PARTNER_NO_CODE .. "|r")
-    return
-  end
-
-  enqueueSend("GUILD", "PCODE" .. SEP .. safe(db.partner.code))
-  msg("|cff00ff00" .. BCRAFT_L.PARTNER_PUSHED .. "|r")
-end
-
--- -------------------------
 -- Receive (STEP 1: Added DELETE handling)
 -- -------------------------
 local function handleAddonMessage(prefix, text, distrib, sender)
@@ -1689,83 +1532,6 @@ local function handleAddonMessage(prefix, text, distrib, sender)
       if requester == playerName() and VersionCheckActive then
         msg("|cff00ff00" .. respondent .. "|r " .. BCRAFT_L.VERSIONCHECK_RUNS .. " |cffffff00v" .. version .. "|r")
       end
-    end
-    return
-  end
-
-  -- Partnercode an die eigene Gilde verteilen.
-  --
-  -- Neue Mitglieder sollen den Code nicht abtippen muessen. Da alle in
-  -- derselben Gilde sitzen, teilen sie ohnehin schon den Gilden-Addonkanal
-  -- -- darueber geht der Code. Er verlaesst die Gilde dabei nicht.
-  if cmd == "PCODE" then
-    -- Nur aus der EIGENEN Gilde annehmen. Ueber den Partnerkanal koennte
-    -- sonst jemand aus der anderen Gilde einen fremden Code hereinschieben
-    -- und die Verbindung umlenken.
-    if distrib ~= "GUILD" then
-      debug("[PCODE] Verworfen: kam nicht ueber den Gildenkanal")
-      return
-    end
-
-    if tlen(parts) >= 2 then
-      local code = parts[2]
-      local chan = BCRAFT_Partner.SplitCode(code)
-      if not chan then
-        debug("[PCODE] Ungueltiger Code von " .. tostring(sender))
-        return
-      end
-
-      -- Wer die Partnerschaft bewusst verlassen hat, wird nicht wieder
-      -- hineingezogen. Sonst wuerde jedes /bc partner leave beim naechsten
-      -- Verteilen rueckgaengig gemacht.
-      if db.partner.declined then
-        debug("[PCODE] Ignoriert (Partnerschaft wurde bewusst verlassen)")
-        return
-      end
-
-      -- Partnermodus ist standardmaessig aus und wird nur per /bc partner on
-      -- (oder create/add) eingeschaltet. Ein Code von aussen schaltet ihn nie ein.
-      if not db.partner.enabled then
-        debug("[PCODE] Ignoriert (Partnermodus ist aus)")
-        return
-      end
-
-      if db.partner.code == code and db.partner.enabled then
-        debug("[PCODE] Code bereits aktiv, nichts zu tun")
-        return
-      end
-
-      -- Alten Kanal sauber verlassen, bevor der neue betreten wird
-      if db.partner.channel then
-        BCRAFT_Partner.LeaveChannel(db)
-        BCRAFT_Partner.ClearQueue()
-      end
-
-      db.partner.code = code
-      db.partner.enabled = true
-      BCRAFT_Partner.JoinChannel(db)
-
-      msg("|cff00ff00" .. BCRAFT_L.PARTNER_AUTO_JOINED .. "|r " .. sender)
-      msg("|cff888888" .. BCRAFT_L.PARTNER_AUTO_HINT .. "|r")
-    end
-
-    -- Jemand hat geantwortet: eigene geplante Antwort ist ueberfluessig
-    PCodeAnswered = (GetTime and GetTime() or 0)
-    PCodeAnswerTimer:Hide()
-    return
-  end
-
-  -- Ein Gildenmitglied ohne Code fragt nach einem.
-  --
-  -- Wuerden alle sofort antworten, hagelt es bei 20 Leuten online 20
-  -- identische Nachrichten. Darum wartet jeder eine zufaellige Zeit und
-  -- bricht ab, sobald jemand anderes schon geantwortet hat.
-  if cmd == "PCODEREQ" then
-    if distrib ~= "GUILD" then return end
-    if db.partner and db.partner.enabled and db.partner.code then
-      PCodeAnswerTimer.due = (GetTime and GetTime() or 0) + (random(10, 40) / 10)
-      PCodeAnswerTimer:Show()
-      debug("[PCODE] " .. tostring(sender) .. " fragt nach dem Partnercode - Antwort geplant")
     end
     return
   end
@@ -2017,12 +1783,6 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         }
         db.guild[player].updated = now()
 
-        -- Fremde Gilde? Dann als Partnergilde vermerken (fuer UI + /bc partner list)
-        local _, srcGuild = BCRAFT_SplitKey(player)
-        if srcGuild and BCRAFT_Partner then
-          BCRAFT_Partner.NoteGuild(db, srcGuild)
-        end
-
         debug("Empfangen: " .. player .. " — " .. prof .. " (" .. tlen(recipes) .. " Rezepte)")
 
         if BCRAFT_UI and BCRAFT_UI:IsShown() then
@@ -2103,29 +1863,14 @@ local function uiBuildData()
             -- `player` ist der Schluessel "Name@Gilde" -- fuer Anzeige und
             -- Online-Pruefung brauchen wir den reinen Namen.
             local pName, pGuild = BCRAFT_SplitKey(player)
-            local isForeign = (pGuild ~= nil) and (pGuild ~= BCRAFT_OwnGuild())
-
-            -- Online-Status je nach Herkunft:
-            --   eigene Gilde   -> Gildenroster
-            --   Partnergilde   -> Anwesenheit im Partnerkanal
-            -- Bewusst als if/else statt verschachteltem and/or: sobald ein
-            -- Zweig false liefert, faellt eine and/or-Kette auf den naechsten
-            -- Zweig durch und liefert falsche Ergebnisse.
-            local isOnline = false
-            if isForeign then
-              if BCRAFT_Partner then
-                isOnline = BCRAFT_Partner.IsOnline(pName or player)
-              end
-            else
-              isOnline = isPlayerOnline(pName or player)
-            end
+            local isOnline = isPlayerOnline(pName or player)
 
             -- Alt eines Gildenmitglieds: ist der Alt selbst offline, aber der
             -- Besitzer online, zaehlt er als erreichbar und der Whisper geht
             -- an den Besitzer.
             local altOf = db.altOf and db.altOf[player] or nil
             local contact = pName or player
-            if altOf and not isForeign and not isOnline and isPlayerOnline(altOf) then
+            if altOf and not isOnline and isPlayerOnline(altOf) then
               isOnline = true
               contact = altOf
             end
@@ -2144,7 +1889,6 @@ local function uiBuildData()
               altConfirmed = altConfirmed,
               contact = contact,
               guild = pGuild,
-              foreign = isForeign,
               rank = profData.rank or 0,
               maxRank = profData.maxRank or 0,
               online = isOnline
@@ -2691,23 +2435,8 @@ function BCRAFT_UpdateRecipePopupContent(pop, data)
         infoText = infoText .. " |cffcc99ff(" .. altNote .. ")|r"
       end
 
-      -- Partnergilde sichtbar kennzeichnen
-      if crafter.foreign and crafter.guild then
-        infoText = infoText .. " |cff66ccff<" .. BCRAFT_GuildLabel(crafter.guild) .. ">|r"
-      end
-
       infoText = infoText .. " |cffaaaaaa(" .. (data.prof or "") .. " " .. crafter.rank .. "/" .. crafter.maxRank .. ")"
-      if crafter.foreign then
-        -- Online = sitzt im Partnerkanal. Offline heisst hier genauer:
-        -- nicht im Kanal -- also entweder ausgeloggt oder ohne Addon.
-        if crafter.online then
-          infoText = infoText .. " " .. BCRAFT_L.ONLINE .. "|r\n"
-        else
-          infoText = infoText .. " " .. BCRAFT_L.PARTNER_NOT_IN_CHANNEL .. "|r\n"
-        end
-      else
-        infoText = infoText .. " " .. statusText .. "|r\n"
-      end
+      infoText = infoText .. " " .. statusText .. "|r\n"
     end
   else
     infoText = infoText .. "|cffff0000Keine Hersteller gefunden|r\n"
@@ -3111,8 +2840,7 @@ local function uiCreate()
 
   -- Clean UI - no logos
 
-  -- Gilden-Button: sendet NUR in den Gildenkanal. Alles Partner-Bezogene
-  -- liegt im Einstellungsfenster und erscheint erst nach /bc partner on.
+  -- Gilden-Button: sendet in den Gildenkanal.
   local shareBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
   shareBtn:SetWidth(220)
   shareBtn:SetHeight(28)
@@ -3368,14 +3096,6 @@ local function uiToggle()
     
     UI_ScrollOffset = 0
     BCRAFT_UI:Show()
-
-    -- Anwesenheitsliste des Partnerkanals auffrischen. Beitritts- und
-    -- Austrittsmeldungen halten sie waehrend der Sitzung aktuell, aber wer
-    -- schon vor unserem Login drin sass, taucht dort nie auf.
-    local d = ensureDB()
-    if BCRAFT_Partner and d.partner and d.partner.enabled then
-      BCRAFT_Partner.RequestRoster(d)
-    end
 
     BCRAFT_UI_Refresh()
   end
@@ -3934,8 +3654,7 @@ end
 -- Einstellungsfenster (Zahnrad)
 --
 -- Buendelt, was frueher nur ueber /bc-Befehle ging. Die Befehle bleiben
--- zusaetzlich nutzbar. Der Partner-Bereich ist NUR sichtbar, solange der
--- Partnermodus per /bc partner on eingeschaltet ist (nach jedem Relog aus).
+-- zusaetzlich nutzbar.
 -- -------------------------
 StaticPopupDialogs["BCRAFT_CONFIRM"] = {
   text = "%s",
@@ -4231,52 +3950,7 @@ local function buildSettings()
   UIDropDownMenu_SetWidth(150, sameDD)
   f.sameDD = sameDD
 
-  -- Partner-Bereich: nur sichtbar, solange der Partnermodus an ist.
-  -- Hoehe/Position richtet sich nach der Alt-Liste (siehe BCRAFT_RefreshSettings).
-  local pb = CreateFrame("Frame", nil, f)
-  pb:SetWidth(396)
-  pb:SetHeight(140)
-  pb:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -310)
-  pb:Hide()
-  f.partnerBox = pb
-  label("SET_SECTION_PARTNER", 22, -4, nil, pb)
-  local codeFS = pb:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-  codeFS:SetPoint("TOPLEFT", pb, "TOPLEFT", 22, -28)
-  f.codeFS = codeFS
-
-  local codeBox = CreateFrame("EditBox", nil, pb, "InputBoxTemplate")
-  codeBox:SetWidth(150)
-  codeBox:SetHeight(20)
-  codeBox:SetPoint("TOPLEFT", pb, "TOPLEFT", 30, -48)
-  codeBox:SetAutoFocus(false)
-  codeBox:SetMaxLetters(20)
-  local function joinWithCode()
-    local c = codeBox:GetText() or ""
-    if c ~= "" then
-      SlashCmdList["BCRAFT"]("partner add " .. c)
-      codeBox:SetText("")
-      codeBox:ClearFocus()
-    end
-  end
-  codeBox:SetScript("OnEnterPressed", joinWithCode)
-  codeBox:SetScript("OnEscapePressed", function() this:ClearFocus() end)
-  button(pb, "BTN_PARTNER_ENTER", 150, 206, -46, joinWithCode)
-  button(pb, "BTN_PARTNER_CREATE", 172, 22, -74, function() SlashCmdList["BCRAFT"]("partner create") end)
-  button(pb, "BTN_PARTNER_SHARE", 172, 206, -74, function() partnerShareAll() end)
-  button(pb, "BTN_CONNECT_MEMBERS", 172, 22, -102, function() pushPartnerCodeToGuild() end)
-  button(pb, "BTN_PARTNER_MODE_OFF", 172, 206, -102, function() partnerSetActive(false) end)
-
   f:SetScript("OnShow", function() BCRAFT_RefreshSettings() end)
-  -- Zustand des Partnermodus beobachten (Befehle koennen ihn jederzeit aendern)
-  f:SetScript("OnUpdate", function()
-    this.poll = (this.poll or 0) + arg1
-    if this.poll < 0.5 then return end
-    this.poll = 0
-    local d = ensureDB()
-    local sig = tostring(d.partner.enabled) .. ":" .. tostring(d.partner.code)
-    if sig ~= this.sig then BCRAFT_RefreshSettings() end
-  end)
-
   f:Hide()
   return f
 end
@@ -4322,22 +3996,7 @@ function BCRAFT_RefreshSettings(retext)
 
   local contentEnd = 396
 
-  local on = db.partner and db.partner.enabled
-  if on then
-    f:SetHeight(contentEnd + 6 + 140 + 14)
-    f.partnerBox:ClearAllPoints()
-    f.partnerBox:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -(contentEnd + 6))
-    f.partnerBox:Show()
-    if db.partner.code then
-      f.codeFS:SetText(BCRAFT_L.SET_PARTNER_CODE .. " |cffffff00" .. BCRAFT_Partner.FormatCode(db.partner.code) .. "|r")
-    else
-      f.codeFS:SetText(BCRAFT_L.SET_PARTNER_CODE .. " |cff888888" .. BCRAFT_L.SET_PARTNER_NOCODE .. "|r")
-    end
-  else
-    f:SetHeight(contentEnd + 22)
-    f.partnerBox:Hide()
-  end
-  f.sig = tostring(db.partner.enabled) .. ":" .. tostring(db.partner.code)
+  f:SetHeight(contentEnd + 22)
 end
 
 function BCRAFT_ToggleSettings()
@@ -4371,7 +4030,6 @@ SlashCmdList["BCRAFT"] = function(input)
     msg(BCRAFT_L.CMD_SEND)
     msg(BCRAFT_L.CMD_SYNC)
     msg(BCRAFT_L.CMD_VERSIONCHECK)
-    msg(BCRAFT_L.CMD_PARTNER)
     msg(BCRAFT_L.CMD_DELETE)
     msg(BCRAFT_L.CMD_DELETE_ALL)
     msg(BCRAFT_L.CMD_SCANBANK)
@@ -4413,203 +4071,6 @@ SlashCmdList["BCRAFT"] = function(input)
     msg(BCRAFT_L.CACHE_CLEARED)
     return
   end
-  -- -------------------------
-  -- Partnergilden-Befehle
-  -- -------------------------
-  if cmd == "partner" then
-    local db = ensureDB()
-
-    -- Unterbefehl + Argument aus der Eingabe holen (cmd enthaelt nur das erste Wort)
-    local rest = string.sub(input, string.len("partner") + 2)
-    rest = string.gsub(rest or "", "^%s+", "")
-    local sub = ""
-    local arg = ""
-    local _, _, s, a = string.find(rest, "^(%S+)%s*(.*)$")
-    if s then sub = string.lower(s) end
-    if a then arg = a end
-    arg = string.gsub(arg, "%s+$", "")
-
-    -- Code erzeugen und Partnerschaft eroeffnen
-    if sub == "create" then
-      db.partner.code = BCRAFT_Partner.GenerateCode()
-      db.partner.enabled = true
-      db.partner.declined = nil   -- bewusster Wiedereintritt
-      BCRAFT_Partner.JoinChannel(db)
-      msg("|cff00ff00" .. BCRAFT_L.PARTNER_CREATED .. "|r")
-      msg(BCRAFT_L.PARTNER_CODE_IS .. " |cffffff00" .. BCRAFT_Partner.FormatCode(db.partner.code) .. "|r")
-      msg(BCRAFT_L.PARTNER_SHARE_HINT)
-      return
-    end
-
-    -- Code der Partnergilde eintragen
-    if sub == "add" or sub == "join" then
-      if arg == "" then
-        msg("|cffff0000" .. BCRAFT_L.PARTNER_NEED_CODE .. "|r")
-        return
-      end
-      local chan = BCRAFT_Partner.SplitCode(arg)
-      if not chan then
-        msg("|cffff0000" .. BCRAFT_L.PARTNER_BAD_CODE .. "|r")
-        return
-      end
-      local clean = string.upper(string.gsub(string.gsub(arg, "%s", ""), "-", ""))
-      db.partner.code = clean
-      db.partner.enabled = true
-      db.partner.declined = nil   -- bewusster Wiedereintritt
-      BCRAFT_Partner.JoinChannel(db)
-      msg("|cff00ff00" .. BCRAFT_L.PARTNER_JOINED .. "|r")
-      return
-    end
-
-    -- Code an die eigene Gilde verteilen (identisch zum Button)
-    if sub == "push" or sub == "connect" then
-      pushPartnerCodeToGuild()
-      return
-    end
-
-    -- Punkt 3.3: Code anzeigen / neu erzeugen
-    if sub == "code" then
-      if db.partner.code then
-        msg(BCRAFT_L.PARTNER_CODE_IS .. " |cffffff00" .. BCRAFT_Partner.FormatCode(db.partner.code) .. "|r")
-      else
-        msg(BCRAFT_L.PARTNER_NO_CODE)
-      end
-      return
-    end
-
-    if sub == "newcode" then
-      BCRAFT_Partner.LeaveChannel(db)
-      BCRAFT_Partner.ClearQueue()
-      db.partner.code = BCRAFT_Partner.GenerateCode()
-      db.partner.enabled = true
-      db.partner.declined = nil   -- bewusster Wiedereintritt
-      BCRAFT_Partner.JoinChannel(db)
-      msg("|cff00ff00" .. BCRAFT_L.PARTNER_NEWCODE .. "|r")
-      msg(BCRAFT_L.PARTNER_CODE_IS .. " |cffffff00" .. BCRAFT_Partner.FormatCode(db.partner.code) .. "|r")
-      msg("|cffff8800" .. BCRAFT_L.PARTNER_NEWCODE_WARN .. "|r")
-      return
-    end
-
-    -- Bekannte Partnergilden auflisten
-    if sub == "list" then
-      local list = BCRAFT_Partner.ListGuilds(db)
-      if tlen(list) == 0 then
-        msg(BCRAFT_L.PARTNER_NONE)
-        return
-      end
-      msg(BCRAFT_L.PARTNER_LIST_HEADER)
-      for i = 1, tlen(list) do
-        local g = list[i]
-        local cnt = 0
-        for key, _ in pairs(db.guild) do
-          local _, kg = BCRAFT_SplitKey(key)
-          if kg == g then cnt = cnt + 1 end
-        end
-        msg("  |cff66ccff" .. BCRAFT_GuildLabel(g) .. "|r - " .. cnt .. " " .. BCRAFT_L.PARTNER_CHARS)
-      end
-      return
-    end
-
-    -- Punkt 3.2: Daten einer Partnergilde rauswerfen
-    if sub == "remove" or sub == "kick" then
-      if arg == "" then
-        msg("|cffff0000" .. BCRAFT_L.PARTNER_NEED_GUILD .. "|r")
-        return
-      end
-      if arg == BCRAFT_OwnGuild() then
-        msg("|cffff0000" .. BCRAFT_L.PARTNER_CANT_REMOVE_OWN .. "|r")
-        return
-      end
-
-      -- Gildenlose Partner laufen intern unter "Solo:<Charname>". Niemand
-      -- soll diese Kennung kennen muessen: wenn der eingegebene Name keine
-      -- bekannte Gilde ist, wird zusaetzlich die Solo-Form probiert.
-      local target = arg
-      local known = db.partner.guilds and db.partner.guilds[target]
-      if not known and db.partner.guilds and db.partner.guilds["Solo:" .. arg] then
-        target = "Solo:" .. arg
-      end
-
-      local removed = BCRAFT_Partner.PurgeGuild(db, target)
-      msg("|cff00ff00" .. BCRAFT_L.PARTNER_REMOVED .. "|r " .. BCRAFT_GuildLabel(target) .. " (" .. removed .. " " .. BCRAFT_L.PARTNER_CHARS .. ")")
-      if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
-      return
-    end
-
-    -- Pausieren / fortsetzen: Code und Daten bleiben, nur der Kanal ist zu.
-    if sub == "on" or sub == "resume" then
-      partnerSetActive(true)
-      return
-    end
-    if sub == "off" or sub == "pause" then
-      partnerSetActive(false)
-      return
-    end
-
-    -- Eigene Daten an die Partnergilde senden (getrennt vom Gilden-Sync)
-    if sub == "share" or sub == "sync" or sub == "send" then
-      partnerShareAll()
-      return
-    end
-
-    -- Partnerschaft komplett beenden: Kanal verlassen, alle Fremddaten weg
-    if sub == "leave" then
-      local removedGuilds = 0
-      local removedChars = 0
-      local list = BCRAFT_Partner.ListGuilds(db)
-      for i = 1, tlen(list) do
-        removedChars = removedChars + BCRAFT_Partner.PurgeGuild(db, list[i])
-        removedGuilds = removedGuilds + 1
-      end
-      BCRAFT_Partner.LeaveChannel(db)
-      BCRAFT_Partner.ClearQueue()
-      db.partner.enabled = false
-      db.partner.code = nil
-      -- Merken, dass die Partnerschaft bewusst beendet wurde. Sonst wuerde
-      -- der naechste verteilte Code (Button oder Login-Anfrage anderer)
-      -- den Austritt sofort wieder rueckgaengig machen.
-      db.partner.declined = true
-      msg("|cff00ff00" .. BCRAFT_L.PARTNER_LEFT .. "|r (" .. removedGuilds .. " " .. BCRAFT_L.PARTNER_GUILDS .. ", " .. removedChars .. " " .. BCRAFT_L.PARTNER_CHARS .. ")")
-      if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
-      return
-    end
-
-    -- Status
-    if sub == "" or sub == "status" then
-      if db.partner.enabled and db.partner.code then
-        msg(BCRAFT_L.PARTNER_STATUS_ON)
-        msg(BCRAFT_L.PARTNER_CODE_IS .. " |cffffff00" .. BCRAFT_Partner.FormatCode(db.partner.code) .. "|r")
-        local idx = BCRAFT_Partner.GetChannelIndex(db)
-        if idx then
-          msg("|cff00ff00" .. BCRAFT_L.PARTNER_CHANNEL_OK .. "|r")
-          BCRAFT_Partner.RequestRoster(db)
-          msg(BCRAFT_L.PARTNER_ONLINE_COUNT .. " |cffffff00" .. BCRAFT_Partner.PresenceCount() .. "|r")
-        else
-          msg("|cffff8800" .. BCRAFT_L.PARTNER_CHANNEL_MISSING .. "|r")
-        end
-      elseif db.partner.code then
-        msg(BCRAFT_L.PARTNER_STATUS_PAUSED)
-      else
-        msg(BCRAFT_L.PARTNER_STATUS_OFF)
-      end
-      msg(BCRAFT_L.CMD_PARTNER_CREATE)
-      msg(BCRAFT_L.CMD_PARTNER_ADD)
-      msg(BCRAFT_L.CMD_PARTNER_PUSH)
-      msg(BCRAFT_L.CMD_PARTNER_CODE)
-      msg(BCRAFT_L.CMD_PARTNER_NEWCODE)
-      msg(BCRAFT_L.CMD_PARTNER_LIST)
-      msg(BCRAFT_L.CMD_PARTNER_REMOVE)
-      msg(BCRAFT_L.CMD_PARTNER_ON)
-      msg(BCRAFT_L.CMD_PARTNER_OFF)
-      msg(BCRAFT_L.CMD_PARTNER_SHARE)
-      msg(BCRAFT_L.CMD_PARTNER_LEAVE)
-      return
-    end
-
-    msg("|cffff0000" .. BCRAFT_L.PARTNER_UNKNOWN_SUB .. "|r " .. sub)
-    return
-  end
-
   if cmd == "send" then broadcastAll(); return end
   if cmd == "sync" then startHashSync(); return end
   if cmd == "versioncheck" then
@@ -4737,10 +4198,6 @@ eventFrame:RegisterEvent("CRAFT_SHOW")         -- Only scan when window OPENS
 eventFrame:RegisterEvent("CHAT_MSG_ADDON")
 eventFrame:RegisterEvent("BANKFRAME_OPENED")   -- Auto-scan bank
 eventFrame:RegisterEvent("GUILD_ROSTER_UPDATE") -- Keep online cache accurate
-eventFrame:RegisterEvent("CHAT_MSG_CHANNEL")    -- Partnerkanal
-eventFrame:RegisterEvent("CHAT_MSG_CHANNEL_JOIN")   -- Anwesenheit Partnergilde
-eventFrame:RegisterEvent("CHAT_MSG_CHANNEL_LEAVE")
-eventFrame:RegisterEvent("CHAT_MSG_CHANNEL_LIST")
 
 eventFrame:SetScript("OnEvent", function()
   if event == "ADDON_LOADED" then
@@ -4835,46 +4292,6 @@ eventFrame:SetScript("OnEvent", function()
       end)
     end
 
-    -- Partnerkanal automatisch betreten, damit niemand manuell /join tippen muss.
-    -- Leicht verzoegert: direkt bei PLAYER_LOGIN ist das Kanalsystem noch nicht
-    -- bereit und JoinChannelByName laeuft ins Leere.
-    if BCRAFT_Partner then
-      BCRAFT_Partner.InstallChatFilter()
-
-      if db.partner and db.partner.enabled and db.partner.code then
-        local joiner = CreateFrame("Frame")
-        joiner:Hide()
-        joiner.elapsed = 0
-        joiner:SetScript("OnUpdate", function()
-          this.elapsed = this.elapsed + arg1
-          if this.elapsed < 5.0 then return end
-          this:Hide()
-          this:SetScript("OnUpdate", nil)
-          local d = ensureDB()
-          if BCRAFT_Partner.JoinChannel(d) then
-            debug("Partnerkanal betreten: " .. tostring(d.partner.channel))
-            -- Kurz danach die Anwesenheitsliste holen: wer schon vor uns im
-            -- Kanal sass, loest kein JOIN-Ereignis mehr aus.
-            local roster = CreateFrame("Frame")
-            roster:Hide()
-            roster.elapsed = 0
-            roster:SetScript("OnUpdate", function()
-              this.elapsed = this.elapsed + arg1
-              if this.elapsed < 3.0 then return end
-              this:Hide()
-              this:SetScript("OnUpdate", nil)
-              BCRAFT_Partner.RequestRoster(ensureDB())
-            end)
-            roster:Show()
-          end
-        end)
-        joiner:Show()
-
-      -- Kein automatisches Nachfragen nach einem Partnercode mehr: der
-      -- Partnermodus ist nach jedem Login aus und startet nur per /bc partner on.
-      end
-    end
-    
     debug("geladen. /bc show")
     return
   end
@@ -4903,49 +4320,6 @@ eventFrame:SetScript("OnEvent", function()
 
   if event == "CHAT_MSG_ADDON" then
     handleAddonMessage(arg1, arg2, arg3, arg4)
-    return
-  end
-
-  -- Partnerkanal: Nachrichten kommen als normaler Kanaltext an und werden
-  -- hier in dieselbe Verarbeitung gefuettert wie Gilden-Addonnachrichten.
-  -- arg1 = Text, arg2 = Absender, arg9 = Kanalname
-  if event == "CHAT_MSG_CHANNEL" then
-    local db = ensureDB()
-    if not (db.partner and db.partner.enabled and db.partner.channel) then return end
-    if not arg9 or string.lower(arg9) ~= string.lower(db.partner.channel) then return end
-
-    local payload = BCRAFT_Partner.ParseIncoming(arg1)
-    if not payload then return end
-    if arg2 == playerName() then return end  -- eigene Nachrichten ignorieren
-
-    handleAddonMessage(PREFIX, payload, "CHANNEL", arg2)
-    return
-  end
-
-  -- Anwesenheit im Partnerkanal: wer drin sitzt, ist online und erreichbar.
-  if event == "CHAT_MSG_CHANNEL_JOIN" then
-    if BCRAFT_Partner.IsOwnChannel(arg9) and arg2 then
-      BCRAFT_Partner.SetOnline(arg2)
-      if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
-    end
-    return
-  end
-
-  if event == "CHAT_MSG_CHANNEL_LEAVE" then
-    if BCRAFT_Partner.IsOwnChannel(arg9) and arg2 then
-      BCRAFT_Partner.SetOffline(arg2)
-      if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
-    end
-    return
-  end
-
-  -- Vollstaendige Kanalliste (Antwort auf ListChannelByName)
-  if event == "CHAT_MSG_CHANNEL_LIST" then
-    if BCRAFT_Partner.IsOwnChannel(arg9) then
-      local n = BCRAFT_Partner.ParseList(arg1)
-      debug("[PRESENCE] " .. n .. " Spieler im Partnerkanal")
-      if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
-    end
     return
   end
 

@@ -1,13 +1,12 @@
 ## Interface: 11200
 ## Title: BananaCraft
-## Notes: Berufe & Rezepte teilen - inkl. Partnergilden ueber Einladecode
+## Notes: Berufe & Rezepte der Gilde teilen, suchen und die Crafter anfluestern
 ## Author: Lumihunt
-## Version: 2.6.1
+## Version: 2.7.0
 ## SavedVariables: BananaCraftDB
 
 BananaPresence.lua
 BananaPresenceReg.lua
 BananaCraft_Locale.lua
 BananaCraft_RecipeMaps.lua
-BananaCraft_Partner.lua
 BananaCraft.lua

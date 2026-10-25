@@ -2,7 +2,9 @@
 
 (Vormals BananaRepublik Partnerguild. Ab dem Umbau zu BananaCraft heissen auch die internen Namen neu: `BCRAFT_*`, `BananaCraftDB`, `BCRAFT0`, `/bc`.)
 
-Zweite Variante von BananaRepublicProfs mit Partnergilden-Unterstuetzung.
+Zweite Variante von BananaRepublicProfs.
+
+> **Hinweis (ab 2.7.0):** Die Partnergilden-Funktion ist entfernt, ebenso `BananaCraft_Partner.lua`. Die Abschnitte dieses Dokuments zu Partnerkanal, Einladecode und Partnermodus beschreiben den Stand bis 2.6.1 und sind nur noch historisch.
 
 ## Wichtig zuerst
 

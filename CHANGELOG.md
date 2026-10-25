@@ -2,6 +2,11 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 2.7.0
+
+- **Entfernt: die komplette Partnerfunktion** (Partnergilde, Einladecode, Partnerkanal, `/bc partner ...`, Partner-Bereich im Einstellungsfenster, `BananaCraft_Partner.lua`). Beim ersten Start räumt der Addon die Daten der bisher bekannten Partnergilden und den Partnerbereich aus der Datenbank; die eigene Gilde bleibt unangetastet. Alts, Main und Export/Import laufen unverändert über die Gilde.
+- **Fix: Inkompatibilität mit GroupFinder und ähnlichen Chat-Addons.** BananaCraft hatte sich beim Login immer in `ChatFrame_OnEvent` eingehängt und dabei Hooks überschrieben, die andere Addons beim Laden gesetzt hatten. GroupFinder bekam dadurch keine Chatzeilen mehr und lief nicht. BananaCraft ersetzt `ChatFrame_OnEvent` beim Login nicht mehr.
+
 ## 2.6.1
 
 - **Einstellungsfenster: zwei Auswahlmenüs statt Liste.** Links „Alts von anderen Accounts" (importierte Charaktere, nur teilen/nicht teilen), rechts „Twinks auf selbem Account" (Main wählen und Twinks teilen/nicht teilen). Der Main ist nur rechts wählbar. Die Menüköpfe zeigen den Stand („Main: Lumihunt", „2 importiert").
