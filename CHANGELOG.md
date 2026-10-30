@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.0-beta3 (Testversion)
+
+- **Fix: Fenster überlagern sich nicht mehr kaputt.** Das Detailfenster (Rezept, Hersteller, Whisper) liegt jetzt über dem Katalog und öffnet **exakt rechts daneben**; ist rechts kein Platz, öffnet es **über dem Katalog**. Das Einstellungsfenster öffnet rechts, sonst links, sonst darüber.
+- **Bergbau und Kräuterkunde sind keine Handwerksberufe mehr:** Sie stehen getrennt unter „Sammeln“ und zeigen, wer welches Vorkommen abbauen bzw. ernten kann. Neu dafür: Fertigkeitswerte werden eingelesen (Login, Skill-Änderung) und mit einer kleinen Nachricht (`GATH`) geteilt, auch für Alts.
+- **Fix:** Die Überschriften „#sk1#“ … in den Sammelberufen heißen jetzt Apprentice, Journeyman, Expert, Artisan.
+
 ## 3.0.0-beta2 (Testversion)
 
 - **Die alte Crafter-Liste ist entfernt.** Der Katalog ist das einzige Hauptfenster. Darin sitzen jetzt auch *Datenbank mit der Gilde teilen*, die Kurzstatistik (Spieler | Rezepte), die Sprachwahl (EN/DE) und das Zahnrad.

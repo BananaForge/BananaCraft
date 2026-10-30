@@ -125,7 +125,7 @@ def main(root, out):
     tp_txt = open(os.path.join(root, "Core", "TextParsing.lua"), encoding="utf-8", errors="replace").read()
 
     tokens = {}
-    for k, v in re.findall(r'\["(#p\d+#)"\]\s*=\s*L\["([^"]+)"\]', tp_txt):
+    for k, v in re.findall(r'\["(#(?:p|sk)\d+#)"\]\s*=\s*L\["([^"]+)"\]', tp_txt):
         tokens[k] = L.get(v, v)
 
     _, menus = table_after(menus_txt, "AtlasLoot_Data.MENUS =", L)
@@ -226,7 +226,10 @@ def main(root, out):
                     c["name"] = "Alle" if False else label
                     cats.append(c)
         if cats:
-            profs.append({"key": label, "db": DBKEY.get(label, label), "icon": icon, "cats": cats})
+            profs.append({"key": label, "db": DBKEY.get(label, label), "icon": icon, "cats": cats,
+                          "gather": label in ("Mining", "Herbalism")})
+
+    profs.sort(key=lambda p: p.get("gather", False))   # Sammelberufe ans Ende (stabile Sortierung)
 
     # ---- Ausgabe
     def q(s):
@@ -236,7 +239,7 @@ def main(root, out):
     o.append("-- BananaCraftTest -- Rezeptkatalog (generiert von tools/gen_catalog.py, nicht von Hand aendern)")
     o.append("BCT_Catalog = {")
     for p in profs:
-        o.append('{ key = %s, db = %s, icon = %s, cats = {' % (q(p["key"]), q(p["db"]), q(p["icon"])))
+        o.append('{ key = %s, db = %s, icon = %s,%s cats = {' % (q(p["key"]), q(p["db"]), q(p["icon"]), " gather = true," if p.get("gather") else ""))
         for c in p["cats"]:
             o.append('{ name = %s,%s rows = {' % (q(c["name"]), " gap = true," if c.get("gap") else ""))
             for r in c["rows"]:

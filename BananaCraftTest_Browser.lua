@@ -41,7 +41,7 @@ local MAX_RESULTS = 400
 local S = {
   prof = 1, cat = 1, search = "", offset = 0,
   onlyCrafters = false, onlineOnly = false,
-  list = {}, index = {}, tooltipTarget = nil,
+  list = {}, index = {}, gather = {}, tooltipTarget = nil,
 }
 local f            -- das Fenster
 local profBtns, catBtns, rowFrames = {}, {}, {}
@@ -74,11 +74,20 @@ end
 -- ------------------------------------------------------------------
 local function buildIndex()
   S.index = {}
-  if not BCT_GetRecipeRows then return end
-  local rows = BCT_GetRecipeRows()
-  for i = 1, tlen(rows) do
-    local rr = rows[i]
-    S.index[rr.prof .. ":" .. rr.recipe] = rr
+  S.gather = {}
+  if BCT_GetRecipeRows then
+    local rows = BCT_GetRecipeRows()
+    for i = 1, tlen(rows) do
+      local rr = rows[i]
+      S.index[rr.prof .. ":" .. rr.recipe] = rr
+    end
+  end
+  -- Sammelberufe: Spieler mit Fertigkeitswert
+  if BCT_GetGatherers then
+    for pi = 1, tlen(BCT_Catalog) do
+      local p = BCT_Catalog[pi]
+      if p.gather then S.gather[p.db] = BCT_GetGatherers(p.db) end
+    end
   end
 end
 
@@ -92,12 +101,34 @@ local function crafterCounts(dbProf, name)
   return tlen(rr.crafters), on, rr
 end
 
+-- Hersteller (Handwerksberufe) bzw. Sammler (Bergbau/Kraeuterkunde) zu einer Zeile.
+-- Rueckgabe: gesamt, online, Liste der Personen, Rezeptzeile (nur Handwerk)
+local function countsFor(p, r)
+  if p.gather then
+    local list = S.gather[p.db] or {}
+    local req = r[6] or 0
+    local total, online = 0, 0
+    local matched = {}
+    for i = 1, tlen(list) do
+      local g = list[i]
+      if g.rank >= req then
+        total = total + 1
+        table.insert(matched, g)
+        if g.online then online = online + 1 end
+      end
+    end
+    return total, online, matched, nil
+  end
+  local total, online, rr = crafterCounts(p.db, r[5])
+  return total, online, rr and rr.crafters or nil, rr
+end
+
 -- ------------------------------------------------------------------
 -- Liste aufbauen
 -- ------------------------------------------------------------------
 local function passes(p, r)
   if not (S.onlyCrafters or S.onlineOnly) then return true end
-  local total, online = crafterCounts(p.db, r[5])
+  local total, online = countsFor(p, r)
   if S.onlyCrafters and total == 0 then return false end
   if S.onlineOnly and online == 0 then return false end
   return true
@@ -213,14 +244,15 @@ local function showTooltip(row)
     end
   end
 
-  -- wer in der Gilde das herstellen kann
-  local total, online, rr = crafterCounts(p.db, r[5])
-  if total > 0 then
+  -- wer in der Gilde das herstellen bzw. abbauen/ernten kann
+  local total, online, people = countsFor(p, r)
+  if total > 0 and people then
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine(string.format(T("CAT_CRAFTERS_N", "Crafters: %d (%d online)"), total, online), 0.3, 1, 0.3)
+    local fmt = p.gather and T("CAT_GATHERERS_N", "Gatherers: %d (%d online)") or T("CAT_CRAFTERS_N", "Crafters: %d (%d online)")
+    GameTooltip:AddLine(string.format(fmt, total, online), 0.3, 1, 0.3)
     local shown = 0
-    for i = 1, tlen(rr.crafters) do
-      local cr = rr.crafters[i]
+    for i = 1, tlen(people) do
+      local cr = people[i]
       if shown < 6 then
         local col = cr.online and "|cff3ddc4a" or "|cff8c8c8c"
         local alt = cr.altOf and (" |cffcc99ff(" .. T("ALT_OF", "Alt of") .. " " .. cr.altOf .. ")|r") or ""
@@ -228,11 +260,12 @@ local function showTooltip(row)
         shown = shown + 1
       end
     end
-    if tlen(rr.crafters) > shown then
-      GameTooltip:AddLine("... +" .. (tlen(rr.crafters) - shown), 0.6, 0.6, 0.6)
+    if tlen(people) > shown then
+      GameTooltip:AddLine("... +" .. (tlen(people) - shown), 0.6, 0.6, 0.6)
     end
   else
-    GameTooltip:AddLine(T("CAT_CRAFTER_NONE", "No known crafter in the guild"), 0.6, 0.6, 0.6)
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(p.gather and T("CAT_GATHERER_NONE", "Nobody known yet.") or T("CAT_CRAFTER_NONE", "No known crafter in the guild"), 0.6, 0.6, 0.6, 1)
   end
   GameTooltip:AddLine(T("CAT_HINT_CLICK", "Click: details and whisper"), 0.5, 0.5, 0.5)
   GameTooltip:Show()
@@ -243,7 +276,7 @@ end
 -- ------------------------------------------------------------------
 local function openPopup(entry)
   local r, p = entry.r, entry.p
-  local total, online, rr = crafterCounts(p.db, r[5])
+  local total, online, people, rr = countsFor(p, r)
   local sp = (r[1] == "s") and BCT_CraftSpells[r[2]] or nil
 
   -- gescannte Rezeptdaten (richtige Reagenznamen) bevorzugen
@@ -270,8 +303,11 @@ local function openPopup(entry)
     recipe = r[5],
     prof = p.db,
     recipeData = rdata,
-    crafters = rr and rr.crafters or {},
+    crafters = people or {},
+    gather = p.gather and true or nil,
   })
+  -- Detailfenster exakt rechts neben dem Katalog, bei zu wenig Platz darueber
+  if BCT_RecipePopup then BCT_PlaceNextToCatalog(BCT_RecipePopup, false) end
 end
 
 -- ------------------------------------------------------------------
@@ -314,7 +350,7 @@ local function updateRows()
         else
           row.skill:SetText(skillText(r))
         end
-        local ct, on = crafterCounts(e.p.db, r[5])
+        local ct, on = countsFor(e.p, r)
         if ct == 0 then
           row.crafters:SetText("|cff555555-|r")
         elseif on > 0 then
@@ -332,7 +368,8 @@ local function updateRows()
   if searching then
     f.header:SetText(T("CAT_SEARCH_RESULTS", "Search results") .. ": " .. total)
   elseif c then
-    f.header:SetText("|cffffd200" .. p.key .. " > " .. c.name .. "|r  (" .. total .. ")")
+    local path = (c.name == p.key) and p.key or (p.key .. " > " .. c.name)
+    f.header:SetText("|cffffd200" .. path .. "|r  (" .. total .. ")")
   end
 end
 
@@ -555,13 +592,25 @@ local function buildWindow()
   header:SetJustifyH("LEFT")
   f.header = header
 
-  -- Berufsbuttons
+  -- Berufsbuttons (Sammelberufe stehen am Ende unter einer eigenen Ueberschrift)
+  local py = 6
+  local gatherLabelDone = false
   for i = 1, tlen(BCT_Catalog) do
     local p = BCT_Catalog[i]
+    if p.gather and not gatherLabelDone then
+      gatherLabelDone = true
+      py = py + 6
+      local gl = profPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+      gl:SetPoint("TOPLEFT", profPanel, "TOPLEFT", 10, -py)
+      gl:SetTextColor(0.6, 0.6, 0.6)
+      f.gatherLabel = gl
+      py = py + 14
+    end
     local b = CreateFrame("Button", nil, profPanel)
     b:SetWidth(138)
     b:SetHeight(26)
-    b:SetPoint("TOPLEFT", profPanel, "TOPLEFT", 6, -6 - (i - 1) * 27)
+    b:SetPoint("TOPLEFT", profPanel, "TOPLEFT", 6, -py)
+    py = py + 27
     b.index = i
     local hl = b:CreateTexture(nil, "HIGHLIGHT")
     hl:SetAllPoints(b)
@@ -738,6 +787,7 @@ function BCT_RelocalizeCatalog()
   getglobal("BCT_BrowserCBCraftersText"):SetText(T("CAT_ONLY_CRAFTERS", "Only with crafters"))
   getglobal("BCT_BrowserCBOnlineText"):SetText(T("CAT_ONLY_ONLINE", "Only online"))
   f.shareBtn:SetText(T("SHARE_BUTTON", "Share database with guild"))
+  if f.gatherLabel then f.gatherLabel:SetText(T("CAT_GATHER_HEADER", "Gathering")) end
   f.foot:SetText("v" .. (BCT_VERSION or ""))
   f.stats:SetText(BCT_StatsText and BCT_StatsText() or "")
   local cur = BCT_GetLocale and BCT_GetLocale() or "enUS"
@@ -757,6 +807,28 @@ function BCT_ToggleCatalog()
   end
   local win = f or buildWindow()
   if win:IsShown() then win:Hide() else win:Show() end
+end
+
+-- Fenster neben den Katalog setzen: rechts daneben; wenn dort kein Platz ist
+-- (und preferLeft) links daneben; sonst ueber dem Katalog (rechts oben).
+function BCT_PlaceNextToCatalog(win, preferLeft)
+  if not f or not f:IsShown() or not win then return end
+  win:SetFrameStrata("FULLSCREEN_DIALOG")
+  local screenW = UIParent:GetRight()
+  local fl, fr = f:GetLeft(), f:GetRight()
+  local w = win:GetWidth()
+  win:ClearAllPoints()
+  if type(screenW) ~= "number" or type(fr) ~= "number" or type(fl) ~= "number" or type(w) ~= "number" then
+    win:SetPoint("TOPRIGHT", f, "TOPRIGHT", -14, -70)
+    return
+  end
+  if fr + w + 2 <= screenW then
+    win:SetPoint("TOPLEFT", f, "TOPRIGHT", 0, 0)
+  elseif preferLeft and fl - w - 2 >= 0 then
+    win:SetPoint("TOPRIGHT", f, "TOPLEFT", 0, 0)
+  else
+    win:SetPoint("TOPRIGHT", f, "TOPRIGHT", -14, -70)
+  end
 end
 
 function BCT_RefreshCatalog()

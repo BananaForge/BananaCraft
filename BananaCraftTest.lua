@@ -26,7 +26,13 @@ local ProfessionNameMap = {
   ["Juwelierskunst"] = "Jewelcrafting",
   ["Lederverarbeitung"] = "Leatherworking",
   ["Schneiderei"] = "Tailoring",
+  ["Bergbau"] = "Mining",
+  ["Kräuterkunde"] = "Herbalism",
+  ["Kochkunst"] = "Cooking",
+  ["Erste Hilfe"] = "First Aid",
   -- English names stay the same
+  ["Mining"] = "Mining",
+  ["Herbalism"] = "Herbalism",
   ["Alchemy"] = "Alchemy",
   ["Blacksmithing"] = "Blacksmithing",
   ["Enchanting"] = "Enchanting",
@@ -54,7 +60,7 @@ local ADDON_NAME = "BananaCraftTest"
 local DB_NAME = "BananaCraftTestDB"
 local PREFIX = "BCT0"
 local DEBUG = false  -- Debug messages OFF by default (use /bct debug to enable)
-local ADDON_VERSION = "3.0.0-beta2"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "3.0.0-beta3"  -- keep in sync with the .toc "## Version:" line
 BCT_VERSION = ADDON_VERSION
 
 -- /bct versioncheck state (see startHashSync section for PING/PONG, this is
@@ -257,7 +263,8 @@ local function ensureDB()
   -- damit jeder "Alt von <Besitzer>" sehen kann.
   if not db.altOf then db.altOf = {} end
   if not db.altOfTs then db.altOfTs = {} end       -- Zeitstempel der Zuordnung (neueste gewinnt)
-  if not db.altConfirm then db.altConfirm = {} end -- vom Alt selbst bestaetigte Besitzer
+  if not db.altConfirm then db.altConfirm = {} end
+  if not db.gather then db.gather = {} end        -- [Name@Gilde] = { Mining = {rank,max,ts}, Herbalism = {...} } -- vom Alt selbst bestaetigte Besitzer
   -- db.mainChar: Hauptcharakter dieses Accounts (account-weit in den SavedVariables)
   do
     -- Alte "geloescht"-Markierungen (Zuordnung entfernt) nach 30 Tagen vergessen
@@ -1273,8 +1280,10 @@ local function publishAccountAlts()
       for _, pd in pairs(data.profs) do
         if type(pd) == "table" and pd.recipes and tlen(pd.recipes) > 0 then hasRecipes = true break end
       end
-      if sameRealm and hasRecipes and (name == main or not data.noShare) then
+      local hasGather = data.gather and next(data.gather) ~= nil
+      if sameRealm and (hasRecipes or hasGather) and (name == main or not data.noShare) then
         db.guild[key] = { updated = data.updated or now(), profs = copyTable(data.profs) }
+        db.gather[key] = data.gather and copyTable(data.gather) or nil
         -- Beim Veroeffentlichen gilt der Stand als frisch, sonst raeumt die
         -- 14-Tage-Bereinigung Alts weg, die lange nicht eingeloggt waren.
         for _, pd in pairs(db.guild[key].profs) do
@@ -1284,11 +1293,107 @@ local function publishAccountAlts()
         count = count + 1
       elseif db.altOf[key] == main then
         db.guild[key] = nil
+        db.gather[key] = nil
         setAltOf(db, key, nil)
       end
     end
   end
   return count
+end
+
+-- -------------------------
+-- Sammelberufe (Bergbau, Kraeuterkunde): wer kann was abbauen / ernten
+--
+-- Diese Berufe haben kein Berufsfenster mit Rezepten. Darum wird nur der
+-- Fertigkeitswert gelesen (Fertigkeiten-Fenster) und mit einer kleinen
+-- Nachricht "GATH" geteilt. Ob jemand ein Vorkommen abbauen kann, ergibt
+-- sich aus dem benoetigten Wert (Katalog) und dem Wert des Spielers.
+-- -------------------------
+local GATHER_PROFS = { Mining = true, Herbalism = true }
+local lastGatherScan = 0
+
+local function sendGather(key, prof, rank, maxRank)
+  if string.sub(BCT_OwnGuild(), 1, 5) == "Solo:" then return end
+  enqueueSend("GUILD", "GATH" .. SEP .. safe(key) .. SEP .. safe(prof) .. SEP .. tostring(rank) .. SEP .. tostring(maxRank))
+end
+
+-- Fertigkeitswerte des eigenen Charakters lesen und bei Aenderung melden
+local function scanGathering()
+  if not (GetNumSkillLines and GetSkillLineInfo) then return end
+  local db = ensureDB()
+  lastGatherScan = GetTime and GetTime() or 0
+  if ExpandSkillHeader then pcall(ExpandSkillHeader, 0) end   -- alle Kategorien aufklappen
+  local found = {}
+  for i = 1, GetNumSkillLines() do
+    local name, header, _, rank, _, _, maxRank = GetSkillLineInfo(i)
+    if name and not header then
+      local en = normalizeProfessionName(name)
+      if GATHER_PROFS[en] then found[en] = { rank = rank or 0, max = maxRank or 0 } end
+    end
+  end
+  local me = db.me
+  if not me.gather then me.gather = {} end
+  local key = myKey()
+  if not db.gather[key] then db.gather[key] = {} end
+  for prof, _ in pairs(GATHER_PROFS) do
+    local now_ = found[prof]
+    local old = me.gather[prof]
+    if now_ and now_.rank > 0 then
+      if not old or old.rank ~= now_.rank or old.max ~= now_.max then
+        me.gather[prof] = { rank = now_.rank, max = now_.max, ts = time() }
+        db.gather[key][prof] = { rank = now_.rank, max = now_.max, ts = time() }
+        sendGather(key, prof, now_.rank, now_.max)
+      end
+    elseif old then
+      me.gather[prof] = nil
+      db.gather[key][prof] = nil
+      sendGather(key, prof, 0, 0)
+    end
+  end
+end
+
+function BCT_ScanGathering()
+  scanGathering()
+end
+
+-- alle bekannten Sammelwerte der eigenen Charaktere an die Gilde senden (Teilen-Button)
+local function sendAllGather(db)
+  local guild = BCT_OwnGuild()
+  if string.sub(guild, 1, 5) == "Solo:" then return end
+  local me = playerName()
+  for name, data in pairs(db.characters) do
+    if type(data) == "table" and data.gather then
+      local key = BCT_MakeKey(name, guild)
+      if name == me or (db.guild[key] and not data.noShare) then
+        for prof, g in pairs(data.gather) do
+          if GATHER_PROFS[prof] and g.rank and g.rank > 0 then sendGather(key, prof, g.rank, g.max or 0) end
+        end
+      end
+    end
+  end
+end
+
+-- Spieler mit Wert in einem Sammelberuf (fuer den Katalog)
+function BCT_GetGatherers(prof)
+  local db = ensureDB()
+  refreshOnlineCache(false)
+  local list = {}
+  for key, profs in pairs(db.gather) do
+    local g = type(profs) == "table" and profs[prof] or nil
+    if g and g.rank and g.rank > 0 then
+      local name, guild = BCT_SplitKey(key)
+      local altOf = db.altOf[key]
+      local online = isPlayerOnline(name)
+      local contact = name
+      if altOf and not online and isPlayerOnline(altOf) then
+        online = true
+        contact = altOf
+      end
+      table.insert(list, { player = name, guild = guild, rank = g.rank, maxRank = g.max or 0,
+        online = online, altOf = altOf, contact = contact })
+    end
+  end
+  return list
 end
 
 local function broadcastAll()
@@ -1346,6 +1451,7 @@ local function broadcastAll()
       end
     end
     sendAltConfirm()
+    sendAllGather(db)
     if not db.mainChar and tlen(keys) > 0 then
       msg("|cffff8800" .. BCT_L.SET_PICK_MAIN_HINT .. "|r")
     end
@@ -1615,6 +1721,29 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         debug("DELETE: " .. player .. " - " .. prof)
         
         BCT_UI_Refresh()
+      end
+    end
+    return
+  end
+
+  -- Sammelberuf-Wert eines Spielers: GATH~Name@Gilde~Beruf~Wert~Max
+  if cmd == "GATH" then
+    if tlen(parts) >= 5 and string.find(parts[2], "@", 1, true) and GATHER_PROFS[parts[3]] then
+      local key, prof = parts[2], parts[3]
+      local rank, maxRank = tonumber(parts[4]), tonumber(parts[5])
+      local nName, nGuild = BCT_SplitKey(key)
+      local sk = BCT_MakeKey(sender, nGuild)
+      -- nur der Spieler selbst oder ein Charakter desselben Accounts darf melden
+      local ok = (sender == nName) or (db.altOf[key] == sender)
+        or (db.altOf[sk] ~= nil and (db.altOf[sk] == nName or db.altOf[sk] == db.altOf[key]))
+      if ok and rank and maxRank and rank >= 0 and rank <= 300 and maxRank <= 300 then
+        if rank == 0 then
+          if db.gather[key] then db.gather[key][prof] = nil end
+        else
+          if not db.gather[key] then db.gather[key] = {} end
+          db.gather[key][prof] = { rank = rank, max = maxRank, ts = time() }
+        end
+        scheduleUIRefresh()
       end
     end
     return
@@ -2037,7 +2166,7 @@ function BCT_ShowRecipePopup(data)
     pop:RegisterForDrag("LeftButton")
     pop:SetScript("OnDragStart", function() this:StartMoving() end)
     pop:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
-    pop:SetFrameStrata("DIALOG")
+    pop:SetFrameStrata("FULLSCREEN_DIALOG")
 
     local title = pop:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", pop, "TOP", 0, -18)
@@ -2364,7 +2493,7 @@ function BCT_UpdateRecipePopupContent(pop, data)
   
   -- NOW: Add crafter list at the bottom
   infoText = infoText .. "\n|cffffff00━━━━━━━━━━━━━━━━━━━━━━|r\n"
-  infoText = infoText .. "|cffffff00Kann hergestellt werden von:|r\n\n"
+  infoText = infoText .. "|cffffff00" .. (data.gather and BCT_L.CAT_GATHERED_BY or BCT_L.CAT_CRAFTED_BY) .. "|r\n\n"
   
   if data.crafters and tlen(data.crafters) > 0 then
     -- Sort crafters: online first, then by name
@@ -2408,7 +2537,9 @@ function BCT_UpdateRecipePopupContent(pop, data)
   pop.content:SetHeight(math.max(textHeight + 20, 400))
   
   -- Update missing summary
-  if tlen(missing) > 0 then
+  if data.gather then
+    pop.missingSummary:SetText("")
+  elseif tlen(missing) > 0 then
     pop.missingSummary:SetText("|cffff0000Fehlen:|r " .. table.concat(missing, ", "))
   else
     pop.missingSummary:SetText("|cff00ff00" .. BCT_L.ALL_MATS .. "|r")
@@ -2833,7 +2964,7 @@ local function showAltTextWindow(mode)
     f:SetWidth(600)
     f:SetHeight(400)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-    f:SetFrameStrata("DIALOG")
+    f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:SetBackdrop({
       bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
       edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -3032,7 +3163,7 @@ local function buildSettings()
   f:SetWidth(400)
   f:SetHeight(322)
   f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-  f:SetFrameStrata("DIALOG")
+  f:SetFrameStrata("FULLSCREEN_DIALOG")
   f:SetBackdrop({
     bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
     edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -3356,7 +3487,13 @@ end
 
 function BCT_ToggleSettings()
   local f = BCT_SettingsFrame or buildSettings()
-  if f:IsShown() then f:Hide() else f:Show() end
+  if f:IsShown() then
+    f:Hide()
+  else
+    f:Show()
+    -- neben dem Katalog oeffnen: rechts, sonst links, sonst darueber
+    if BCT_PlaceNextToCatalog then BCT_PlaceNextToCatalog(f, true) end
+  end
 end
 
 -- -------------------------
@@ -3556,6 +3693,18 @@ end
 -- -------------------------
 -- Events
 -- -------------------------
+-- kleiner Timer fuer den Sammelberuf-Scan (nach Login und nach Skill-Aenderungen)
+local GatherTimer = CreateFrame("Frame")
+GatherTimer:Hide()
+GatherTimer.elapsed = 0
+GatherTimer.delay = 3
+GatherTimer:SetScript("OnUpdate", function()
+  this.elapsed = this.elapsed + arg1
+  if this.elapsed < this.delay then return end
+  this:Hide()
+  scanGathering()
+end)
+
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
@@ -3564,6 +3713,7 @@ eventFrame:RegisterEvent("CRAFT_SHOW")         -- Only scan when window OPENS
 eventFrame:RegisterEvent("CHAT_MSG_ADDON")
 eventFrame:RegisterEvent("BANKFRAME_OPENED")   -- Auto-scan bank
 eventFrame:RegisterEvent("GUILD_ROSTER_UPDATE") -- Keep online cache accurate
+eventFrame:RegisterEvent("SKILL_LINES_CHANGED")  -- Sammelberufe: Fertigkeitswert hat sich geaendert
 
 eventFrame:SetScript("OnEvent", function()
   if event == "ADDON_LOADED" then
@@ -3646,6 +3796,11 @@ eventFrame:SetScript("OnEvent", function()
     -- Shift-Klick auf Items/Verzauberungen schreibt in das Suchfeld
     BCT_InstallLinkHook()
 
+    -- Sammelberufe nach dem Login einlesen
+    GatherTimer.elapsed = 0
+    GatherTimer.delay = 10
+    GatherTimer:Show()
+
     -- Optionale Alt-Bestaetigung: als Alt eingeloggt meldet der Charakter kurz
     -- nach dem Login "ich bin Alt von <Main>" (eine kleine Nachricht)
     do
@@ -3676,6 +3831,17 @@ eventFrame:SetScript("OnEvent", function()
 
   -- Do NOT scan on UPDATE events - they fire constantly!
   -- Only scan when window OPENS (SHOW events above)
+
+  if event == "SKILL_LINES_CHANGED" then
+    -- entprellt: der Scan selbst klappt Kategorien auf und loest das Ereignis erneut aus
+    local nowT = GetTime and GetTime() or 0
+    if nowT - lastGatherScan > 5 then
+      GatherTimer.elapsed = 0
+      GatherTimer.delay = 3
+      GatherTimer:Show()
+    end
+    return
+  end
 
   if event == "GUILD_ROSTER_UPDATE" then
     -- Roster data changed: rebuild the online lookup and repaint if visible.
@@ -3741,7 +3907,7 @@ function BCT_ShowThanksFrame()
     tf:RegisterForDrag("LeftButton")
     tf:SetScript("OnDragStart", function() this:StartMoving() end)
     tf:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
-    tf:SetFrameStrata("DIALOG")
+    tf:SetFrameStrata("FULLSCREEN_DIALOG")
 
     local tt = tf:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     tt:SetPoint("TOP", tf, "TOP", 0, -18)
