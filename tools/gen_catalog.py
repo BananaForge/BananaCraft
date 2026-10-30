@@ -151,6 +151,10 @@ def main(root, out):
             res.extend(page); n += 1
         return res or None
 
+    item_to_spell = {}
+    for sid, e in sorted(craftspells.items()):
+        if isinstance(e, tuple) and isinstance(e[1].get("craftItem"), int) and e[1].get("reagents"):
+            item_to_spell.setdefault(e[1]["craftItem"], sid)
     used_spells = {}
     used_enchants = {}
 
@@ -174,6 +178,9 @@ def main(root, out):
             num = rid
         else:
             return None
+        if kind == "i" and num in item_to_spell:
+            # reine Item-Zeile (z. B. Crafted Epic Weapons) -> Herstellungszauber mit Materialien
+            kind, num = "s", item_to_spell[num]
         so = [int(x) for x in re.findall(r"=so[1-4]=(\d+)", extra)]
         while len(so) < 4: so.append(0)
         if kind == "s": used_spells[num] = True

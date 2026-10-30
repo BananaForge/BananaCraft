@@ -2,7 +2,7 @@
 ## Title: BananaCraft TEST
 ## Notes: Testversion mit Rezeptkatalog (Beruf, Stufe, Kategorie) - eigener Befehl /bct, eigene Daten
 ## Author: Lumihunt
-## Version: 3.0.0-beta4
+## Version: 3.0.0-beta5
 ## SavedVariables: BananaCraftTestDB
 
 BananaCraftTest_Locale.lua

@@ -272,6 +272,68 @@ local function showTooltip(row)
 end
 
 -- ------------------------------------------------------------------
+-- Materialien aus dem Spielclient lesen (Tooltip "enchant:<id>" listet "Reagents: Name (n), ...")
+-- Noetig fuer Verzauberungen (keine Reagenzien in den Katalogdaten) und fuer Itemnamen,
+-- die der Client noch nicht kennt.
+-- ------------------------------------------------------------------
+local scanTip = nil
+local reagentCache = {}
+
+local function clientReagents(spellID)
+  if reagentCache[spellID] ~= nil then return reagentCache[spellID] or nil end
+  if not scanTip then
+    scanTip = CreateFrame("GameTooltip", "BCT_ScanTip", nil, "GameTooltipTemplate")
+  end
+  scanTip:SetOwner(UIParent, "ANCHOR_NONE")
+  scanTip:ClearLines()
+  local ok = pcall(function() scanTip:SetHyperlink("enchant:" .. spellID) end)
+  local result = nil
+  if ok then
+    local label = SPELL_REAGENTS or "Reagents: "
+    for i = 2, scanTip:NumLines() do
+      local fs = getglobal("BCT_ScanTipTextLeft" .. i)
+      local txt = fs and fs:GetText()
+      if txt and string.sub(txt, 1, string.len(label)) == label then
+        result = {}
+        local list = string.sub(txt, string.len(label) + 1)
+        for part in string.gfind(list, "[^,]+") do
+          local nm = string.gsub(part, "^%s+", "")
+          nm = string.gsub(nm, "%s+$", "")
+          local cnt = 1
+          local _, _, base, c = string.find(nm, "^(.-)%s*%((%d+)%)$")
+          if base then nm = base; cnt = tonumber(c) end
+          if nm ~= "" then table.insert(result, { count = cnt, name = nm }) end
+        end
+        break
+      end
+    end
+  end
+  scanTip:Hide()
+  -- nur dauerhaft merken, wenn etwas gefunden wurde (Client-Daten koennen spaeter nachladen)
+  if result and tlen(result) > 0 then reagentCache[spellID] = result else reagentCache[spellID] = nil; return nil end
+  return result
+end
+
+-- Materialliste fuer eine Katalogzeile: Katalogdaten, Namen/Fehlendes vom Client ergaenzt
+local function reagentsFor(r)
+  local kind, id = r[1], r[2]
+  local list = {}
+  local sp = (kind == "s") and BCT_CraftSpells[id] or nil
+  local client = (kind == "s" or kind == "e") and clientReagents(id) or nil
+  if sp and sp[6] and tlen(sp[6]) > 0 then
+    for i = 1, tlen(sp[6]) do
+      local rg = sp[6][i]
+      local nm = GetItemInfo(rg[1])
+      if not nm and client and tlen(client) == tlen(sp[6]) and client[i] then nm = client[i].name end
+      table.insert(list, { count = rg[2], name = nm or ("Item " .. rg[1]) })
+    end
+  elseif client then
+    list = client
+  end
+  return list
+end
+
+-- ------------------------------------------------------------------
 -- Rezept-Popup (Materialien, Hersteller, Whisper) fuer eine Katalogzeile
 -- ------------------------------------------------------------------
 local function openPopup(entry)
@@ -282,14 +344,7 @@ local function openPopup(entry)
   -- gescannte Rezeptdaten (richtige Reagenznamen) bevorzugen
   local rdata = rr and rr.recipeData
   if type(rdata) ~= "table" or not rdata.reagents or tlen(rdata.reagents) == 0 then
-    local reagents = {}
-    if sp and sp[6] then
-      for i = 1, tlen(sp[6]) do
-        local rg = sp[6][i]
-        local nm = GetItemInfo(rg[1])
-        table.insert(reagents, { count = rg[2], name = nm or ("Item " .. rg[1]) })
-      end
-    end
+    local reagents = reagentsFor(r)
     rdata = {
       name = r[5],
       reagents = reagents,
@@ -446,7 +501,7 @@ local function backdrop(frame, small)
       tile = true, tileSize = 16, edgeSize = 14,
       insets = { left = 4, right = 4, top = 4, bottom = 4 },
     })
-    frame:SetBackdropColor(0, 0, 0, 0.95)
+    frame:SetBackdropColor(0, 0, 0, 0.75)
   else
     frame:SetBackdrop({
       bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -454,7 +509,6 @@ local function backdrop(frame, small)
       tile = true, tileSize = 32, edgeSize = 32,
       insets = { left = 11, right = 12, top = 12, bottom = 11 },
     })
-    BCT_SolidBackground(frame)   -- besser lesbar: dahinter eine fast deckende dunkle Flaeche
   end
 end
 
@@ -840,3 +894,33 @@ end
 
 -- fuer Tests / Diagnose
 function BCT_CatalogState() return S end
+
+-- /bct checkmats: prueft, ob jede Rezeptzeile Materialien hat (Enchanting braucht den Client)
+function BCT_CheckMaterials()
+  local total, withMats, noRecipe = 0, 0, 0
+  local missing = {}
+  for pi = 1, tlen(BCT_Catalog) do
+    local p = BCT_Catalog[pi]
+    for ci = 1, tlen(p.cats) do
+      local rows = p.cats[ci].rows
+      for ri = 1, tlen(rows) do
+        local r = rows[ri]
+        if r[1] == "s" or r[1] == "e" then
+          if not p.gather then
+            total = total + 1
+            if tlen(reagentsFor(r)) > 0 then withMats = withMats + 1
+            else table.insert(missing, p.key .. " > " .. r[5]) end
+          end
+        elseif r[1] == "i" and not p.gather then
+          noRecipe = noRecipe + 1
+        end
+      end
+    end
+  end
+  DEFAULT_CHAT_FRAME:AddMessage("|cffffff00BCT checkmats:|r " .. withMats .. "/" .. total .. " Rezepte mit Materialien, " .. noRecipe .. " reine Item-Zeilen ohne Rezept.")
+  for i = 1, math.min(tlen(missing), 25) do
+    DEFAULT_CHAT_FRAME:AddMessage("  |cffff6060ohne Material:|r " .. missing[i])
+  end
+  if tlen(missing) > 25 then DEFAULT_CHAT_FRAME:AddMessage("  ... +" .. (tlen(missing) - 25)) end
+  if BananaCraftTestDB then BananaCraftTestDB.matCheck = { total = total, ok = withMats, missing = missing } end
+end
