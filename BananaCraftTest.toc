@@ -1,0 +1,12 @@
+## Interface: 11200
+## Title: BananaCraft TEST
+## Notes: Testversion mit Rezeptkatalog (Beruf, Stufe, Kategorie) - eigener Befehl /bct, eigene Daten
+## Author: Lumihunt
+## Version: 3.0.0-beta1
+## SavedVariables: BananaCraftTestDB
+
+BananaCraftTest_Locale.lua
+BananaCraftTest_RecipeMaps.lua
+BananaCraftTest_Catalog.lua
+BananaCraftTest.lua
+BananaCraftTest_Browser.lua

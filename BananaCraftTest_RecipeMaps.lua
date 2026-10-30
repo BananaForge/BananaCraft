@@ -2,10 +2,10 @@
 -- Auto-generated from Excel data
 -- Total: 1513 recipes across 7 professions
 
-BCRAFT_RecipeMaps = BCRAFT_RecipeMaps or {}
+BCT_RecipeMaps = BCT_RecipeMaps or {}
 
 -- Alchemy: 125 recipes
-BCRAFT_RecipeMaps["Alchemy"] = {
+BCT_RecipeMaps["Alchemy"] = {
   ["Alchemist's Stone"] = "Miscellaneous",
   ["Arcane Elixir"] = "Offensive Potions and Elixirs",
   ["Blackmouth Oil"] = "Miscellaneous",
@@ -134,7 +134,7 @@ BCRAFT_RecipeMaps["Alchemy"] = {
 }
 
 -- Blacksmithing: 305 recipes
-BCRAFT_RecipeMaps["Blacksmithing"] = {
+BCT_RecipeMaps["Blacksmithing"] = {
   ["Annihilator"] = "Axes",
   ["Arcanite Belt Buckle"] = "Buckles",
   ["Arcanite Champion"] = "Swords",
@@ -443,7 +443,7 @@ BCRAFT_RecipeMaps["Blacksmithing"] = {
 }
 
 -- Enchanting: 148 recipes
-BCRAFT_RecipeMaps["Enchanting"] = {
+BCT_RecipeMaps["Enchanting"] = {
   ["Enchant 2H Weapon - Agility"] = "2HWeapon",
   ["Enchant 2H Weapon - Greater Impact"] = "2HWeapon",
   ["Enchant 2H Weapon - Impact"] = "2HWeapon",
@@ -595,7 +595,7 @@ BCRAFT_RecipeMaps["Enchanting"] = {
 }
 
 -- Engineering: 191 recipes
-BCRAFT_RecipeMaps["Engineering"] = {
+BCT_RecipeMaps["Engineering"] = {
   ["#sk1#\" },"] = "Smelting",
   ["Advanced Target Dummy"] = "Misc",
   ["Alarm-O-Bot"] = "Misc",
@@ -789,7 +789,7 @@ BCRAFT_RecipeMaps["Engineering"] = {
 }
 
 -- Jewelcrafting: 211 recipes
-BCRAFT_RecipeMaps["Jewelcrafting"] = {
+BCT_RecipeMaps["Jewelcrafting"] = {
   ["Agatestone Crown"] = "Helm",
   ["Alluring Citrine Choker"] = "Amulets",
   ["Amber Orb"] = "OffHands",
@@ -1004,7 +1004,7 @@ BCRAFT_RecipeMaps["Jewelcrafting"] = {
 }
 
 -- Leatherworking: 280 recipes
-BCRAFT_RecipeMaps["Leatherworking"] = {
+BCT_RecipeMaps["Leatherworking"] = {
   ["Barbaric Belt"] = "Belt",
   ["Barbaric Bracers"] = "Bracers",
   ["Barbaric Gloves"] = "Gloves",
@@ -1288,7 +1288,7 @@ BCRAFT_RecipeMaps["Leatherworking"] = {
 }
 
 -- Tailoring: 253 recipes
-BCRAFT_RecipeMaps["Tailoring"] = {
+BCT_RecipeMaps["Tailoring"] = {
   ["Admiral's Hat"] = "Helm",
   ["Argent Boots"] = "Boots",
   ["Argent Shoulders"] = "Shoulders",

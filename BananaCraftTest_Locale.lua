@@ -14,12 +14,12 @@
 --      miteinander kommunizieren koennen.
 -- ============================================================
 
-BCRAFT_Locales = {}
-BCRAFT_Locales["enUS"] = {}
-BCRAFT_Locales["deDE"] = {}
+BCT_Locales = {}
+BCT_Locales["enUS"] = {}
+BCT_Locales["deDE"] = {}
 
-local en = BCRAFT_Locales["enUS"]
-local de = BCRAFT_Locales["deDE"]
+local en = BCT_Locales["enUS"]
+local de = BCT_Locales["deDE"]
 
 -- ---------- Interface strings ----------
 en.ALL_SENT = "All professions have been sent!"
@@ -55,8 +55,8 @@ de.SCAN_FIRST = "Scanne zuerst deine Berufe!"
 en.REMAINING = "remaining"
 de.REMAINING = "verbleibend"
 
-en.WINDOW_TITLE = "BananaCraft - Craft Search"
-de.WINDOW_TITLE = "BananaCraft - Craft-Suche"
+en.WINDOW_TITLE = "BananaCraft TEST - Craft Search"
+de.WINDOW_TITLE = "BananaCraft TEST - Craft-Suche"
 
 en.SEARCH_LABEL = "Search:"
 de.SEARCH_LABEL = "Suche:"
@@ -184,44 +184,44 @@ de.SHARE_SHORT = "Datenbank an Gilde teilen"
 en.CMD_HEADER = "Commands:"
 de.CMD_HEADER = "Befehle:"
 
-en.CMD_SHOW = "/bc show      - open/close the UI"
-de.CMD_SHOW = "/bc show      - UI oeffnen/schliessen"
+en.CMD_SHOW = "/bct show      - open/close the UI"
+de.CMD_SHOW = "/bct show      - UI oeffnen/schliessen"
 
-en.CMD_SCAN = "/bc scan      - scan the open profession"
-de.CMD_SCAN = "/bc scan      - aktuell geoeffneten Beruf scannen"
+en.CMD_SCAN = "/bct scan      - scan the open profession"
+de.CMD_SCAN = "/bct scan      - aktuell geoeffneten Beruf scannen"
 
-en.CMD_RESCAN = "/bc rescan    - allow rescanning (clears session cache)"
-de.CMD_RESCAN = "/bc rescan    - erlaube erneutes Scannen (cleart Session-Cache)"
+en.CMD_RESCAN = "/bct rescan    - allow rescanning (clears session cache)"
+de.CMD_RESCAN = "/bct rescan    - erlaube erneutes Scannen (cleart Session-Cache)"
 
-en.CMD_SEND = "/bc send      - send all professions to the guild"
-de.CMD_SEND = "/bc send      - alle Berufe an Gilde senden"
+en.CMD_SEND = "/bct send      - send all professions to the guild"
+de.CMD_SEND = "/bct send      - alle Berufe an Gilde senden"
 
-en.CMD_SYNC = "/bc sync      - lightweight sync: only pulls what's outdated"
-de.CMD_SYNC = "/bc sync      - leichter Abgleich: holt nur veraltete Daten nach"
+en.CMD_SYNC = "/bct sync      - lightweight sync: only pulls what's outdated"
+de.CMD_SYNC = "/bct sync      - leichter Abgleich: holt nur veraltete Daten nach"
 
-en.CMD_VERSIONCHECK = "/bc versioncheck - see which BananaCraft version guildmates run"
-de.CMD_VERSIONCHECK = "/bc versioncheck - zeigt BananaCraft-Version der Gildenmitglieder"
+en.CMD_VERSIONCHECK = "/bct versioncheck - see which BananaCraft version guildmates run"
+de.CMD_VERSIONCHECK = "/bct versioncheck - zeigt BananaCraft-Version der Gildenmitglieder"
 
-en.CMD_DELETE = "/bc delete [prof] - delete a profession (e.g. /bc delete Alchemy)"
-de.CMD_DELETE = "/bc delete [prof] - Beruf loeschen (z.B. /bc delete Alchemy)"
+en.CMD_DELETE = "/bct delete [prof] - delete a profession (e.g. /bct delete Alchemy)"
+de.CMD_DELETE = "/bct delete [prof] - Beruf loeschen (z.B. /bct delete Alchemy)"
 
-en.CMD_DELETE_ALL = "/bc delete all    - delete ALL professions"
-de.CMD_DELETE_ALL = "/bc delete all    - ALLE Berufe loeschen"
+en.CMD_DELETE_ALL = "/bct delete all    - delete ALL professions"
+de.CMD_DELETE_ALL = "/bct delete all    - ALLE Berufe loeschen"
 
-en.CMD_SCANBANK = "/bc scanbank  - scan bank manually"
-de.CMD_SCANBANK = "/bc scanbank  - Bank manuell scannen"
+en.CMD_SCANBANK = "/bct scanbank  - scan bank manually"
+de.CMD_SCANBANK = "/bct scanbank  - Bank manuell scannen"
 
-en.CMD_EXPORT = "/bc export    - CSV export for Discord/Excel"
-de.CMD_EXPORT = "/bc export    - CSV-Export fuer Discord/Excel"
+en.CMD_EXPORT = "/bct export    - CSV export for Discord/Excel"
+de.CMD_EXPORT = "/bct export    - CSV-Export fuer Discord/Excel"
 
-en.CMD_DEBUG = "/bc debug     - toggle debug"
-de.CMD_DEBUG = "/bc debug     - Debug an/aus"
+en.CMD_DEBUG = "/bct debug     - toggle debug"
+de.CMD_DEBUG = "/bct debug     - Debug an/aus"
 
-en.CMD_ABOUT = "/bc about     - info & support"
-de.CMD_ABOUT = "/bc about     - Info & Unterstuetzung"
+en.CMD_ABOUT = "/bct about     - info & support"
+de.CMD_ABOUT = "/bct about     - Info & Unterstuetzung"
 
-en.CMD_LANG = "/bc lang en|de|auto - language"
-de.CMD_LANG = "/bc lang en|de|auto - Sprache"
+en.CMD_LANG = "/bct lang en|de|auto - language"
+de.CMD_LANG = "/bct lang en|de|auto - Sprache"
 
 en.SYNC_REQUESTING = "Sync: requesting updated data for professions:"
 de.SYNC_REQUESTING = "Abgleich: fordere aktualisierte Daten an fuer Berufe:"
@@ -247,11 +247,11 @@ de.ON = "AN"
 en.OFF = "OFF"
 de.OFF = "AUS"
 
-en.USAGE_DELETE = "Usage: /bc delete [profession] or /bc delete all"
-de.USAGE_DELETE = "Benutzung: /bc delete [Beruf] oder /bc delete all"
+en.USAGE_DELETE = "Usage: /bct delete [profession] or /bct delete all"
+de.USAGE_DELETE = "Benutzung: /bct delete [Beruf] oder /bct delete all"
 
-en.EXAMPLE_DELETE = "Example: /bc delete Alchemy"
-de.EXAMPLE_DELETE = "Beispiel: /bc delete Alchemy"
+en.EXAMPLE_DELETE = "Example: /bct delete Alchemy"
+de.EXAMPLE_DELETE = "Beispiel: /bct delete Alchemy"
 
 en.DB_WIPED = "ENTIRE DATABASE DELETED:"
 de.DB_WIPED = "KOMPLETTE DATENBANK GELOESCHT:"
@@ -413,11 +413,11 @@ en.PROF["Poisons"] = "Poisons"
 de.PROF["Poisons"] = "Gifte"
 
 -- ---------- Runtime language handling ----------
--- BCRAFT_L is the active table used everywhere in the addon.
-BCRAFT_L = BCRAFT_Locales["enUS"]
+-- BCT_L is the active table used everywhere in the addon.
+BCT_L = BCT_Locales["enUS"]
 
 -- Detect a sensible default from the game client
-function BCRAFT_DetectLocale()
+function BCT_DetectLocale()
   local loc = "enUS"
   if GetLocale then
     local g = GetLocale()
@@ -427,41 +427,41 @@ function BCRAFT_DetectLocale()
 end
 
 -- Apply a language: "enUS", "deDE" or "auto"
-function BCRAFT_SetLocale(which)
+function BCT_SetLocale(which)
   if which == "auto" or which == nil then
-    which = BCRAFT_DetectLocale()
+    which = BCT_DetectLocale()
   end
-  if not BCRAFT_Locales[which] then which = "enUS" end
+  if not BCT_Locales[which] then which = "enUS" end
 
-  BCRAFT_L = BCRAFT_Locales[which]
+  BCT_L = BCT_Locales[which]
 
-  if BananaCraftDB then
-    if not BananaCraftDB.settings then BananaCraftDB.settings = {} end
-    BananaCraftDB.settings.locale = which
+  if BananaCraftTestDB then
+    if not BananaCraftTestDB.settings then BananaCraftTestDB.settings = {} end
+    BananaCraftTestDB.settings.locale = which
   end
 
   return which
 end
 
 -- Current language code
-function BCRAFT_GetLocale()
-  if BananaCraftDB and BananaCraftDB.settings and BananaCraftDB.settings.locale then
-    return BananaCraftDB.settings.locale
+function BCT_GetLocale()
+  if BananaCraftTestDB and BananaCraftTestDB.settings and BananaCraftTestDB.settings.locale then
+    return BananaCraftTestDB.settings.locale
   end
-  return BCRAFT_DetectLocale()
+  return BCT_DetectLocale()
 end
 
 -- Translate a category key for display (falls back to the key itself)
-function BCRAFT_CatName(key)
+function BCT_CatName(key)
   if not key then return "" end
-  if BCRAFT_L and BCRAFT_L.CAT and BCRAFT_L.CAT[key] then return BCRAFT_L.CAT[key] end
+  if BCT_L and BCT_L.CAT and BCT_L.CAT[key] then return BCT_L.CAT[key] end
   return key
 end
 
 -- Translate a profession key for display (falls back to the key itself)
-function BCRAFT_ProfName(key)
+function BCT_ProfName(key)
   if not key then return "" end
-  if BCRAFT_L and BCRAFT_L.PROF and BCRAFT_L.PROF[key] then return BCRAFT_L.PROF[key] end
+  if BCT_L and BCT_L.PROF and BCT_L.PROF[key] then return BCT_L.PROF[key] end
   return key
 end
 
@@ -578,3 +578,37 @@ en.SET_DD_MAIN = "Main: %s"
 de.SET_DD_MAIN = "Main: %s"
 en.SET_DD_PICK = "Choose Main!"
 de.SET_DD_PICK = "Main waehlen!"
+
+-- Katalog (Testversion)
+en.CMD_CATALOG = "/bct | /bct catalog  - open the recipe catalog (profession > tier/category)"
+de.CMD_CATALOG = "/bct | /bct katalog  - Rezeptkatalog oeffnen (Beruf > Stufe/Kategorie)"
+en.CMD_CRAFTER = "/bct crafter  - open the crafter list (search by name, who can craft what)"
+de.CMD_CRAFTER = "/bct crafter  - Crafter-Liste oeffnen (Suche nach Namen, wer was herstellen kann)"
+en.CAT_TITLE = "BananaCraft TEST - Catalog"
+de.CAT_TITLE = "BananaCraft TEST - Katalog"
+en.CAT_BTN_CRAFTERS = "Crafter list"
+de.CAT_BTN_CRAFTERS = "Crafter-Liste"
+en.CAT_ONLY_CRAFTERS = "Only with crafters"
+de.CAT_ONLY_CRAFTERS = "Nur mit Crafter"
+en.CAT_ONLY_ONLINE = "Only online"
+de.CAT_ONLY_ONLINE = "Nur online"
+en.CAT_SEARCH_RESULTS = "Search results"
+de.CAT_SEARCH_RESULTS = "Suchergebnisse"
+en.CAT_SKILL = "Skill:"
+de.CAT_SKILL = "Fertigkeit:"
+en.CAT_REAGENTS = "Reagents:"
+de.CAT_REAGENTS = "Reagenzien:"
+en.CAT_CASTTIME = "Cast time:"
+de.CAT_CASTTIME = "Zauberzeit:"
+en.CAT_TOOLS = "Tools:"
+de.CAT_TOOLS = "Werkzeug:"
+en.CAT_NOCACHE = "Item not in the client cache yet - right-click loads it from the server."
+de.CAT_NOCACHE = "Item noch nicht im Client-Cache - Rechtsklick laedt es vom Server."
+en.CAT_CRAFTERS_N = "Crafters: %d (%d online)"
+de.CAT_CRAFTERS_N = "Hersteller: %d (%d online)"
+en.CAT_CRAFTER_NONE = "No known crafter in the guild"
+de.CAT_CRAFTER_NONE = "Kein Hersteller in der Gilde bekannt"
+en.CAT_HINT_CLICK = "Click: details and whisper"
+de.CAT_HINT_CLICK = "Klick: Details und Whisper"
+en.CAT_FOOTER = "Test version"
+de.CAT_FOOTER = "Testversion"

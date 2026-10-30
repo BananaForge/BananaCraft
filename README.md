@@ -1,60 +1,43 @@
-# 🍌 BananaCraft
+# 🍌 BananaCraft TEST (Beta)
 
-**Share professions and recipes with your guild: find the crafter, whisper them, done.**
+**Testversion von BananaCraft mit Rezeptkatalog: Beruf → Stufe/Kategorie → Rezept, mit Tooltips und Qualitätsfarben.**
 
-![Version](https://img.shields.io/badge/version-2.7.0-ffd100) ![Client](https://img.shields.io/badge/client-1.12.1-blue) ![License](https://img.shields.io/badge/license-MIT-lightgrey)
+Diese Version läuft **neben** dem normalen BananaCraft. Sie hat einen eigenen Ordner (`BananaCraftTest`), einen eigenen Befehl (`/bct`), eigene gespeicherte Daten (`BananaCraftTestDB`) und ein eigenes Nachrichten-Prefix (`BCT0`). Beide Versionen können gleichzeitig installiert sein, ohne sich zu stören. Die Testversion spricht nur mit anderen Testversionen.
 
-*Formerly known as BananaRepublik Partnerguild.* Every guild member scans their professions, the addon shares the recipes over the guild channel, and everyone can search who can craft what. Built for the guild **Banana Republic**. Lua 5.0, no libraries.
+## Neu in dieser Testversion
 
-## Features
+- **Rezeptkatalog:** links der Beruf (Alchemie, Verzauberkunst, Ingenieurskunst, Lederverarbeitung, Schmiedekunst, Schneiderei, Juwelenschleifen, Kräuterkunde, Bergbau, Kochen, Erste Hilfe, Survival, Gardening, Gifte, Epische Waffen), in der Mitte die Stufe (Apprentice, Journeyman, Expert, Artisan) und die Kategorien (Flasks, Protection Potions, Helm, Shoulders, Chest, … je nach Beruf), rechts die Rezepte.
+- **Tooltips:** Mauszeiger auf ein Rezept zeigt den Item-Tooltip (bei Verzauberungen den Verzauberungs-Tooltip), dazu Fertigkeitsstufen (orange/gelb/grün/grau), Reagenzien, Zauberzeit, Werkzeug und **wer in der Gilde es herstellen kann**.
+- **Qualitätsfarben:** weiß, grün, blau, lila (Name in der Liste und im Tooltip).
+- **Suche nach dem Namen** bleibt: das Suchfeld durchsucht alle Berufe auf einmal. Shift+Klick auf ein Item oder eine Verzauberung schreibt den Namen ins Suchfeld.
+- **Filter:** „Nur mit Crafter“ und „Nur online“. In der Testversion sind beide aus, damit alle Rezepte aller Berufe sichtbar sind.
+- **Klick auf ein Rezept** öffnet die bekannte Detailansicht (Materialien, Hersteller, Whisper). **Rechtsklick** lädt ein Item, das dein Client noch nicht kennt, vom Server (danach zeigt der Tooltip den vollen Item-Text).
+- Alles Bisherige bleibt: Crafter-Liste, Alts und Main, Export/Import, Einstellungen.
 
-- **Recipe database for the whole guild:** open a profession window and the addon scans it. Search by recipe, filter by profession and subcategory, see reagents, icon and crafter.
-- **Sync that only fetches what is outdated:** `/bc sync` compares hashes, `/bc send` sends everything. CSV export for Discord and Excel.
-- **Shift-click search:** with the cursor in the search box, Shift+click an item, enchant or recipe (bags, profession window, vendor, chat links) to put its name into the search box.
-- **Alts of your account:** *Share database with guild* also sends the professions of your other characters (same realm). They show up as "Alt of <character>", whether the alt is in another guild or has none. You choose your **Main** in the settings window; every other character of the account is shown as "Alt of <Main>". You can untick single alts there. An optional *Alt confirmation* lets alts report themselves, so the list can show "confirmed" or "claimed" (this is not proof of the same account; the 1.12 client has no account ID). Alts on **other accounts** come in via *Export alts* / *Import alts* in the settings window: export on the other account, copy the text (Ctrl+C), paste it into the import window on your main account (Ctrl+V). An alt has to have been logged in once with the addon, with its profession windows opened.
-- **Settings window (gear icon)** with language, *Online only* filter, minimap button, rescan, send, sync, CSV export, bank scan, version check and delete. The `/bc` commands still work.
-- German and English, minimap button.
+## Befehle
+
+| Befehl | Wirkung |
+|---|---|
+| `/bct` | Katalog öffnen/schließen (auch Linksklick auf den Minimap-Button) |
+| `/bct crafter` | Die bisherige Crafter-Liste (Suche nach Namen, wer was kann) |
+| `/bct scan`, `send`, `sync`, … | wie bei BananaCraft, nur mit `/bct` |
 
 ## Installation
 
-1. Download the [latest release](https://github.com/BananaForge/BananaCraft/releases) and put the `BananaCraft` folder into `Interface/AddOns/`.
-2. Enable it on the character screen and open the window with `/bc show`.
+1. Ordner `BananaCraftTest` nach `Interface/AddOns/` legen (der normale `BananaCraft`-Ordner kann bleiben).
+2. Im Spiel `/bct` eingeben.
 
-When updating, delete the old folder first (if you come from *BananaRepublik Partnerguild*, delete that folder too; the data does not carry over). **Every member needs the addon.** It is a standalone addon with its own saved variables (`BananaCraftDB`) and prefix, so it can run next to BananaRepublicProfs, but the two do not share data.
+## Bitte testen
 
-## Usage
+- Passt die Gliederung zu dem, was du erwartest? Fehlen Kategorien oder Rezepte?
+- Zeigen die Tooltips etwas an? Bei welchen Rezepten bleibt er leer?
+- Stimmen die Qualitätsfarben?
+- Zeigen die Hersteller-Zahlen (rechts in der Liste) die richtigen Leute?
 
-| Command | Effect |
-|---|---|
-| `/bc show` | Open or close the window |
-| `/bc scan` / `rescan` | Scan the open profession / allow rescanning |
-| `/bc send` / `sync` | Send all professions / fetch only what is outdated |
-| `/bc versioncheck` | Which addon version do guildmates run? |
-| `/bc delete [prof\|all]` | Delete one or all professions |
-| `/bc scanbank` | Scan the bank manually |
-| `/bc export` | CSV export for Discord/Excel |
-| `/bc lang en\|de\|auto` | Language |
-| `/bc debug` / `about` | Debug output / info and support |
+Rückmeldungen am besten mit Screenshot und dem Namen des Rezepts.
 
-## Technical notes
+## Technisches
 
-- Client 1.12.1 (Interface 11200), saved variables `BananaCraftDB`, addon prefix `BCRAFT0`.
-- Database keys are `Charname@Guild`, the same string goes over the wire.
-- Limits: private servers may behave differently from original vanilla; if chunks arrive broken, `/bc debug` shows why.
-- Details on the design, the code and the limits: [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).
-
-## To do
-
-- [ ] About 20 missing Enchanting recipes (Runed Rods, Wands, Oils) in `BananaCraft_RecipeMaps.lua`. A pure data gap.
-
-## Contributing
-
-Pull requests welcome, tested in-game on a 1.12 client. Lua 5.0 rules: no `#`, `%`, `string.match`, `select` or `...`; script handlers read `this`, `event` and `arg1..9` as globals; German texts in `Locale.lua` use umlauts and `ss` instead of `ß`.
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md).
-
-## Credits and license
-
-Part of **BananaForge** (with [BananaRepublicProfs](https://github.com/BananaForge/BananaRepublicProfs), [BananaBank](https://github.com/BananaForge/BananaBank) and [BananaLootline](https://github.com/BananaForge/BananaLootline)). Development: **Lumihunt**, guild Banana Republic. Free forever; if you want to support it, send in-game mail to Lumihunt. MIT, see [LICENSE](LICENSE).
+- Die Kategorien und Rezeptlisten liegen in `BananaCraftTest_Catalog.lua`. Sie wird mit `tools/gen_catalog.py` aus den AtlasLoot-Datenbankdateien erzeugt (`python3 -I tools/gen_catalog.py <AtlasLoot-Ordner> BananaCraftTest_Catalog.lua`).
+- Hersteller kommen aus der normalen BananaCraft-Datenbank der Testversion (gescannte Berufe, Gilden-Sync, Alts). Wer die Testversion allein nutzt, sieht nur seine eigenen Rezepte als „Hersteller“.
+- Lua 5.0 (WoW 1.12), keine Bibliotheken.

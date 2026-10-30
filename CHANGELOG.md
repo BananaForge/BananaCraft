@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta1 (Testversion)
+
+- **Neu: Rezeptkatalog.** Beruf → Stufe/Kategorie → Rezept, mit Tooltips, Fertigkeitsstufen, Reagenzien, Qualitätsfarben und den Herstellern aus der Gilde. Die Suche nach dem Namen läuft über alle Berufe. Siehe README.
+- Testversion als eigenes Addon (`BananaCraftTest`, `/bct`, `BananaCraftTestDB`, Prefix `BCT0`). Läuft neben dem normalen BananaCraft. Ohne BananaPresence (keine Statistik).
+
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
 ## 2.7.0

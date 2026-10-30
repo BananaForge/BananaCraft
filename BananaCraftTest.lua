@@ -10,8 +10,8 @@
 -- Total: 1,513 recipes across 7 professions
 
 
--- Recipe maps loaded from BananaCraft_RecipeMaps.lua
--- Access via: BCRAFT_RecipeMaps[professionName][recipeName] = categoryName
+-- Recipe maps loaded from BananaCraftTest_RecipeMaps.lua
+-- Access via: BCT_RecipeMaps[professionName][recipeName] = categoryName
 
 -- -------------------------
 -- German → English Profession Name Mapping
@@ -50,13 +50,14 @@ local function isBadProfName(name)
   return string.upper(name) == "UNKNOWN"
 end
 
-local ADDON_NAME = "BananaCraft"
-local DB_NAME = "BananaCraftDB"
-local PREFIX = "BCRAFT0"
-local DEBUG = false  -- Debug messages OFF by default (use /bc debug to enable)
-local ADDON_VERSION = "2.7.0"  -- keep in sync with the .toc "## Version:" line
+local ADDON_NAME = "BananaCraftTest"
+local DB_NAME = "BananaCraftTestDB"
+local PREFIX = "BCT0"
+local DEBUG = false  -- Debug messages OFF by default (use /bct debug to enable)
+local ADDON_VERSION = "3.0.0-beta1"  -- keep in sync with the .toc "## Version:" line
+BCT_VERSION = ADDON_VERSION
 
--- /bc versioncheck state (see startHashSync section for PING/PONG, this is
+-- /bct versioncheck state (see startHashSync section for PING/PONG, this is
 -- the separate, simpler VCHECK/VERSION request/response pair)
 VersionCheckResponses = VersionCheckResponses or {}
 VersionCheckActive = false
@@ -68,12 +69,12 @@ local LastScannedProf = {}  -- Now per-character: LastScannedProf[charName] = pr
 -- Utility
 -- -------------------------
 local function msg(text)
-  DEFAULT_CHAT_FRAME:AddMessage("|cffffd200BananaCraft:|r " .. text)
+  DEFAULT_CHAT_FRAME:AddMessage("|cffffd200BananaCraft-Test:|r " .. text)
 end
 
 local function debug(text)
   if DEBUG then
-    DEFAULT_CHAT_FRAME:AddMessage("|cff888888[BananaCraft Debug]|r " .. text)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff888888[BananaCraft-Test Debug]|r " .. text)
   end
 end
 
@@ -96,7 +97,7 @@ end
 -- Dieselbe Zeichenkette wandert auch ueber das Netzwerk, damit Sender und
 -- Empfaenger garantiert denselben Schluessel bilden.
 -- -------------------------
-function BCRAFT_OwnGuild()
+function BCT_OwnGuild()
   local g = GetGuildInfo and GetGuildInfo("player")
   if g and g ~= "" then return g end
 
@@ -111,15 +112,15 @@ function BCRAFT_OwnGuild()
   return "Solo:" .. (UnitName("player") or "Unknown")
 end
 
-function BCRAFT_MakeKey(player, guild)
+function BCT_MakeKey(player, guild)
   if not player or player == "" then return nil end
   -- Leere Gilde darf nie zu einem Sammel-Schluessel werden (siehe
-  -- BCRAFT_OwnGuild): sonst laufen wieder mehrere Spieler unter einer Kennung.
-  if not guild or guild == "" then guild = BCRAFT_OwnGuild() end
+  -- BCT_OwnGuild): sonst laufen wieder mehrere Spieler unter einer Kennung.
+  if not guild or guild == "" then guild = BCT_OwnGuild() end
   return player .. "@" .. guild
 end
 
-function BCRAFT_SplitKey(key)
+function BCT_SplitKey(key)
   if not key then return nil, nil end
   local at = string.find(key, "@", 1, true)
   if not at then
@@ -130,7 +131,7 @@ function BCRAFT_SplitKey(key)
 end
 
 local function myKey()
-  return BCRAFT_MakeKey(playerName(), BCRAFT_OwnGuild())
+  return BCT_MakeKey(playerName(), BCT_OwnGuild())
 end
 
 local function ensureDB()
@@ -153,7 +154,7 @@ local function ensureDB()
   -- sinnvolle Annahme, denn vor dieser Version konnten ueberhaupt nur
   -- Daten aus der eigenen Gilde in der DB landen.
   if not db.schema or db.schema < 2 then
-    local ownGuild = BCRAFT_OwnGuild()
+    local ownGuild = BCT_OwnGuild()
     local migrated = 0
     local rekeyed = {}
 
@@ -161,7 +162,7 @@ local function ensureDB()
       if string.find(key, "@", 1, true) then
         rekeyed[key] = data               -- schon migriert, unveraendert lassen
       else
-        local newKey = BCRAFT_MakeKey(key, ownGuild)
+        local newKey = BCT_MakeKey(key, ownGuild)
         if rekeyed[newKey] then
           -- Kollision: neueren Datensatz behalten, nichts stillschweigend wegwerfen.
           -- "YYYY-MM-DD HH:MM:SS" sortiert als String korrekt chronologisch,
@@ -194,7 +195,7 @@ local function ensureDB()
     local me = playerName()
     local legacyKey = me .. "@Ohne Gilde"
     if db.guild[legacyKey] then
-      local newKey = BCRAFT_MakeKey(me, BCRAFT_OwnGuild())
+      local newKey = BCT_MakeKey(me, BCT_OwnGuild())
       if newKey ~= legacyKey then
         if not db.guild[newKey] then
           db.guild[newKey] = db.guild[legacyKey]
@@ -211,7 +212,7 @@ local function ensureDB()
   -- Die eigene Gilde wird dabei nie angefasst.
   if db.partner then
     if type(db.partner.guilds) == "table" then
-      local own = BCRAFT_OwnGuild()
+      local own = BCT_OwnGuild()
       for g, _ in pairs(db.partner.guilds) do
         if g ~= own then
           local suffix = "@" .. g
@@ -270,8 +271,8 @@ local function ensureDB()
   -- Wer frueher gildenlos war und inzwischen in einer Gilde ist, steht
   -- sonst doppelt in der Liste: einmal als "Name@Gilde" und einmal als
   -- "Name@Solo:Name" ("<no guild (Name)>", nicht erreichbar).
-  if not BCRAFT_SoloPurged and GetGuildInfo and GetGuildInfo("player") then
-    BCRAFT_SoloPurged = true
+  if not BCT_SoloPurged and GetGuildInfo and GetGuildInfo("player") then
+    BCT_SoloPurged = true
     local me = playerName()
     local stale = {}
     for key in pairs(db.guild) do
@@ -305,12 +306,12 @@ local function ensureDB()
 
   -- Rezepte reparieren, die wegen eines zu fruehen Scans unter dem
   -- Platzhalter-Beruf "UNKNOWN" gelandet sind: das Addon kennt zu jedem
-  -- Rezept der 7 Berufe den richtigen Beruf (BCRAFT_RecipeMaps).
-  if not BCRAFT_UnknownRepaired then
-    BCRAFT_UnknownRepaired = true
+  -- Rezept der 7 Berufe den richtigen Beruf (BCT_RecipeMaps).
+  if not BCT_UnknownRepaired then
+    BCT_UnknownRepaired = true
     local owner = {}
-    if BCRAFT_RecipeMaps then
-      for prof, recipes in pairs(BCRAFT_RecipeMaps) do
+    if BCT_RecipeMaps then
+      for prof, recipes in pairs(BCT_RecipeMaps) do
         for rname, _ in pairs(recipes) do
           if owner[rname] == nil then owner[rname] = prof else owner[rname] = false end
         end
@@ -595,7 +596,7 @@ BroadcastTimer:SetScript("OnUpdate", function()
       -- "Gesendet" erst melden, wenn auch die Gilden-Sendewarteschlange leer ist.
       if tlen(SendQueue) > 0 then return end
       BroadcastTimer:Hide()
-      msg("|cff00ff00" .. BCRAFT_L.ALL_SENT .. "|r")
+      msg("|cff00ff00" .. BCT_L.ALL_SENT .. "|r")
       return
     end
     
@@ -603,10 +604,10 @@ BroadcastTimer:SetScript("OnUpdate", function()
     local job = table.remove(BroadcastQueue, 1)
     local remaining = tlen(BroadcastQueue)
     
-    msg("|cffffff00" .. BCRAFT_L.SENDING .. "|r " .. job.charName .. " - " .. BCRAFT_ProfName(job.profName) .. " (" .. remaining .. " " .. BCRAFT_L.REMAINING .. ")")
+    msg("|cffffff00" .. BCT_L.SENDING .. "|r " .. job.charName .. " - " .. BCT_ProfName(job.profName) .. " (" .. remaining .. " " .. BCT_L.REMAINING .. ")")
     
     -- Broadcast this profession with direct data
-    BCRAFT_BroadcastProfession(job.profName, job.charName, job.profData)
+    BCT_BroadcastProfession(job.profName, job.charName, job.profData)
   end
 end)
 
@@ -836,10 +837,10 @@ local function scanCurrentTradeSkill()
 
   local gname = GetGuildInfo and GetGuildInfo("player")
   if gname and gname ~= "" then
-    BCRAFT_BroadcastProfession(profName)
+    BCT_BroadcastProfession(profName)
   end
   
-  msg("|cff00ff00" .. BCRAFT_L.SCANNED .. "|r " .. BCRAFT_ProfName(profName) .. " (" .. tlen(recipes) .. " " .. BCRAFT_L.RECIPES_SUFFIX .. ")")
+  msg("|cff00ff00" .. BCT_L.SCANNED .. "|r " .. BCT_ProfName(profName) .. " (" .. tlen(recipes) .. " " .. BCT_L.RECIPES_SUFFIX .. ")")
   return true  -- Signal success
 end
 
@@ -956,10 +957,10 @@ local function scanCurrentCraft()
 
   local gname = GetGuildInfo and GetGuildInfo("player")
   if gname and gname ~= "" then
-    BCRAFT_BroadcastProfession(profName)
+    BCT_BroadcastProfession(profName)
   end
   
-  msg("|cff00ff00" .. BCRAFT_L.SCANNED .. "|r " .. BCRAFT_ProfName(profName) .. " (" .. tlen(recipes) .. " " .. BCRAFT_L.RECIPES_SUFFIX .. ")")
+  msg("|cff00ff00" .. BCT_L.SCANNED .. "|r " .. BCT_ProfName(profName) .. " (" .. tlen(recipes) .. " " .. BCT_L.RECIPES_SUFFIX .. ")")
   return true  -- Signal success
 end
 
@@ -1051,15 +1052,15 @@ UIRefreshTimer:SetScript("OnUpdate", function()
   this.elapsed = 0
   UIRefreshTimer:Hide()
 
-  if BCRAFT_UI_Refresh then
-    BCRAFT_UI_Refresh()
+  if BCT_UI_Refresh then
+    BCT_UI_Refresh()
   end
 end)
 
 -- -------------------------
 -- Broadcast
 -- -------------------------
-function BCRAFT_BroadcastProfession(profName, characterName, profData)
+function BCT_BroadcastProfession(profName, characterName, profData)
   -- profData is now passed directly instead of using db.me
   if not profData then
     -- Fallback: try to get from db.me (for backward compatibility)
@@ -1078,7 +1079,7 @@ function BCRAFT_BroadcastProfession(profName, characterName, profData)
   -- durch die eigene ersetzt.
   local p = characterName or playerName()
   if not string.find(p, "@", 1, true) then
-    p = BCRAFT_MakeKey(p, BCRAFT_OwnGuild())
+    p = BCT_MakeKey(p, BCT_OwnGuild())
   end
   local rank = profData.rank or 0
   local maxRank = profData.maxRank or 0
@@ -1158,8 +1159,8 @@ function BCRAFT_BroadcastProfession(profName, characterName, profData)
 end
 
 -- Wrapper to send a profession even if not currently open
-function BCRAFT_SendAllRecipesForProfession(profName)
-  BCRAFT_BroadcastProfession(profName)
+function BCT_SendAllRecipesForProfession(profName)
+  BCT_BroadcastProfession(profName)
 end
 
 -- Hauptcharakter dieses Accounts (Besitzer-Name fuer "Alt von ..."). Ohne
@@ -1187,7 +1188,7 @@ local function sendAltConfirm()
   local main = db.mainChar
   local me = playerName()
   if not main or main == me or not db.characters[main] then return end
-  if string.sub(BCRAFT_OwnGuild(), 1, 5) == "Solo:" then return end
+  if string.sub(BCT_OwnGuild(), 1, 5) == "Solo:" then return end
   enqueueSend("GUILD", "ALTC" .. SEP .. safe(myKey()) .. SEP .. safe(main))
 end
 
@@ -1204,7 +1205,7 @@ end
 local function publishAccountAlts()
   local db = ensureDB()
   local me = playerName()
-  local guild = BCRAFT_OwnGuild()
+  local guild = BCT_OwnGuild()
   if string.sub(guild, 1, 5) == "Solo:" then return 0 end
 
   local main = altMainName()
@@ -1215,7 +1216,7 @@ local function publishAccountAlts()
   local count = 0
   for name, data in pairs(db.characters) do
     if name ~= me and type(data) == "table" and data.profs then
-      local key = BCRAFT_MakeKey(name, guild)
+      local key = BCT_MakeKey(name, guild)
       local sameRealm = (not data.realm) or (not realm) or (data.realm == realm)
       local hasRecipes = false
       for _, pd in pairs(data.profs) do
@@ -1245,7 +1246,7 @@ local function broadcastAll()
   -- Alts dieses Accounts zuerst in die Liste uebernehmen
   local altCount = publishAccountAlts()
   if altCount > 0 then
-    msg("|cff888888" .. BCRAFT_L.ALTS_INCLUDED .. " " .. altCount .. "|r")
+    msg("|cff888888" .. BCT_L.ALTS_INCLUDED .. " " .. altCount .. "|r")
   end
   
   -- Clear existing queue
@@ -1283,7 +1284,7 @@ local function broadcastAll()
     for k, _ in pairs(db.altOfTs) do seen[k] = true end
     for k, _ in pairs(db.altOf) do seen[k] = true end
     for k, _ in pairs(seen) do
-      local nm = BCRAFT_SplitKey(k)
+      local nm = BCT_SplitKey(k)
       if k ~= mk and nm and db.characters[nm] then table.insert(keys, k) end
     end
     for i = 1, tlen(keys) do
@@ -1295,14 +1296,14 @@ local function broadcastAll()
     end
     sendAltConfirm()
     if not db.mainChar and tlen(keys) > 0 then
-      msg("|cffff8800" .. BCRAFT_L.SET_PICK_MAIN_HINT .. "|r")
+      msg("|cffff8800" .. BCT_L.SET_PICK_MAIN_HINT .. "|r")
     end
-    msg("|cffffff00" .. BCRAFT_L.TRANSFER_START .. "|r " .. totalJobs .. " " .. BCRAFT_L.PROFS_QUEUED)
-    msg("|cff888888" .. BCRAFT_L.EST_TIME .. " " .. (totalJobs * 2) .. " " .. BCRAFT_L.SECONDS .. "|r")
+    msg("|cffffff00" .. BCT_L.TRANSFER_START .. "|r " .. totalJobs .. " " .. BCT_L.PROFS_QUEUED)
+    msg("|cff888888" .. BCT_L.EST_TIME .. " " .. (totalJobs * 2) .. " " .. BCT_L.SECONDS .. "|r")
     BroadcastTimer.elapsed = 0
     BroadcastTimer:Show()
   else
-    msg("|cffff0000" .. BCRAFT_L.NOTHING_TO_SEND .. "|r " .. BCRAFT_L.SCAN_FIRST)
+    msg("|cffff0000" .. BCT_L.NOTHING_TO_SEND .. "|r " .. BCT_L.SCAN_FIRST)
   end
 end
 
@@ -1310,7 +1311,7 @@ end
 -- Hash-based sync (PING/PONG)
 --
 -- Inspired by GuildRecipes Octo's approach: instead of always broadcasting
--- everything we know (which is what /bc send still does, and which is what
+-- everything we know (which is what /bct send still does, and which is what
 -- gets throttled hard by SendThrottle/BroadcastTimer on big guilds), we first
 -- ask "does anyone have a different hash for profession X than me?", wait a
 -- couple seconds for replies, and then only pull full data from the single
@@ -1318,7 +1319,7 @@ end
 -- instead of a full recipe dump for data we may already have.
 --
 -- This does NOT replace the S/C/E chunk format above -- once we decide we
--- need data from someone, we still ask them to run BCRAFT_BroadcastProfession
+-- need data from someone, we still ask them to run BCT_BroadcastProfession
 -- for that profession, and it still goes through the same two throttles.
 -- -------------------------
 local SyncPinging = false
@@ -1354,9 +1355,9 @@ SyncTimeoutTimer:SetScript("OnUpdate", function()
   end
 
   if requested > 0 then
-    msg("|cffffff00" .. BCRAFT_L.SYNC_REQUESTING .. "|r " .. requested)
+    msg("|cffffff00" .. BCT_L.SYNC_REQUESTING .. "|r " .. requested)
   else
-    msg("|cff00ff00" .. BCRAFT_L.SYNC_UP_TO_DATE .. "|r")
+    msg("|cff00ff00" .. BCT_L.SYNC_UP_TO_DATE .. "|r")
   end
 
   SyncBestPing = {}
@@ -1369,7 +1370,7 @@ local function startHashSync()
   local db = ensureDB()
 
   if SyncPinging then
-    debug("[SYNC] Already pinging, ignoring duplicate /bc sync")
+    debug("[SYNC] Already pinging, ignoring duplicate /bct sync")
     return
   end
 
@@ -1399,7 +1400,7 @@ local function startHashSync()
   end
 
   if count == 0 then
-    msg("|cffff0000" .. BCRAFT_L.NOTHING_TO_SEND .. "|r " .. BCRAFT_L.SCAN_FIRST)
+    msg("|cffff0000" .. BCT_L.NOTHING_TO_SEND .. "|r " .. BCT_L.SCAN_FIRST)
     return
   end
 
@@ -1517,7 +1518,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
     return
   end
 
-  -- /bc versioncheck: someone is asking who's running what version
+  -- /bct versioncheck: someone is asking who's running what version
   if cmd == "VCHECK" then
     local reply = "VERSION" .. SEP .. safe(sender) .. SEP .. safe(playerName()) .. SEP .. safe(ADDON_VERSION)
     enqueueSend("GUILD", reply)
@@ -1530,7 +1531,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
       local respondent = parts[3]
       local version = parts[4]
       if requester == playerName() and VersionCheckActive then
-        msg("|cff00ff00" .. respondent .. "|r " .. BCRAFT_L.VERSIONCHECK_RUNS .. " |cffffff00v" .. version .. "|r")
+        msg("|cff00ff00" .. respondent .. "|r " .. BCT_L.VERSIONCHECK_RUNS .. " |cffffff00v" .. version .. "|r")
       end
     end
     return
@@ -1544,7 +1545,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         debug("[SYNC] " .. sender .. " requested " .. profName .. " from us")
         local myProfData = db.guild[myKey()] and db.guild[myKey()].profs and db.guild[myKey()].profs[profName]
         if myProfData then
-          BCRAFT_BroadcastProfession(profName, playerName(), myProfData)
+          BCT_BroadcastProfession(profName, playerName(), myProfData)
         end
       end
     end
@@ -1562,8 +1563,8 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         debug("|cffff8800Empfangen:|r " .. player .. " hat " .. prof .. " verlernt")
         debug("DELETE: " .. player .. " - " .. prof)
         
-        if BCRAFT_UI and BCRAFT_UI:IsShown() then
-          BCRAFT_UI_Refresh()
+        if BCT_UI and BCT_UI:IsShown() then
+          BCT_UI_Refresh()
         end
       end
     end
@@ -1578,15 +1579,15 @@ local function handleAddonMessage(prefix, text, distrib, sender)
     if tlen(parts) >= 3 and string.find(parts[2], "@", 1, true) and string.len(parts[3]) <= 24 then
       local key, owner = parts[2], parts[3]
       local ts = tonumber(parts[4]) or 0
-      local nName, nGuild = BCRAFT_SplitKey(key)
+      local nName, nGuild = BCT_SplitKey(key)
       local ok = false
       if sender == nName then
         ok = true
       elseif owner ~= "" then
-        if sender == owner or db.altOf[BCRAFT_MakeKey(sender, nGuild)] == owner then ok = true end
+        if sender == owner or db.altOf[BCT_MakeKey(sender, nGuild)] == owner then ok = true end
       else
         local cur = db.altOf[key]
-        if cur and (sender == cur or db.altOf[BCRAFT_MakeKey(sender, nGuild)] == cur) then ok = true end
+        if cur and (sender == cur or db.altOf[BCT_MakeKey(sender, nGuild)] == cur) then ok = true end
       end
       -- aeltere Angaben (oder gleich alte) verdraengen keine neueren
       local oldTs = db.altOfTs[key]
@@ -1597,7 +1598,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         if owner == "" then db.altOf[key] = nil else db.altOf[key] = owner end
         db.altOfTs[key] = ts
         if db.altConfirm[key] and db.altConfirm[key] ~= owner then db.altConfirm[key] = nil end
-        if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
+        if BCT_UI and BCT_UI:IsShown() then scheduleUIRefresh() end
       end
     end
     return
@@ -1607,10 +1608,10 @@ local function handleAddonMessage(prefix, text, distrib, sender)
   -- der Absender wirklich der Charakter aus dem Schluessel ist.
   if cmd == "ALTC" then
     if tlen(parts) >= 3 and string.find(parts[2], "@", 1, true) and parts[3] ~= "" and string.len(parts[3]) <= 24 then
-      local nName = BCRAFT_SplitKey(parts[2])
+      local nName = BCT_SplitKey(parts[2])
       if sender == nName then
         db.altConfirm[parts[2]] = parts[3]
-        if BCRAFT_UI and BCRAFT_UI:IsShown() then scheduleUIRefresh() end
+        if BCT_UI and BCT_UI:IsShown() then scheduleUIRefresh() end
       end
     end
     return
@@ -1769,7 +1770,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         -- Addon-Version in der Gilde), haengen wir die eigene Gilde an --
         -- ueber den Gildenkanal kann es ohnehin nur die eigene sein.
         if not string.find(player, "@", 1, true) then
-          player = BCRAFT_MakeKey(player, BCRAFT_OwnGuild())
+          player = BCT_MakeKey(player, BCT_OwnGuild())
         end
 
         if not db.guild[player] then
@@ -1785,8 +1786,8 @@ local function handleAddonMessage(prefix, text, distrib, sender)
 
         debug("Empfangen: " .. player .. " — " .. prof .. " (" .. tlen(recipes) .. " Rezepte)")
 
-        if BCRAFT_UI and BCRAFT_UI:IsShown() then
-          BCRAFT_UI_Refresh()
+        if BCT_UI and BCT_UI:IsShown() then
+          BCT_UI_Refresh()
         end
       end
 
@@ -1804,8 +1805,8 @@ local UI_FilterProf = "ALL"
 local UI_EnchantSlot = "ALL"  -- For Enchanting filter
 local UI_ScrollOffset = 0
 local UI_CurrentTab = 1  -- Tab system: 1 = Rezepte, 2 = Admin
-local BCRAFT_VISIBLE_ROWS = 12
-local BCRAFT_ROW_HEIGHT = 22
+local BCT_VISIBLE_ROWS = 12
+local BCT_ROW_HEIGHT = 22
 
 local function uiGetProfessionList()
   local db = ensureDB()
@@ -1862,7 +1863,7 @@ local function uiBuildData()
             
             -- `player` ist der Schluessel "Name@Gilde" -- fuer Anzeige und
             -- Online-Pruefung brauchen wir den reinen Namen.
-            local pName, pGuild = BCRAFT_SplitKey(player)
+            local pName, pGuild = BCT_SplitKey(player)
             local isOnline = isPlayerOnline(pName or player)
 
             -- Alt eines Gildenmitglieds: ist der Alt selbst offline, aber der
@@ -1908,6 +1909,11 @@ local function uiBuildData()
   return results
 end
 
+-- fuer den Katalog (BananaCraftTest_Browser.lua): Rezepte samt Herstellern
+function BCT_GetRecipeRows()
+  return uiBuildData()
+end
+
 local function uiFilterData(data)
   local filtered = {}
   local searchL = norm(UI_Search)
@@ -1932,11 +1938,11 @@ local function uiFilterData(data)
       -- Subcategory filter
       local slotMatch = true
       if UI_EnchantSlot ~= "ALL" and UI_EnchantSlot ~= "" then
-        -- Use recipe-to-category mapping (loaded from BCRAFT_RecipeMaps)
+        -- Use recipe-to-category mapping (loaded from BCT_RecipeMaps)
         local recipeCategory = nil
         
-        if BCRAFT_RecipeMaps and BCRAFT_RecipeMaps[row.prof] then
-          recipeCategory = BCRAFT_RecipeMaps[row.prof][row.recipe]
+        if BCT_RecipeMaps and BCT_RecipeMaps[row.prof] then
+          recipeCategory = BCT_RecipeMaps[row.prof][row.recipe]
           
           -- DEBUG: Show what's not matching
           if not recipeCategory then
@@ -2054,14 +2060,14 @@ end
 -- -------------------------
 -- UI: Recipe Popup
 -- -------------------------
-local BCRAFT_RecipePopup = nil
-local BCRAFT_RecipeQuantity = 1  -- Default quantity
+local BCT_RecipePopup = nil
+local BCT_RecipeQuantity = 1  -- Default quantity
 
-function BCRAFT_ShowRecipePopup(data)
-  if not BCRAFT_RecipePopup then
-    local pop = CreateFrame("Frame", "BCRAFT_RecipePopup", UIParent)
-    BCRAFT_RecipePopup = pop
-    tinsert(UISpecialFrames, "BCRAFT_RecipePopup")
+function BCT_ShowRecipePopup(data)
+  if not BCT_RecipePopup then
+    local pop = CreateFrame("Frame", "BCT_RecipePopup", UIParent)
+    BCT_RecipePopup = pop
+    tinsert(UISpecialFrames, "BCT_RecipePopup")
     pop:SetWidth(400)  -- Wider for table layout
     pop:SetHeight(380)  -- Taller for editbox + summary
     pop:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -2128,17 +2134,17 @@ function BCRAFT_ShowRecipePopup(data)
     -- STEP 3: Quantity EditBox
     local qtyLabel = pop:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     qtyLabel:SetPoint("TOPLEFT", pop, "TOPLEFT", 22, -50)
-    qtyLabel:SetText(BCRAFT_L.QUANTITY)
+    qtyLabel:SetText(BCT_L.QUANTITY)
     pop.qtyLabelFS = qtyLabel
     
-    local qtyBox = CreateFrame("EditBox", "BCRAFT_QuantityBox", pop, "InputBoxTemplate")
+    local qtyBox = CreateFrame("EditBox", "BCT_QuantityBox", pop, "InputBoxTemplate")
     qtyBox:SetWidth(60)
     qtyBox:SetHeight(20)
     qtyBox:SetPoint("LEFT", qtyLabel, "RIGHT", 10, 0)
     qtyBox:SetAutoFocus(false)
     qtyBox:SetNumeric(true)
     qtyBox:SetMaxLetters(3)
-    qtyBox:SetText(tostring(BCRAFT_RecipeQuantity))
+    qtyBox:SetText(tostring(BCT_RecipeQuantity))
     pop.qtyBox = qtyBox
     
     qtyBox:SetScript("OnEnterPressed", function() 
@@ -2146,11 +2152,11 @@ function BCRAFT_ShowRecipePopup(data)
       local qty = tonumber(this:GetText()) or 1
       if qty < 1 then qty = 1 end
       if qty > 100 then qty = 100 end
-      BCRAFT_RecipeQuantity = qty
+      BCT_RecipeQuantity = qty
       this:SetText(tostring(qty))
       -- Refresh display
       if pop.currentData then
-        BCRAFT_UpdateRecipePopupContent(pop, pop.currentData)
+        BCT_UpdateRecipePopupContent(pop, pop.currentData)
       end
     end)
     
@@ -2169,7 +2175,7 @@ function BCRAFT_ShowRecipePopup(data)
     
     -- Logo removed for clean background
 
-    local scroll = CreateFrame("ScrollFrame", "BCRAFT_RecipePopupScrollFrame", pop, "UIPanelScrollFrameTemplate")
+    local scroll = CreateFrame("ScrollFrame", "BCT_RecipePopupScrollFrame", pop, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", scrollBg, "TOPLEFT", 8, -8)
     scroll:SetPoint("BOTTOMRIGHT", scrollBg, "BOTTOMRIGHT", -28, 8)
     pop.scroll = scroll
@@ -2201,7 +2207,7 @@ function BCRAFT_ShowRecipePopup(data)
     whisperBtn:SetWidth(200)
     whisperBtn:SetHeight(24)
     whisperBtn:SetPoint("BOTTOM", pop, "BOTTOM", 0, 18)
-    whisperBtn:SetText(BCRAFT_L.WHISPER)
+    whisperBtn:SetText(BCT_L.WHISPER)
     pop.whisperBtn = whisperBtn
     
     whisperBtn:SetScript("OnClick", function()
@@ -2218,7 +2224,7 @@ function BCRAFT_ShowRecipePopup(data)
           local info = {}
           info.text = crafter.player .. " (" .. crafter.rank .. "/" .. crafter.maxRank .. ")"
           if crafter.altOf then
-            info.text = info.text .. " - " .. BCRAFT_L.ALT_OF .. " " .. crafter.altOf
+            info.text = info.text .. " - " .. BCT_L.ALT_OF .. " " .. crafter.altOf
           end
           info.notCheckable = true
           info.func = function()
@@ -2241,7 +2247,7 @@ function BCRAFT_ShowRecipePopup(data)
       
       -- Show dropdown menu with online crafters
       if tlen(menu) > 0 then
-        local dropdown = CreateFrame("Frame", "BCRAFT_WhisperMenu", pop, "UIDropDownMenuTemplate")
+        local dropdown = CreateFrame("Frame", "BCT_WhisperMenu", pop, "UIDropDownMenuTemplate")
         UIDropDownMenu_Initialize(dropdown, function()
           for i = 1, tlen(menu) do
             UIDropDownMenu_AddButton(menu[i])
@@ -2254,7 +2260,7 @@ function BCRAFT_ShowRecipePopup(data)
     pop:Hide()
   end
 
-  local pop = BCRAFT_RecipePopup
+  local pop = BCT_RecipePopup
   pop.currentData = data
   pop.title:SetText(data.recipe or "Rezept")
   
@@ -2327,16 +2333,16 @@ function BCRAFT_ShowRecipePopup(data)
   end
   
   -- Reset quantity box
-  pop.qtyBox:SetText(tostring(BCRAFT_RecipeQuantity))
+  pop.qtyBox:SetText(tostring(BCT_RecipeQuantity))
   
-  BCRAFT_UpdateRecipePopupContent(pop, data)
+  BCT_UpdateRecipePopupContent(pop, data)
 
   pop:Show()
 end
 
 -- STEP 3: Update popup content with inventory check first, then crafter list at bottom
-function BCRAFT_UpdateRecipePopupContent(pop, data)
-  local qty = BCRAFT_RecipeQuantity
+function BCT_UpdateRecipePopupContent(pop, data)
+  local qty = BCT_RecipeQuantity
   local db = ensureDB()
   
   local infoText = ""
@@ -2422,15 +2428,15 @@ function BCRAFT_UpdateRecipePopupContent(pop, data)
     for i = 1, tlen(sortedCrafters) do
       local crafter = sortedCrafters[i]
       local statusColor = crafter.online and "|cff00ff00" or "|cff888888"
-      local statusText = crafter.online and BCRAFT_L.ONLINE or BCRAFT_L.OFFLINE
+      local statusText = crafter.online and BCT_L.ONLINE or BCT_L.OFFLINE
       
       infoText = infoText .. "• " .. statusColor .. crafter.player .. "|r"
 
       -- Alt eines Gildenmitglieds kennzeichnen
       if crafter.altOf then
-        local altNote = BCRAFT_L.ALT_OF .. " " .. crafter.altOf
+        local altNote = BCT_L.ALT_OF .. " " .. crafter.altOf
         if db.settings.altConfirm then
-          altNote = altNote .. ", " .. (crafter.altConfirmed and BCRAFT_L.ALT_CONFIRMED or BCRAFT_L.ALT_CLAIMED)
+          altNote = altNote .. ", " .. (crafter.altConfirmed and BCT_L.ALT_CONFIRMED or BCT_L.ALT_CLAIMED)
         end
         infoText = infoText .. " |cffcc99ff(" .. altNote .. ")|r"
       end
@@ -2450,15 +2456,15 @@ function BCRAFT_UpdateRecipePopupContent(pop, data)
   if tlen(missing) > 0 then
     pop.missingSummary:SetText("|cffff0000Fehlen:|r " .. table.concat(missing, ", "))
   else
-    pop.missingSummary:SetText("|cff00ff00" .. BCRAFT_L.ALL_MATS .. "|r")
+    pop.missingSummary:SetText("|cff00ff00" .. BCT_L.ALL_MATS .. "|r")
   end
 end
 
 -- -------------------------
 -- UI: Refresh
 -- -------------------------
-function BCRAFT_UI_Refresh()
-  local f = BCRAFT_UI
+function BCT_UI_Refresh()
+  local f = BCT_UI
   if not f or not f:IsShown() then return end
 
   local allData = uiBuildData()
@@ -2501,16 +2507,16 @@ function BCRAFT_UI_Refresh()
       -- Display crafter info
       local crafterText = ""
       if onlineCount > 0 then
-        crafterText = "|cff00ff00" .. onlineCount .. " " .. BCRAFT_L.ONLINE .. "|r"
+        crafterText = "|cff00ff00" .. onlineCount .. " " .. BCT_L.ONLINE .. "|r"
       else
-        crafterText = "|cff888888" .. totalCount .. " " .. BCRAFT_L.OFFLINE .. "|r"
+        crafterText = "|cff888888" .. totalCount .. " " .. BCT_L.OFFLINE .. "|r"
       end
       
       if totalCount > 1 then
-        crafterText = crafterText .. " |cffaaaaaa(" .. totalCount .. " " .. BCRAFT_L.TOTAL .. ")|r"
+        crafterText = crafterText .. " |cffaaaaaa(" .. totalCount .. " " .. BCT_L.TOTAL .. ")|r"
       end
       
-      crafterText = crafterText .. " |cff888888- " .. BCRAFT_ProfName(data.prof or "") .. "|r"
+      crafterText = crafterText .. " |cff888888- " .. BCT_ProfName(data.prof or "") .. "|r"
       row.who:SetText(crafterText)
       
       row.data = data
@@ -2550,34 +2556,34 @@ end
 -- UI: Create
 -- -------------------------
 -- "Nur online" setzen (Haken im Hauptfenster und in den Einstellungen).
-function BCRAFT_SetOnlineOnly(on)
+function BCT_SetOnlineOnly(on)
   ensureDB().settings.onlineOnly = on and true or false
-  if BCRAFT_UI and BCRAFT_UI.onlineCB then BCRAFT_UI.onlineCB:SetChecked(on) end
-  if BCRAFT_SettingsFrame and BCRAFT_SettingsFrame.onlineCB then BCRAFT_SettingsFrame.onlineCB:SetChecked(on) end
+  if BCT_UI and BCT_UI.onlineCB then BCT_UI.onlineCB:SetChecked(on) end
+  if BCT_SettingsFrame and BCT_SettingsFrame.onlineCB then BCT_SettingsFrame.onlineCB:SetChecked(on) end
   UI_ScrollOffset = 0
-  BCRAFT_UI_Refresh()
+  BCT_UI_Refresh()
 end
 
 local function uiCreate()
-  -- Defensive check: if a previous session already built BCRAFT_UI but somehow
+  -- Defensive check: if a previous session already built BCT_UI but somehow
   -- without the info/language buttons (e.g. an older cached UI state after
   -- a partial reload), rebuild from scratch instead of silently keeping a
   -- half-built frame around. This is what caused the info/language buttons
   -- to "disappear" even though the button-creation code was present.
-  if BCRAFT_UI then
-    if BCRAFT_UI.infoBtn and BCRAFT_UI.deBtn and BCRAFT_UI.enBtn and BCRAFT_UI.gearBtn and BCRAFT_UI.onlineCB then
+  if BCT_UI then
+    if BCT_UI.infoBtn and BCT_UI.deBtn and BCT_UI.enBtn and BCT_UI.gearBtn and BCT_UI.onlineCB then
       return
     else
-      debug("[UI] BCRAFT_UI existierte bereits, aber ohne Info/Sprach-Buttons - baue Fenster neu auf.")
-      BCRAFT_UI:Hide()
-      BCRAFT_UI:SetParent(nil)
-      BCRAFT_UI = nil
+      debug("[UI] BCT_UI existierte bereits, aber ohne Info/Sprach-Buttons - baue Fenster neu auf.")
+      BCT_UI:Hide()
+      BCT_UI:SetParent(nil)
+      BCT_UI = nil
     end
   end
 
-  local f = CreateFrame("Frame", "BCRAFT_MainFrame", UIParent)
-  BCRAFT_UI = f
-  tinsert(UISpecialFrames, "BCRAFT_MainFrame")  -- Esc schliesst das Fenster
+  local f = CreateFrame("Frame", "BCT_MainFrame", UIParent)
+  BCT_UI = f
+  tinsert(UISpecialFrames, "BCT_MainFrame")  -- Esc schliesst das Fenster
   f:SetWidth(650)
   f:SetHeight(480)  -- Extended for statistics display
   f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -2594,16 +2600,16 @@ local function uiCreate()
   f:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
 
   -- Logo oben links. Der 1.12-Client liest nur BLP und unkomprimierte TGA
-  -- mit Zweierpotenz-Kantenlaengen, daher BananaCraft_Logo.tga (128x128).
+  -- mit Zweierpotenz-Kantenlaengen, daher BananaCraftTest_Logo.tga (128x128).
   local logo = f:CreateTexture(nil, "ARTWORK")
   logo:SetWidth(48)
   logo:SetHeight(48)
   logo:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -10)
-  logo:SetTexture("Interface\\AddOns\\BananaCraft\\BananaCraft_Logo")
+  logo:SetTexture("Interface\\AddOns\\BananaCraftTest\\BananaCraftTest_Logo")
 
   local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOP", f, "TOP", 0, -18)
-  title:SetText(BCRAFT_L.WINDOW_TITLE)
+  title:SetText(BCT_L.WINDOW_TITLE)
   f.titleFS = title
 
   local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
@@ -2628,14 +2634,14 @@ local function uiCreate()
   infoBtn:SetScript("OnEnter", function()
     this.tex:SetVertexColor(1, 1, 1)
     GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-    GameTooltip:SetText(BCRAFT_L.ABOUT_TOOLTIP)
+    GameTooltip:SetText(BCT_L.ABOUT_TOOLTIP)
     GameTooltip:Show()
   end)
   infoBtn:SetScript("OnLeave", function()
     this.tex:SetVertexColor(1, 0.75, 0.3)
     GameTooltip:Hide()
   end)
-  infoBtn:SetScript("OnClick", function() BCRAFT_ShowThanksFrame() end)
+  infoBtn:SetScript("OnClick", function() BCT_ShowThanksFrame() end)
   f.infoBtn = infoBtn
 
   -- Language buttons: EN / DE, left of the heart
@@ -2653,14 +2659,14 @@ local function uiCreate()
 
     b:SetScript("OnEnter", function()
       GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-      GameTooltip:SetText(BCRAFT_L.LANG_TOOLTIP)
+      GameTooltip:SetText(BCT_L.LANG_TOOLTIP)
       GameTooltip:Show()
     end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
     b:SetScript("OnClick", function()
-      BCRAFT_SetLocale(this.code)
-      BCRAFT_ApplyLocale()
-      msg(BCRAFT_L.LANG_SWITCHED)
+      BCT_SetLocale(this.code)
+      BCT_ApplyLocale()
+      msg(BCT_L.LANG_SWITCHED)
     end)
     return b
   end
@@ -2676,11 +2682,11 @@ local function uiCreate()
   gearBtn.tex = gearTex
   gearBtn:SetScript("OnEnter", function()
     GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-    GameTooltip:SetText(BCRAFT_L.GEAR_TOOLTIP)
+    GameTooltip:SetText(BCT_L.GEAR_TOOLTIP)
     GameTooltip:Show()
   end)
   gearBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  gearBtn:SetScript("OnClick", function() BCRAFT_ToggleSettings() end)
+  gearBtn:SetScript("OnClick", function() BCT_ToggleSettings() end)
   f.gearBtn = gearBtn
 
   local deBtn = makeLangButton("deDE", "DE", gearBtn, -4)
@@ -2692,7 +2698,7 @@ local function uiCreate()
 
   local searchLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
   searchLabel:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -62)
-  searchLabel:SetText(BCRAFT_L.SEARCH_LABEL)
+  searchLabel:SetText(BCT_L.SEARCH_LABEL)
   f.searchLabelFS = searchLabel
 
   local search = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
@@ -2702,9 +2708,9 @@ local function uiCreate()
   search:SetAutoFocus(false)
   search:SetScript("OnEnterPressed", function() this:ClearFocus() end)
   -- Fokus merken: nur wenn das Suchfeld den Cursor hat, uebernimmt es
-  -- Shift-Klick-Links (siehe BCRAFT_InstallLinkHook)
-  search:SetScript("OnEditFocusGained", function() BCRAFT_SearchFocused = true end)
-  search:SetScript("OnEditFocusLost", function() BCRAFT_SearchFocused = false end)
+  -- Shift-Klick-Links (siehe BCT_InstallLinkHook)
+  search:SetScript("OnEditFocusGained", function() BCT_SearchFocused = true BCT_ActiveSearchBox = this end)
+  search:SetScript("OnEditFocusLost", function() BCT_SearchFocused = false end)
   f.search = search
   search:SetScript("OnTextChanged", function()
     UI_Search = this:GetText() or ""
@@ -2713,28 +2719,28 @@ local function uiCreate()
   end)
 
   -- "Nur online": zeigt nur Rezepte mit mindestens einem Online-Crafter
-  local onlineCB = CreateFrame("CheckButton", "BCRAFT_OnlineOnlyCB", f, "UICheckButtonTemplate")
+  local onlineCB = CreateFrame("CheckButton", "BCT_OnlineOnlyCB", f, "UICheckButtonTemplate")
   onlineCB:SetWidth(24)
   onlineCB:SetHeight(24)
   onlineCB:SetPoint("LEFT", search, "RIGHT", 10, -1)
-  local onlineCBText = getglobal("BCRAFT_OnlineOnlyCBText")
-  onlineCBText:SetText(BCRAFT_L.FILTER_ONLINE_ONLY)
+  local onlineCBText = getglobal("BCT_OnlineOnlyCBText")
+  onlineCBText:SetText(BCT_L.FILTER_ONLINE_ONLY)
   onlineCB:SetChecked(ensureDB().settings.onlineOnly)
   onlineCB:SetScript("OnClick", function()
-    BCRAFT_SetOnlineOnly(this:GetChecked() and true or false)
+    BCT_SetOnlineOnly(this:GetChecked() and true or false)
   end)
   f.onlineCB = onlineCB
   f.onlineCBText = onlineCBText
 
-  local BCRAFT_SubDD_Initialize  -- forward declaration (defined below, used by the filter dropdown)
-  local dd = CreateFrame("Frame", "BCRAFT_FilterDropDown", f, "UIDropDownMenuTemplate")
+  local BCT_SubDD_Initialize  -- forward declaration (defined below, used by the filter dropdown)
+  local dd = CreateFrame("Frame", "BCT_FilterDropDown", f, "UIDropDownMenuTemplate")
   dd:SetPoint("TOPRIGHT", f, "TOPRIGHT", -20, -54)
   f.filterDD = dd
 
-  local function BCRAFT_FilterDD_OnClick()
+  local function BCT_FilterDD_OnClick()
     UI_FilterProf = this.value or "ALL"
     UIDropDownMenu_SetSelectedValue(dd, UI_FilterProf)
-    UIDropDownMenu_SetText(BCRAFT_ProfName(UI_FilterProf), dd)
+    UIDropDownMenu_SetText(BCT_ProfName(UI_FilterProf), dd)
     UI_ScrollOffset = 0
     
     -- Show/hide subcategory filter for professions with categories
@@ -2749,61 +2755,61 @@ local function uiCreate()
     }
     
     if profsWithSubs[UI_FilterProf] then
-      BCRAFT_UI.subDD:Show()
+      BCT_UI.subDD:Show()
       -- Reinitialize dropdown for new profession
-      UIDropDownMenu_Initialize(BCRAFT_UI.subDD, BCRAFT_SubDD_Initialize)
+      UIDropDownMenu_Initialize(BCT_UI.subDD, BCT_SubDD_Initialize)
       UI_EnchantSlot = "ALL"
-      UIDropDownMenu_SetSelectedValue(BCRAFT_UI.subDD, UI_EnchantSlot)
-      UIDropDownMenu_SetText(BCRAFT_CatName(UI_EnchantSlot), BCRAFT_UI.subDD)
+      UIDropDownMenu_SetSelectedValue(BCT_UI.subDD, UI_EnchantSlot)
+      UIDropDownMenu_SetText(BCT_CatName(UI_EnchantSlot), BCT_UI.subDD)
     else
-      BCRAFT_UI.subDD:Hide()
+      BCT_UI.subDD:Hide()
       UI_EnchantSlot = "ALL"  -- Reset subcategory filter
     end
     
-    BCRAFT_UI_Refresh()
+    BCT_UI_Refresh()
   end
 
-  local function BCRAFT_FilterDD_Initialize()
+  local function BCT_FilterDD_Initialize()
     local list = uiGetProfessionList()
     local info
     for i = 1, tlen(list) do
       info = {}
-      info.text = BCRAFT_ProfName(list[i])   -- display only
+      info.text = BCT_ProfName(list[i])   -- display only
       info.value = list[i]                -- key stays English!
-      info.func = BCRAFT_FilterDD_OnClick
+      info.func = BCT_FilterDD_OnClick
       UIDropDownMenu_AddButton(info)
     end
   end
 
-  UIDropDownMenu_Initialize(dd, BCRAFT_FilterDD_Initialize)
+  UIDropDownMenu_Initialize(dd, BCT_FilterDD_Initialize)
   UIDropDownMenu_SetWidth(150, dd)
   UIDropDownMenu_SetSelectedValue(dd, UI_FilterProf)
-  UIDropDownMenu_SetText(BCRAFT_ProfName(UI_FilterProf), dd)
+  UIDropDownMenu_SetText(BCT_ProfName(UI_FilterProf), dd)
 
   -- Subcategory Filter (visible for professions with categories)
-  local subDD = CreateFrame("Frame", "BCRAFT_SubcategoryDropDown", f, "UIDropDownMenuTemplate")
+  local subDD = CreateFrame("Frame", "BCT_SubcategoryDropDown", f, "UIDropDownMenuTemplate")
   subDD:SetPoint("TOPRIGHT", dd, "BOTTOMRIGHT", 0, 6)
   f.subDD = subDD
   subDD:Hide()  -- Hidden by default
   
-  local function BCRAFT_SubDD_OnClick()
+  local function BCT_SubDD_OnClick()
     UI_EnchantSlot = this.value or "ALL"
     UIDropDownMenu_SetSelectedValue(subDD, UI_EnchantSlot)
-    UIDropDownMenu_SetText(BCRAFT_CatName(UI_EnchantSlot), subDD)
+    UIDropDownMenu_SetText(BCT_CatName(UI_EnchantSlot), subDD)
     UI_ScrollOffset = 0
-    BCRAFT_UI_Refresh()
+    BCT_UI_Refresh()
   end
   
-  BCRAFT_SubDD_Initialize = function()
+  BCT_SubDD_Initialize = function()
     -- Define subcategories for each profession
     -- IMPORTANT: These must match EXACT header names from WoW profession window!
-    -- Category list is derived from BCRAFT_RecipeMaps at runtime.
+    -- Category list is derived from BCT_RecipeMaps at runtime.
     -- This guarantees the dropdown can never drift out of sync with the
     -- actual data (previously several entries were typos or plural
     -- mismatches and silently returned zero results).
     local categories = {}
-    if BCRAFT_RecipeMaps then
-      for prof, recipes in pairs(BCRAFT_RecipeMaps) do
+    if BCT_RecipeMaps then
+      for prof, recipes in pairs(BCT_RecipeMaps) do
         local seen, list = {}, { "ALL" }
         for recipeName, catName in pairs(recipes) do
           if catName and catName ~= "" and not seen[catName] then
@@ -2816,7 +2822,7 @@ local function uiCreate()
         table.sort(list, function(a, b)
           if a == "ALL" then return true end
           if b == "ALL" then return false end
-          return BCRAFT_CatName(a) < BCRAFT_CatName(b)
+          return BCT_CatName(a) < BCT_CatName(b)
         end)
         categories[prof] = list
       end
@@ -2826,17 +2832,17 @@ local function uiCreate()
     local info
     for i = 1, tlen(slots) do
       info = {}
-      info.text = BCRAFT_CatName(slots[i])   -- display only
+      info.text = BCT_CatName(slots[i])   -- display only
       info.value = slots[i]               -- key stays English!
-      info.func = BCRAFT_SubDD_OnClick
+      info.func = BCT_SubDD_OnClick
       UIDropDownMenu_AddButton(info)
     end
   end
   
-  UIDropDownMenu_Initialize(subDD, BCRAFT_SubDD_Initialize)
+  UIDropDownMenu_Initialize(subDD, BCT_SubDD_Initialize)
   UIDropDownMenu_SetWidth(150, subDD)
   UIDropDownMenu_SetSelectedValue(subDD, UI_EnchantSlot)
-  UIDropDownMenu_SetText(BCRAFT_CatName(UI_EnchantSlot), subDD)
+  UIDropDownMenu_SetText(BCT_CatName(UI_EnchantSlot), subDD)
 
   -- Clean UI - no logos
 
@@ -2845,7 +2851,7 @@ local function uiCreate()
   shareBtn:SetWidth(220)
   shareBtn:SetHeight(28)
   shareBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 30)  -- Higher for statistics space
-  shareBtn:SetText(BCRAFT_L.SHARE_BUTTON)
+  shareBtn:SetText(BCT_L.SHARE_BUTTON)
   shareBtn:SetScript("OnClick", function()
     broadcastAll()
   end)
@@ -2888,11 +2894,11 @@ local function uiCreate()
   
   -- Clean background - no watermarks
 
-  f.visibleRows = BCRAFT_VISIBLE_ROWS
-  f.rowHeight = BCRAFT_ROW_HEIGHT
+  f.visibleRows = BCT_VISIBLE_ROWS
+  f.rowHeight = BCT_ROW_HEIGHT
   f.rows = {}
 
-  local sb = CreateFrame("Slider", "BCRAFT_Scrollbar", recipePage)
+  local sb = CreateFrame("Slider", "BCT_Scrollbar", recipePage)
   f.scrollbar = sb
   sb:SetOrientation("VERTICAL")
   sb:SetPoint("TOPRIGHT", listBg, "TOPRIGHT", -6, -6)
@@ -2917,7 +2923,7 @@ local function uiCreate()
   
   sb:SetScript("OnValueChanged", function()
     UI_ScrollOffset = math.floor(this:GetValue() + 0.5)
-    BCRAFT_UI_Refresh()
+    BCT_UI_Refresh()
   end)
 
   local function DoScroll(delta)
@@ -2932,7 +2938,7 @@ local function uiCreate()
     if UI_ScrollOffset < 0 then UI_ScrollOffset = 0 end
     if UI_ScrollOffset > maxScroll then UI_ScrollOffset = maxScroll end
     
-    BCRAFT_UI_Refresh()
+    BCT_UI_Refresh()
   end
 
   listBg:EnableMouseWheel(true)
@@ -2960,7 +2966,7 @@ local function uiCreate()
 
     row:SetScript("OnClick", function()
       if this and this.data then
-        BCRAFT_ShowRecipePopup(this.data)
+        BCT_ShowRecipePopup(this.data)
       end
     end)
 
@@ -3088,17 +3094,21 @@ end
 
 local function uiToggle()
   uiCreate()
-  if BCRAFT_UI:IsShown() then
-    BCRAFT_UI:Hide()
+  if BCT_UI:IsShown() then
+    BCT_UI:Hide()
   else
     -- Cleanup old professions from all players when opening UI
     cleanupOldProfessionsFromAllPlayers()
     
     UI_ScrollOffset = 0
-    BCRAFT_UI:Show()
+    BCT_UI:Show()
 
-    BCRAFT_UI_Refresh()
+    BCT_UI_Refresh()
   end
+end
+
+function BCT_ToggleCrafterList()
+  uiToggle()
 end
 
 -- -------------------------
@@ -3149,13 +3159,13 @@ local function exportToCSV()
   end
   
   -- Save to global variable
-  BCRAFT_CSV_Export = csv
-  BCRAFT_CSV_Timestamp = date("%Y-%m-%d %H:%M:%S")
-  BCRAFT_CSV_Lines = lineCount
+  BCT_CSV_Export = csv
+  BCT_CSV_Timestamp = date("%Y-%m-%d %H:%M:%S")
+  BCT_CSV_Lines = lineCount
   
   -- Create export popup with copyable text
-  if not BCRAFT_ExportFrame then
-    local f = CreateFrame("Frame", "BCRAFT_ExportFrame", UIParent)
+  if not BCT_ExportFrame then
+    local f = CreateFrame("Frame", "BCT_ExportFrame", UIParent)
     f:SetWidth(600)
     f:SetHeight(400)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -3186,7 +3196,7 @@ local function exportToCSV()
     f.info = info
     
     -- ScrollFrame for EditBox
-    local scroll = CreateFrame("ScrollFrame", "BCRAFT_ExportScroll", f, "UIPanelScrollFrameTemplate")
+    local scroll = CreateFrame("ScrollFrame", "BCT_ExportScroll", f, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 20, -80)
     scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -40, 50)
     
@@ -3203,7 +3213,7 @@ local function exportToCSV()
     f.editBox = editBox
     
     editBox:SetScript("OnEscapePressed", function()
-      BCRAFT_ExportFrame:Hide()
+      BCT_ExportFrame:Hide()
     end)
     
     -- Close button
@@ -3213,18 +3223,18 @@ local function exportToCSV()
     closeBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 15)
     closeBtn:SetText("Schließen")
     closeBtn:SetScript("OnClick", function()
-      BCRAFT_ExportFrame:Hide()
+      BCT_ExportFrame:Hide()
     end)
     
-    BCRAFT_ExportFrame = f
-    tinsert(UISpecialFrames, "BCRAFT_ExportFrame")
+    BCT_ExportFrame = f
+    tinsert(UISpecialFrames, "BCT_ExportFrame")
   end
   
   -- Set CSV text
-  BCRAFT_ExportFrame.editBox:SetText(csv)
-  BCRAFT_ExportFrame.editBox:HighlightText()  -- Pre-select all
-  BCRAFT_ExportFrame.info:SetText(string.format("|cff00ff00%d Zeilen | %s|r\n|cffffff00Strg+A → Strg+C zum Kopieren!|r", lineCount, BCRAFT_CSV_Timestamp))
-  BCRAFT_ExportFrame:Show()
+  BCT_ExportFrame.editBox:SetText(csv)
+  BCT_ExportFrame.editBox:HighlightText()  -- Pre-select all
+  BCT_ExportFrame.info:SetText(string.format("|cff00ff00%d Zeilen | %s|r\n|cffffff00Strg+A → Strg+C zum Kopieren!|r", lineCount, BCT_CSV_Timestamp))
+  BCT_ExportFrame:Show()
   
   debug("|cff00ff00CSV Export-Fenster geöffnet!|r")
   debug("|cffffff00Strg+A|r → ganzen Text markieren")
@@ -3458,11 +3468,11 @@ local function altClearImported()
   local db = ensureDB()
   local removed = 0
   local me = playerName()
-  local guild = BCRAFT_OwnGuild()
+  local guild = BCT_OwnGuild()
   for name, data in pairs(db.characters) do
     if type(data) == "table" and data.imported then
       db.characters[name] = nil
-      local key = BCRAFT_MakeKey(name, guild)
+      local key = BCT_MakeKey(name, guild)
       if db.altOf[key] or db.guild[key] then
         db.guild[key] = nil
         setAltOf(db, key, nil)
@@ -3476,10 +3486,10 @@ end
 
 -- Fenster mit grossem, kopierbarem Textfeld (Export) bzw. Einfuegefeld (Import)
 local function showAltTextWindow(mode)
-  local f = BCRAFT_AltFrame
+  local f = BCT_AltFrame
   if not f then
-    f = CreateFrame("Frame", "BCRAFT_AltFrame", UIParent)
-    BCRAFT_AltFrame = f
+    f = CreateFrame("Frame", "BCT_AltFrame", UIParent)
+    BCT_AltFrame = f
     f:SetWidth(600)
     f:SetHeight(400)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -3495,7 +3505,7 @@ local function showAltTextWindow(mode)
     f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", function() this:StartMoving() end)
     f:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
-    tinsert(UISpecialFrames, "BCRAFT_AltFrame")
+    tinsert(UISpecialFrames, "BCT_AltFrame")
 
     f.title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     f.title:SetPoint("TOP", f, "TOP", 0, -20)
@@ -3505,7 +3515,7 @@ local function showAltTextWindow(mode)
     f.info:SetWidth(540)
     f.info:SetJustifyH("CENTER")
 
-    local scroll = CreateFrame("ScrollFrame", "BCRAFT_AltScroll", f, "UIPanelScrollFrameTemplate")
+    local scroll = CreateFrame("ScrollFrame", "BCT_AltScroll", f, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 20, -90)
     scroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -40, 55)
 
@@ -3518,7 +3528,7 @@ local function showAltTextWindow(mode)
     editBox:SetFont("Fonts\\ARIALN.TTF", 11)
     editBox:SetMaxLetters(0)  -- unbegrenzt
     scroll:SetScrollChild(editBox)
-    editBox:SetScript("OnEscapePressed", function() BCRAFT_AltFrame:Hide() end)
+    editBox:SetScript("OnEscapePressed", function() BCT_AltFrame:Hide() end)
     f.editBox = editBox
 
     f.actionBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
@@ -3530,51 +3540,51 @@ local function showAltTextWindow(mode)
     closeBtn:SetWidth(120)
     closeBtn:SetHeight(24)
     closeBtn:SetPoint("BOTTOM", f, "BOTTOM", 95, 18)
-    closeBtn:SetText(BCRAFT_L.BTN_CLOSE)
-    closeBtn:SetScript("OnClick", function() BCRAFT_AltFrame:Hide() end)
+    closeBtn:SetText(BCT_L.BTN_CLOSE)
+    closeBtn:SetScript("OnClick", function() BCT_AltFrame:Hide() end)
     f.closeBtn = closeBtn
   end
 
-  f.closeBtn:SetText(BCRAFT_L.BTN_CLOSE)
+  f.closeBtn:SetText(BCT_L.BTN_CLOSE)
   f.mode = mode
 
   if mode == "export" then
     local text, charCount, recCount = altExportString()
-    f.title:SetText(BCRAFT_L.ALTX_TITLE_EXPORT)
+    f.title:SetText(BCT_L.ALTX_TITLE_EXPORT)
     if not text then
-      f.info:SetText("|cffff0000" .. BCRAFT_L.ALTX_NONE .. "|r")
+      f.info:SetText("|cffff0000" .. BCT_L.ALTX_NONE .. "|r")
       f.editBox:SetText("")
     else
-      f.info:SetText("|cff00ff00" .. BCRAFT_L.ALTX_INFO_EXPORT .. "|r\n|cffaaaaaa"
-        .. charCount .. " " .. BCRAFT_L.ALTX_CHARS .. ", " .. recCount .. " " .. BCRAFT_L.ALTX_PROFS .. "|r")
+      f.info:SetText("|cff00ff00" .. BCT_L.ALTX_INFO_EXPORT .. "|r\n|cffaaaaaa"
+        .. charCount .. " " .. BCT_L.ALTX_CHARS .. ", " .. recCount .. " " .. BCT_L.ALTX_PROFS .. "|r")
       f.editBox:SetText(text)
     end
-    f.actionBtn:SetText(BCRAFT_L.BTN_SELECT_ALL)
+    f.actionBtn:SetText(BCT_L.BTN_SELECT_ALL)
     f.actionBtn:SetScript("OnClick", function()
-      BCRAFT_AltFrame.editBox:SetFocus()
-      BCRAFT_AltFrame.editBox:HighlightText()
+      BCT_AltFrame.editBox:SetFocus()
+      BCT_AltFrame.editBox:HighlightText()
     end)
     f:Show()
     f.editBox:SetFocus()
     f.editBox:HighlightText()
   else
-    f.title:SetText(BCRAFT_L.ALTX_TITLE_IMPORT)
-    f.info:SetText("|cff00ff00" .. BCRAFT_L.ALTX_INFO_IMPORT .. "|r")
+    f.title:SetText(BCT_L.ALTX_TITLE_IMPORT)
+    f.info:SetText("|cff00ff00" .. BCT_L.ALTX_INFO_IMPORT .. "|r")
     f.editBox:SetText("")
-    f.actionBtn:SetText(BCRAFT_L.BTN_DO_IMPORT)
+    f.actionBtn:SetText(BCT_L.BTN_DO_IMPORT)
     f.actionBtn:SetScript("OnClick", function()
-      local ok, n, profs, skipped = altImportString(BCRAFT_AltFrame.editBox:GetText())
+      local ok, n, profs, skipped = altImportString(BCT_AltFrame.editBox:GetText())
       if not ok then
-        msg("|cffff0000" .. BCRAFT_L.ALTX_BAD .. "|r")
+        msg("|cffff0000" .. BCT_L.ALTX_BAD .. "|r")
         return
       end
-      msg("|cff00ff00" .. BCRAFT_L.ALTX_DONE .. "|r " .. n .. " (" .. profs .. " " .. BCRAFT_L.ALTX_PROFS .. ")")
+      msg("|cff00ff00" .. BCT_L.ALTX_DONE .. "|r " .. n .. " (" .. profs .. " " .. BCT_L.ALTX_PROFS .. ")")
       if tlen(skipped) > 0 then
-        msg("|cffff8800" .. BCRAFT_L.ALTX_SKIPPED .. "|r " .. table.concat(skipped, ", "))
+        msg("|cffff8800" .. BCT_L.ALTX_SKIPPED .. "|r " .. table.concat(skipped, ", "))
       end
-      msg("|cff888888" .. BCRAFT_L.ALTX_HINT .. "|r")
-      BCRAFT_AltFrame:Hide()
-      if BCRAFT_RefreshSettings then BCRAFT_RefreshSettings() end
+      msg("|cff888888" .. BCT_L.ALTX_HINT .. "|r")
+      BCT_AltFrame:Hide()
+      if BCT_RefreshSettings then BCT_RefreshSettings() end
     end)
     f:Show()
     f.editBox:SetFocus()
@@ -3621,14 +3631,15 @@ local function linkToSearchText(link)
   return name
 end
 
+-- Das aktive Suchfeld (Katalog oder Crafter-Liste) setzt BCT_ActiveSearchBox, wenn es den Cursor bekommt.
 local function searchHasLinkFocus()
-  return BCRAFT_SearchFocused and BCRAFT_UI and BCRAFT_UI.search
-    and BCRAFT_UI:IsShown() and IsShiftKeyDown and IsShiftKeyDown()
+  return BCT_SearchFocused and BCT_ActiveSearchBox
+    and BCT_ActiveSearchBox:IsVisible() and IsShiftKeyDown and IsShiftKeyDown()
 end
 
-function BCRAFT_InstallLinkHook()
-  if BCRAFT_LinkHooked or not ChatFrameEditBox then return end
-  BCRAFT_LinkHooked = true
+function BCT_InstallLinkHook()
+  if BCT_LinkHooked or not ChatFrameEditBox then return end
+  BCT_LinkHooked = true
 
   local origInsert = ChatFrameEditBox.Insert
   local origIsVisible = ChatFrameEditBox.IsVisible
@@ -3642,7 +3653,7 @@ function BCRAFT_InstallLinkHook()
     if searchHasLinkFocus() then
       local name = linkToSearchText(text)
       if name then
-        BCRAFT_UI.search:SetText(name)   -- loest die Suche ueber OnTextChanged aus
+        BCT_ActiveSearchBox:SetText(name)   -- loest die Suche ueber OnTextChanged aus
         return
       end
     end
@@ -3653,16 +3664,16 @@ end
 -- -------------------------
 -- Einstellungsfenster (Zahnrad)
 --
--- Buendelt, was frueher nur ueber /bc-Befehle ging. Die Befehle bleiben
+-- Buendelt, was frueher nur ueber /bct-Befehle ging. Die Befehle bleiben
 -- zusaetzlich nutzbar.
 -- -------------------------
-StaticPopupDialogs["BCRAFT_CONFIRM"] = {
+StaticPopupDialogs["BCT_CONFIRM"] = {
   text = "%s",
   button1 = YES or "Yes",
   button2 = NO or "No",
   OnAccept = function()
-    local action = BCRAFT_PendingAction
-    BCRAFT_PendingAction = nil
+    local action = BCT_PendingAction
+    BCT_PendingAction = nil
     if action then action() end
   end,
   timeout = 0,
@@ -3671,13 +3682,13 @@ StaticPopupDialogs["BCRAFT_CONFIRM"] = {
 }
 
 local function confirmAction(text, fn)
-  BCRAFT_PendingAction = fn
-  StaticPopup_Show("BCRAFT_CONFIRM", text)
+  BCT_PendingAction = fn
+  StaticPopup_Show("BCT_CONFIRM", text)
 end
 
 local function buildSettings()
-  local f = CreateFrame("Frame", "BCRAFT_SettingsFrame", UIParent)
-  BCRAFT_SettingsFrame = f
+  local f = CreateFrame("Frame", "BCT_SettingsFrame", UIParent)
+  BCT_SettingsFrame = f
   f:SetWidth(400)
   f:SetHeight(322)
   f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -3693,7 +3704,7 @@ local function buildSettings()
   f:RegisterForDrag("LeftButton")
   f:SetScript("OnDragStart", function() this:StartMoving() end)
   f:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
-  tinsert(UISpecialFrames, "BCRAFT_SettingsFrame")  -- Esc schliesst
+  tinsert(UISpecialFrames, "BCT_SettingsFrame")  -- Esc schliesst
 
   local texts = {}   -- {obj, key}: wird beim Sprachwechsel neu gesetzt
   f.texts = texts
@@ -3701,7 +3712,7 @@ local function buildSettings()
   local function label(key, x, y, font, parent)
     local fs = (parent or f):CreateFontString(nil, "OVERLAY", font or "GameFontNormal")
     fs:SetPoint("TOPLEFT", parent or f, "TOPLEFT", x, y)
-    fs:SetText(BCRAFT_L[key])
+    fs:SetText(BCT_L[key])
     table.insert(texts, { fs, key })
     return fs
   end
@@ -3711,7 +3722,7 @@ local function buildSettings()
     b:SetWidth(w)
     b:SetHeight(24)
     b:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    b:SetText(BCRAFT_L[key])
+    b:SetText(BCT_L[key])
     b:SetScript("OnClick", fn)
     table.insert(texts, { b, key })
     return b
@@ -3723,7 +3734,7 @@ local function buildSettings()
     cb:SetHeight(24)
     cb:SetPoint("TOPLEFT", f, "TOPLEFT", x or 18, y)
     local t = getglobal(name .. "Text")
-    t:SetText(BCRAFT_L[key])
+    t:SetText(BCT_L[key])
     table.insert(texts, { t, key })
     cb:SetScript("OnClick", function() fn(this:GetChecked() and true or false) end)
     return cb
@@ -3731,7 +3742,7 @@ local function buildSettings()
 
   local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOP", f, "TOP", 0, -18)
-  title:SetText(BCRAFT_L.SET_TITLE)
+  title:SetText(BCT_L.SET_TITLE)
   table.insert(texts, { title, "SET_TITLE" })
 
   local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
@@ -3748,56 +3759,56 @@ local function buildSettings()
     b:SetText(text)
     b.code = code
     b:SetScript("OnClick", function()
-      BCRAFT_SetLocale(this.code)
-      BCRAFT_ApplyLocale()
-      msg(BCRAFT_L.LANG_SWITCHED)
+      BCT_SetLocale(this.code)
+      BCT_ApplyLocale()
+      msg(BCT_L.LANG_SWITCHED)
     end)
     table.insert(f.langBtns, b)
     return b
   end
   langBtn("enUS", "EN", 110, 40)
   langBtn("deDE", "DE", 154, 40)
-  local autoB = langBtn("auto", BCRAFT_L.SET_LANG_AUTO, 198, 54)
+  local autoB = langBtn("auto", BCT_L.SET_LANG_AUTO, 198, 54)
   table.insert(texts, { autoB, "SET_LANG_AUTO" })
 
   -- Schalter
-  f.onlineCB = check("BCRAFT_SetOnlineCB", "FILTER_ONLINE_ONLY", -82, function(on)
-    BCRAFT_SetOnlineOnly(on)
+  f.onlineCB = check("BCT_SetOnlineCB", "FILTER_ONLINE_ONLY", -82, function(on)
+    BCT_SetOnlineOnly(on)
   end)
-  f.mmCB = check("BCRAFT_SetMinimapCB", "SET_MINIMAP", -106, function(on)
+  f.mmCB = check("BCT_SetMinimapCB", "SET_MINIMAP", -106, function(on)
     ensureDB().settings.minimapButton = on
-    BCRAFT_MinimapButton_Init()
+    BCT_MinimapButton_Init()
   end)
-  f.dbgCB = check("BCRAFT_SetDebugCB", "SET_DEBUG", -130, function(on)
+  f.dbgCB = check("BCT_SetDebugCB", "SET_DEBUG", -130, function(on)
     DEBUG = on
     msg("Debug: " .. (DEBUG and "|cff00ff00AN|r" or "|cffff0000AUS|r"))
   end)
   -- Optionale Alt-Bestaetigung: Alts melden selbst "ich bin Alt von <Main>",
   -- und die Anzeige unterscheidet "bestaetigt" und "angegeben".
-  f.confirmCB = check("BCRAFT_SetConfirmCB", "SET_ALT_CONFIRM", -130, function(on)
+  f.confirmCB = check("BCT_SetConfirmCB", "SET_ALT_CONFIRM", -130, function(on)
     ensureDB().settings.altConfirm = on
     if on then sendAltConfirm() end
-    if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
+    if BCT_UI and BCT_UI:IsShown() then BCT_UI_Refresh() end
   end, 206)
   f.confirmCB:SetScript("OnEnter", function()
     GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-    GameTooltip:SetText(BCRAFT_L.SET_ALT_CONFIRM, 1, 1, 1)
-    GameTooltip:AddLine(BCRAFT_L.SET_ALT_CONFIRM_TIP, 0.8, 0.8, 0.8, 1)
+    GameTooltip:SetText(BCT_L.SET_ALT_CONFIRM, 1, 1, 1)
+    GameTooltip:AddLine(BCT_L.SET_ALT_CONFIRM_TIP, 0.8, 0.8, 0.8, 1)
     GameTooltip:Show()
   end)
   f.confirmCB:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
   -- Daten
   label("SET_SECTION_DATA", 22, -166)
-  button(f, "BTN_RESCAN", 172, 22, -188, function() SlashCmdList["BCRAFT"]("rescan") end)
+  button(f, "BTN_RESCAN", 172, 22, -188, function() SlashCmdList["BCT"]("rescan") end)
   button(f, "BTN_SEND_ALL", 172, 206, -188, function() broadcastAll() end)
   button(f, "BTN_SYNC", 172, 22, -216, function() startHashSync() end)
   button(f, "BTN_EXPORT", 172, 206, -216, function() exportToCSV() end)
   button(f, "BTN_SCANBANK", 172, 22, -244, function() scanBank() end)
-  button(f, "BTN_VERSIONCHECK", 172, 206, -244, function() SlashCmdList["BCRAFT"]("versioncheck") end)
+  button(f, "BTN_VERSIONCHECK", 172, 206, -244, function() SlashCmdList["BCT"]("versioncheck") end)
 
   -- Loeschen
-  local delDD = CreateFrame("Frame", "BCRAFT_DeleteDropDown", f, "UIDropDownMenuTemplate")
+  local delDD = CreateFrame("Frame", "BCT_DeleteDropDown", f, "UIDropDownMenuTemplate")
   delDD:SetPoint("TOPLEFT", f, "TOPLEFT", 6, -270)
   local function delDDInit()
     local db = ensureDB()
@@ -3805,13 +3816,13 @@ local function buildSettings()
     if not (mine and mine.profs) then return end
     for pname, _ in pairs(mine.profs) do
       local info = {}
-      info.text = BCRAFT_ProfName(pname)
+      info.text = BCT_ProfName(pname)
       info.value = pname
       info.func = function()
         local pn = this.value
-        UIDropDownMenu_SetText(BCRAFT_L.SET_DELETE_PROF, delDD)
-        confirmAction(string.format(BCRAFT_L.CONFIRM_DELETE_PROF, BCRAFT_ProfName(pn)), function()
-          SlashCmdList["BCRAFT"]("delete " .. pn)
+        UIDropDownMenu_SetText(BCT_L.SET_DELETE_PROF, delDD)
+        confirmAction(string.format(BCT_L.CONFIRM_DELETE_PROF, BCT_ProfName(pn)), function()
+          SlashCmdList["BCT"]("delete " .. pn)
         end)
       end
       UIDropDownMenu_AddButton(info)
@@ -3819,16 +3830,16 @@ local function buildSettings()
   end
   UIDropDownMenu_Initialize(delDD, delDDInit)
   UIDropDownMenu_SetWidth(140, delDD)
-  UIDropDownMenu_SetText(BCRAFT_L.SET_DELETE_PROF, delDD)
+  UIDropDownMenu_SetText(BCT_L.SET_DELETE_PROF, delDD)
   f.delDD = delDD
   button(f, "BTN_DELETE_ALL", 172, 206, -272, function()
-    confirmAction(BCRAFT_L.CONFIRM_DELETE_ALL, function()
-      SlashCmdList["BCRAFT"]("delete all")
+    confirmAction(BCT_L.CONFIRM_DELETE_ALL, function()
+      SlashCmdList["BCT"]("delete all")
     end)
   end)
 
   -- Alts dieses Accounts: angehakt = wird mit "Share database with guild"
-  -- geteilt. Die Zeilen werden in BCRAFT_RefreshSettings gefuellt.
+  -- geteilt. Die Zeilen werden in BCT_RefreshSettings gefuellt.
   -- Export/Import fuer Alts auf anderen Accounts
   button(f, "BTN_ALT_EXPORT", 172, 22, -300, function() showAltTextWindow("export") end)
   button(f, "BTN_ALT_IMPORT", 172, 206, -300, function() showAltTextWindow("import") end)
@@ -3842,8 +3853,8 @@ local function buildSettings()
 
   local function afterAltChange()
     publishAccountAlts()
-    BCRAFT_RefreshSettings()
-    if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
+    BCT_RefreshSettings()
+    if BCT_UI and BCT_UI:IsShown() then BCT_UI_Refresh() end
   end
 
   local function titleEntry(text)
@@ -3855,7 +3866,7 @@ local function buildSettings()
   end
 
   -- links: importierte Charaktere
-  local otherDD = CreateFrame("Frame", "BCRAFT_OtherAltsDropDown", f, "UIDropDownMenuTemplate")
+  local otherDD = CreateFrame("Frame", "BCT_OtherAltsDropDown", f, "UIDropDownMenuTemplate")
   otherDD:SetPoint("TOPLEFT", f, "TOPLEFT", 6, -356)
   UIDropDownMenu_Initialize(otherDD, function()
     local db = ensureDB()
@@ -3864,10 +3875,10 @@ local function buildSettings()
       if type(data) == "table" and data.imported then table.insert(names, name) end
     end
     table.sort(names)
-    titleEntry(BCRAFT_L.SET_MENU_SHARE)
+    titleEntry(BCT_L.SET_MENU_SHARE)
     if tlen(names) == 0 then
       local info = {}
-      info.text = BCRAFT_L.SET_DD_NONE
+      info.text = BCT_L.SET_DD_NONE
       info.notCheckable = 1
       info.func = function() end
       UIDropDownMenu_AddButton(info)
@@ -3891,7 +3902,7 @@ local function buildSettings()
   f.otherDD = otherDD
 
   -- rechts: Charaktere dieses Accounts
-  local sameDD = CreateFrame("Frame", "BCRAFT_SameAltsDropDown", f, "UIDropDownMenuTemplate")
+  local sameDD = CreateFrame("Frame", "BCT_SameAltsDropDown", f, "UIDropDownMenuTemplate")
   sameDD:SetPoint("TOPLEFT", f, "TOPLEFT", 206, -356)
   UIDropDownMenu_Initialize(sameDD, function()
     local db = ensureDB()
@@ -3906,7 +3917,7 @@ local function buildSettings()
     end
     table.sort(names)
 
-    titleEntry(BCRAFT_L.SET_MENU_MAIN)
+    titleEntry(BCT_L.SET_MENU_MAIN)
     for i = 1, tlen(names) do
       local name = names[i]
       local info = {}
@@ -3930,7 +3941,7 @@ local function buildSettings()
       if names[i] ~= me and names[i] ~= db.mainChar then table.insert(others, names[i]) end
     end
     if tlen(others) > 0 then
-      titleEntry(BCRAFT_L.SET_MENU_SHARE)
+      titleEntry(BCT_L.SET_MENU_SHARE)
       for i = 1, tlen(others) do
         local name = others[i]
         local info = {}
@@ -3950,22 +3961,22 @@ local function buildSettings()
   UIDropDownMenu_SetWidth(150, sameDD)
   f.sameDD = sameDD
 
-  f:SetScript("OnShow", function() BCRAFT_RefreshSettings() end)
+  f:SetScript("OnShow", function() BCT_RefreshSettings() end)
   f:Hide()
   return f
 end
 
-function BCRAFT_RefreshSettings(retext)
-  local f = BCRAFT_SettingsFrame
+function BCT_RefreshSettings(retext)
+  local f = BCT_SettingsFrame
   if not f then return end
   local db = ensureDB()
 
   if retext then
     for i = 1, tlen(f.texts) do
       local e = f.texts[i]
-      e[1]:SetText(BCRAFT_L[e[2]])
+      e[1]:SetText(BCT_L[e[2]])
     end
-    UIDropDownMenu_SetText(BCRAFT_L.SET_DELETE_PROF, f.delDD)
+    UIDropDownMenu_SetText(BCT_L.SET_DELETE_PROF, f.delDD)
   end
 
   f.onlineCB:SetChecked(db.settings.onlineOnly)
@@ -3987,11 +3998,11 @@ function BCRAFT_RefreshSettings(retext)
   for _, data in pairs(db.characters) do
     if type(data) == "table" and data.imported then importedCount = importedCount + 1 end
   end
-  UIDropDownMenu_SetText(importedCount > 0 and string.format(BCRAFT_L.SET_DD_IMPORTED_N, importedCount) or BCRAFT_L.SET_DD_NONE, f.otherDD)
+  UIDropDownMenu_SetText(importedCount > 0 and string.format(BCT_L.SET_DD_IMPORTED_N, importedCount) or BCT_L.SET_DD_NONE, f.otherDD)
   if db.mainChar and db.characters[db.mainChar] then
-    UIDropDownMenu_SetText(string.format(BCRAFT_L.SET_DD_MAIN, db.mainChar), f.sameDD)
+    UIDropDownMenu_SetText(string.format(BCT_L.SET_DD_MAIN, db.mainChar), f.sameDD)
   else
-    UIDropDownMenu_SetText("|cffff8800" .. BCRAFT_L.SET_DD_PICK .. "|r", f.sameDD)
+    UIDropDownMenu_SetText("|cffff8800" .. BCT_L.SET_DD_PICK .. "|r", f.sameDD)
   end
 
   local contentEnd = 396
@@ -3999,16 +4010,16 @@ function BCRAFT_RefreshSettings(retext)
   f:SetHeight(contentEnd + 22)
 end
 
-function BCRAFT_ToggleSettings()
-  local f = BCRAFT_SettingsFrame or buildSettings()
+function BCT_ToggleSettings()
+  local f = BCT_SettingsFrame or buildSettings()
   if f:IsShown() then f:Hide() else f:Show() end
 end
 
 -- -------------------------
 -- Slash commands
 -- -------------------------
-SLASH_BCRAFT1 = "/bc"
-SlashCmdList["BCRAFT"] = function(input)
+SLASH_BCT1 = "/bct"
+SlashCmdList["BCT"] = function(input)
   input = input or ""
   
   if type(input) ~= "string" then input = "" end
@@ -4022,26 +4033,38 @@ SlashCmdList["BCRAFT"] = function(input)
   end
   cmd = string.lower(cmd or "")
 
-  if cmd == "" or cmd == "help" then
-    msg(BCRAFT_L.CMD_HEADER)
-    msg(BCRAFT_L.CMD_SHOW)
-    msg(BCRAFT_L.CMD_SCAN)
-    msg(BCRAFT_L.CMD_RESCAN)
-    msg(BCRAFT_L.CMD_SEND)
-    msg(BCRAFT_L.CMD_SYNC)
-    msg(BCRAFT_L.CMD_VERSIONCHECK)
-    msg(BCRAFT_L.CMD_DELETE)
-    msg(BCRAFT_L.CMD_DELETE_ALL)
-    msg(BCRAFT_L.CMD_SCANBANK)
-    msg(BCRAFT_L.CMD_EXPORT)
-    msg(BCRAFT_L.CMD_DEBUG)
-    msg(BCRAFT_L.CMD_ABOUT)
-    msg(BCRAFT_L.CMD_LANG)
+  -- /bct ohne Zusatz oeffnet den Katalog
+  if cmd == "" or cmd == "katalog" or cmd == "catalog" or cmd == "show" then
+    BCT_ToggleCatalog()
+    return
+  end
+  if cmd == "crafter" or cmd == "list" then
+    uiToggle()
+    return
+  end
+
+  if cmd == "help" then
+    msg(BCT_L.CMD_HEADER)
+    msg(BCT_L.CMD_CATALOG)
+    msg(BCT_L.CMD_CRAFTER)
+    msg(BCT_L.CMD_SHOW)
+    msg(BCT_L.CMD_SCAN)
+    msg(BCT_L.CMD_RESCAN)
+    msg(BCT_L.CMD_SEND)
+    msg(BCT_L.CMD_SYNC)
+    msg(BCT_L.CMD_VERSIONCHECK)
+    msg(BCT_L.CMD_DELETE)
+    msg(BCT_L.CMD_DELETE_ALL)
+    msg(BCT_L.CMD_SCANBANK)
+    msg(BCT_L.CMD_EXPORT)
+    msg(BCT_L.CMD_DEBUG)
+    msg(BCT_L.CMD_ABOUT)
+    msg(BCT_L.CMD_LANG)
     return
   end
 
   if cmd == "about" or cmd == "danke" or cmd == "info" then
-    BCRAFT_ShowThanksFrame()
+    BCT_ShowThanksFrame()
     return
   end
 
@@ -4052,13 +4075,12 @@ SlashCmdList["BCRAFT"] = function(input)
     if which ~= "deDE" and which ~= "enUS" and which ~= "auto" then
       which = "auto"
     end
-    BCRAFT_SetLocale(which)
-    BCRAFT_ApplyLocale()
-    msg(BCRAFT_L.LANG_SWITCHED)
+    BCT_SetLocale(which)
+    BCT_ApplyLocale()
+    msg(BCT_L.LANG_SWITCHED)
     return
   end
 
-  if cmd == "show" then uiToggle(); return end
   if cmd == "scan" then 
     local myChar = playerName()
     LastScannedProf[myChar] = nil
@@ -4068,7 +4090,7 @@ SlashCmdList["BCRAFT"] = function(input)
   if cmd == "rescan" then
     local myChar = playerName()
     LastScannedProf[myChar] = nil
-    msg(BCRAFT_L.CACHE_CLEARED)
+    msg(BCT_L.CACHE_CLEARED)
     return
   end
   if cmd == "send" then broadcastAll(); return end
@@ -4076,7 +4098,7 @@ SlashCmdList["BCRAFT"] = function(input)
   if cmd == "versioncheck" then
     VersionCheckResponses = {}
     VersionCheckActive = true
-    msg("|cffffff00" .. BCRAFT_L.VERSIONCHECK_ASKING .. "|r")
+    msg("|cffffff00" .. BCT_L.VERSIONCHECK_ASKING .. "|r")
     enqueueSend("GUILD", "VCHECK" .. SEP .. safe(playerName()))
     return
   end
@@ -4092,9 +4114,9 @@ SlashCmdList["BCRAFT"] = function(input)
   if cmd == "altimport" then showAltTextWindow("import") return end
   if cmd == "altclear" then
     local n = altClearImported()
-    msg("|cff00ff00" .. BCRAFT_L.ALTX_CLEARED .. "|r " .. n)
-    if BCRAFT_RefreshSettings then BCRAFT_RefreshSettings() end
-    if BCRAFT_UI and BCRAFT_UI:IsShown() then BCRAFT_UI_Refresh() end
+    msg("|cff00ff00" .. BCT_L.ALTX_CLEARED .. "|r " .. n)
+    if BCT_RefreshSettings then BCT_RefreshSettings() end
+    if BCT_UI and BCT_UI:IsShown() then BCT_UI_Refresh() end
     return
   end
   if cmd == "debug" then
@@ -4108,8 +4130,8 @@ SlashCmdList["BCRAFT"] = function(input)
     local _, _, profName = string.find(input, "^%S+%s+(.+)")
     
     if not profName or profName == "" then
-      msg(BCRAFT_L.USAGE_DELETE)
-      msg(BCRAFT_L.EXAMPLE_DELETE)
+      msg(BCT_L.USAGE_DELETE)
+      msg(BCT_L.EXAMPLE_DELETE)
       return
     end
     
@@ -4152,13 +4174,13 @@ SlashCmdList["BCRAFT"] = function(input)
       -- Clear all scan caches
       LastScannedProf = {}
       
-      msg("|cffff0000" .. BCRAFT_L.DB_WIPED .. "|r")
+      msg("|cffff0000" .. BCT_L.DB_WIPED .. "|r")
       msg("  • " .. totalChars .. " Character(e)")
       msg("  • " .. totalProfs .. " Beruf(e)")
       msg("  • " .. totalGuild .. " Gilden-Einträge")
       
-      if BCRAFT_MainFrame and BCRAFT_MainFrame:IsShown() then
-        BCRAFT_UI_Refresh()
+      if BCT_MainFrame and BCT_MainFrame:IsShown() then
+        BCT_UI_Refresh()
       end
     else
       -- Delete specific profession (normalize name)
@@ -4172,10 +4194,10 @@ SlashCmdList["BCRAFT"] = function(input)
           db.guild[myKey()].profs[normalizedProf] = nil
         end
         
-        msg("|cffff0000" .. BCRAFT_L.DELETED .. "|r " .. normalizedProf)
+        msg("|cffff0000" .. BCT_L.DELETED .. "|r " .. normalizedProf)
         
-        if BCRAFT_MainFrame and BCRAFT_MainFrame:IsShown() then
-          BCRAFT_UI_Refresh()
+        if BCT_MainFrame and BCT_MainFrame:IsShown() then
+          BCT_UI_Refresh()
         end
       else
         msg("|cffff0000Fehler:|r Beruf '" .. normalizedProf .. "' nicht gefunden")
@@ -4184,7 +4206,7 @@ SlashCmdList["BCRAFT"] = function(input)
     return
   end
 
-  debug("Unbekannter Befehl. /bc help")
+  debug("Unbekannter Befehl. /bct help")
 end
 
 -- -------------------------
@@ -4270,13 +4292,13 @@ eventFrame:SetScript("OnEvent", function()
     
     -- Restore the saved language (or auto-detect from the client)
     local db = ensureDB()
-    BCRAFT_SetLocale(db.settings.locale or "auto")
+    BCT_SetLocale(db.settings.locale or "auto")
 
     -- Initialize Minimap Button
-    BCRAFT_MinimapButton_Init()
+    BCT_MinimapButton_Init()
 
     -- Shift-Klick auf Items/Verzauberungen schreibt in das Suchfeld
-    BCRAFT_InstallLinkHook()
+    BCT_InstallLinkHook()
 
     -- Optionale Alt-Bestaetigung: als Alt eingeloggt meldet der Charakter kurz
     -- nach dem Login "ich bin Alt von <Main>" (eine kleine Nachricht)
@@ -4292,7 +4314,7 @@ eventFrame:SetScript("OnEvent", function()
       end)
     end
 
-    debug("geladen. /bc show")
+    debug("geladen. /bct show")
     return
   end
 
@@ -4312,8 +4334,8 @@ eventFrame:SetScript("OnEvent", function()
   if event == "GUILD_ROSTER_UPDATE" then
     -- Roster data changed: rebuild the online lookup and repaint if visible.
     refreshOnlineCache(true)
-    if BCRAFT_UI and BCRAFT_UI:IsShown() then
-      BCRAFT_UI_Refresh()
+    if BCT_UI and BCT_UI:IsShown() then
+      BCT_UI_Refresh()
     end
     return
   end
@@ -4334,18 +4356,18 @@ end)
 -- Apply the active language to every already-created widget.
 -- Called after switching language so no /reload is needed.
 -- -------------------------
-function BCRAFT_ApplyLocale()
-  local f = BCRAFT_UI
+function BCT_ApplyLocale()
+  local f = BCT_UI
 
   if f then
-    if f.titleFS then f.titleFS:SetText(BCRAFT_L.WINDOW_TITLE) end
-    if f.searchLabelFS then f.searchLabelFS:SetText(BCRAFT_L.SEARCH_LABEL) end
-    if f.shareBtn then f.shareBtn:SetText(BCRAFT_L.SHARE_BUTTON) end
-    if f.onlineCBText then f.onlineCBText:SetText(BCRAFT_L.FILTER_ONLINE_ONLY) end
-    if BCRAFT_RefreshSettings then BCRAFT_RefreshSettings(true) end
+    if f.titleFS then f.titleFS:SetText(BCT_L.WINDOW_TITLE) end
+    if f.searchLabelFS then f.searchLabelFS:SetText(BCT_L.SEARCH_LABEL) end
+    if f.shareBtn then f.shareBtn:SetText(BCT_L.SHARE_BUTTON) end
+    if f.onlineCBText then f.onlineCBText:SetText(BCT_L.FILTER_ONLINE_ONLY) end
+    if BCT_RefreshSettings then BCT_RefreshSettings(true) end
 
     -- Highlight the active language button
-    local cur = BCRAFT_GetLocale()
+    local cur = BCT_GetLocale()
     if f.deBtn and f.deBtn.fs then
       if cur == "deDE" then f.deBtn.fs:SetTextColor(1, 0.82, 0) else f.deBtn.fs:SetTextColor(0.5, 0.5, 0.5) end
     end
@@ -4355,25 +4377,25 @@ function BCRAFT_ApplyLocale()
 
     -- Dropdown captions use translated text but keep English values
     if f.filterDD then
-      UIDropDownMenu_SetText(BCRAFT_ProfName(UI_FilterProf), f.filterDD)
+      UIDropDownMenu_SetText(BCT_ProfName(UI_FilterProf), f.filterDD)
     end
     if f.subDD then
-      UIDropDownMenu_SetText(BCRAFT_CatName(UI_EnchantSlot), f.subDD)
+      UIDropDownMenu_SetText(BCT_CatName(UI_EnchantSlot), f.subDD)
     end
 
     if f:IsShown() then
-      BCRAFT_UI_Refresh()
+      BCT_UI_Refresh()
     end
   end
 
   -- Thanks window, if it was already built
-  local tf = BCRAFT_ThanksFrame
+  local tf = BCT_ThanksFrame
   if tf then
-    if tf.titleFS then tf.titleFS:SetText(BCRAFT_L.THANKS_TITLE) end
-    if tf.bodyFS then tf.bodyFS:SetText(BCRAFT_L.THANKS_BODY) end
-    if tf.nameLabelFS then tf.nameLabelFS:SetText(BCRAFT_L.CHARACTER) end
-    if tf.mailBtn then tf.mailBtn:SetText(BCRAFT_L.FILL_NAME) end
-    if tf.okBtn then tf.okBtn:SetText(BCRAFT_L.CLOSE) end
+    if tf.titleFS then tf.titleFS:SetText(BCT_L.THANKS_TITLE) end
+    if tf.bodyFS then tf.bodyFS:SetText(BCT_L.THANKS_BODY) end
+    if tf.nameLabelFS then tf.nameLabelFS:SetText(BCT_L.CHARACTER) end
+    if tf.mailBtn then tf.mailBtn:SetText(BCT_L.FILL_NAME) end
+    if tf.okBtn then tf.okBtn:SetText(BCT_L.CLOSE) end
   end
 
   -- The recipe popup rebuilds its text on open, so nothing to do there.
@@ -4382,13 +4404,13 @@ end
 -- -------------------------
 -- "Thank you" / support window
 -- -------------------------
-local BCRAFT_AUTHOR_CHAR = "Lumihunt"
+local BCT_AUTHOR_CHAR = "Lumihunt"
 
-function BCRAFT_ShowThanksFrame()
-  local tf = BCRAFT_ThanksFrame
+function BCT_ShowThanksFrame()
+  local tf = BCT_ThanksFrame
 
   if not tf then
-    tf = CreateFrame("Frame", "BCRAFT_ThanksFrame", UIParent)
+    tf = CreateFrame("Frame", "BCT_ThanksFrame", UIParent)
     tf:SetWidth(340)
     tf:SetHeight(275)
     tf:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
@@ -4407,7 +4429,7 @@ function BCRAFT_ShowThanksFrame()
 
     local tt = tf:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     tt:SetPoint("TOP", tf, "TOP", 0, -18)
-    tt:SetText(BCRAFT_L.THANKS_TITLE)
+    tt:SetText(BCT_L.THANKS_TITLE)
     tf.titleFS = tt
 
     local tclose = CreateFrame("Button", nil, tf, "UIPanelCloseButton")
@@ -4418,12 +4440,12 @@ function BCRAFT_ShowThanksFrame()
     body:SetWidth(292)
     body:SetJustifyH("LEFT")
     body:SetJustifyV("TOP")
-    body:SetText(BCRAFT_L.THANKS_BODY)
+    body:SetText(BCT_L.THANKS_BODY)
     tf.bodyFS = body
 
     local nameLabel = tf:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     nameLabel:SetPoint("TOPLEFT", tf, "TOPLEFT", 24, -158)
-    nameLabel:SetText(BCRAFT_L.CHARACTER)
+    nameLabel:SetText(BCT_L.CHARACTER)
     tf.nameLabelFS = nameLabel
 
     -- Selectable box so the name can be copied with Ctrl+C
@@ -4432,11 +4454,11 @@ function BCRAFT_ShowThanksFrame()
     nameBox:SetHeight(20)
     nameBox:SetPoint("LEFT", nameLabel, "RIGHT", 12, 0)
     nameBox:SetAutoFocus(false)
-    nameBox:SetText(BCRAFT_AUTHOR_CHAR)
+    nameBox:SetText(BCT_AUTHOR_CHAR)
     -- Keep the value fixed: undo any edit the user makes
     nameBox:SetScript("OnTextChanged", function()
-      if this:GetText() ~= BCRAFT_AUTHOR_CHAR then
-        this:SetText(BCRAFT_AUTHOR_CHAR)
+      if this:GetText() ~= BCT_AUTHOR_CHAR then
+        this:SetText(BCT_AUTHOR_CHAR)
       end
     end)
     nameBox:SetScript("OnEscapePressed", function() this:ClearFocus() end)
@@ -4454,21 +4476,21 @@ function BCRAFT_ShowThanksFrame()
     mailBtn:SetWidth(150)
     mailBtn:SetHeight(24)
     mailBtn:SetPoint("BOTTOMLEFT", tf, "BOTTOMLEFT", 24, 22)
-    mailBtn:SetText(BCRAFT_L.FILL_NAME)
+    mailBtn:SetText(BCT_L.FILL_NAME)
     mailBtn:SetScript("OnClick", function()
       if MailFrame and MailFrame:IsVisible() and SendMailNameEditBox then
         -- Switch to the "send mail" tab, then prefill the recipient
         if MailFrameTab2 and MailFrameTab_OnClick then
           MailFrameTab_OnClick(2)
         end
-        SendMailNameEditBox:SetText(BCRAFT_AUTHOR_CHAR)
+        SendMailNameEditBox:SetText(BCT_AUTHOR_CHAR)
         if SendMailSubjectEditBox and SendMailSubjectEditBox:GetText() == "" then
           SendMailSubjectEditBox:SetText("BananaCraft")
         end
-        msg(BCRAFT_L.RECIPIENT_SET .. " |cff00ff00" .. BCRAFT_AUTHOR_CHAR .. "|r " .. BCRAFT_L.RECIPIENT_THANKS)
-        BCRAFT_ThanksFrame:Hide()
+        msg(BCT_L.RECIPIENT_SET .. " |cff00ff00" .. BCT_AUTHOR_CHAR .. "|r " .. BCT_L.RECIPIENT_THANKS)
+        BCT_ThanksFrame:Hide()
       else
-        msg(BCRAFT_L.NEED_MAILBOX .. " |cffffff00" .. BCRAFT_L.MAILBOX .. "|r " .. BCRAFT_L.NEED_MAILBOX_2)
+        msg(BCT_L.NEED_MAILBOX .. " |cffffff00" .. BCT_L.MAILBOX .. "|r " .. BCT_L.NEED_MAILBOX_2)
       end
     end)
     tf.mailBtn = mailBtn
@@ -4477,23 +4499,23 @@ function BCRAFT_ShowThanksFrame()
     okBtn:SetWidth(110)
     okBtn:SetHeight(24)
     okBtn:SetPoint("BOTTOMRIGHT", tf, "BOTTOMRIGHT", -24, 22)
-    okBtn:SetText(BCRAFT_L.CLOSE)
+    okBtn:SetText(BCT_L.CLOSE)
     tf.okBtn = okBtn
-    okBtn:SetScript("OnClick", function() BCRAFT_ThanksFrame:Hide() end)
+    okBtn:SetScript("OnClick", function() BCT_ThanksFrame:Hide() end)
 
-    BCRAFT_ThanksFrame = tf
+    BCT_ThanksFrame = tf
   end
 
   -- Adapt the hint and the button to the current situation
   if MailFrame and MailFrame:IsVisible() then
-    tf.hint:SetText(BCRAFT_L.MAILBOX_OPEN)
+    tf.hint:SetText(BCT_L.MAILBOX_OPEN)
     tf.mailBtn:Enable()
   else
-    tf.hint:SetText(BCRAFT_L.MAILBOX_CLOSED)
+    tf.hint:SetText(BCT_L.MAILBOX_CLOSED)
     tf.mailBtn:Disable()
   end
 
-  tf.nameBox:SetText(BCRAFT_AUTHOR_CHAR)
+  tf.nameBox:SetText(BCT_AUTHOR_CHAR)
 
   if tf:IsShown() then tf:Hide() else tf:Show() end
 end
@@ -4501,26 +4523,26 @@ end
 -- -------------------------
 -- Minimap Button Functions
 -- -------------------------
-local MINIMAP_ICON = "Interface\\AddOns\\BananaCraft\\BananaCraft_MinimapIcon"
+local MINIMAP_ICON = "Interface\\AddOns\\BananaCraftTest\\BananaCraftTest_MinimapIcon"
 
-function BCRAFT_MinimapButton_OnClick(button)
+function BCT_MinimapButton_OnClick(button)
   if button == "LeftButton" then
-    uiToggle()
+    BCT_ToggleCatalog()
   end
 end
 
-function BCRAFT_MinimapButton_OnEnter()
+function BCT_MinimapButton_OnEnter()
   GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-  GameTooltip:SetText("BananaCraft")
+  GameTooltip:SetText("BananaCraft TEST")
   GameTooltipTextLeft1:SetTextColor(1, 1, 1)
-  GameTooltip:AddLine(BCRAFT_L.MM_LEFTCLICK)
-  GameTooltip:AddLine(BCRAFT_L.MM_RIGHTCLICK)
+  GameTooltip:AddLine(BCT_L.MM_LEFTCLICK)
+  GameTooltip:AddLine(BCT_L.MM_RIGHTCLICK)
   GameTooltip:Show()
 end
 
 -- Position als Winkel (Grad, 0 = rechts, gegen den Uhrzeigersinn) um die Kartenmitte.
-function BCRAFT_MinimapButton_UpdatePosition()
-  local b = BCRAFT_MinimapButtonFrame
+function BCT_MinimapButton_UpdatePosition()
+  local b = BCT_MinimapButtonFrame
   if not b then return end
   local db = ensureDB()
   local a = math.rad(db.settings.minimapButtonPos or 315)
@@ -4529,28 +4551,28 @@ function BCRAFT_MinimapButton_UpdatePosition()
   b:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * radius, math.sin(a) * radius)
 end
 
-function BCRAFT_MinimapButton_OnDrag()
+function BCT_MinimapButton_OnDrag()
   local mx, my = Minimap:GetCenter()
   local scale = Minimap:GetEffectiveScale()
   local cx, cy = GetCursorPosition()
-  BCRAFT_MinimapButton_SetPosition(math.deg(math.atan2(cy / scale - my, cx / scale - mx)))
+  BCT_MinimapButton_SetPosition(math.deg(math.atan2(cy / scale - my, cx / scale - mx)))
 end
 
-function BCRAFT_MinimapButton_SetPosition(v)
+function BCT_MinimapButton_SetPosition(v)
   if v < 0 then
     v = v + 360
   end
 
   local db = ensureDB()
   db.settings.minimapButtonPos = v
-  BCRAFT_MinimapButton_UpdatePosition()
+  BCT_MinimapButton_UpdatePosition()
 end
 
 -- Der Button wird komplett in Lua gebaut (ein Button, Icon und Rahmen direkt
 -- darauf), genau wie bei den anderen BananaForge-Addons. Die fruehere
 -- XML-Variante mit Frame + Kind-Button wurde von UI-Addons (pfUI & Co.)
 -- beim Umgestalten der Minimap-Buttons leergeraeumt.
-function BCRAFT_MinimapButton_Init()
+function BCT_MinimapButton_Init()
   local db = ensureDB()
 
   if db.settings.minimapButton == nil then
@@ -4563,8 +4585,8 @@ function BCRAFT_MinimapButton_Init()
     db.settings.minimapButtonRadius = 80
   end
 
-  if not BCRAFT_MinimapButtonFrame then
-    local b = CreateFrame("Button", "BCRAFT_MinimapButtonFrame", Minimap)
+  if not BCT_MinimapButtonFrame then
+    local b = CreateFrame("Button", "BCT_MinimapButtonFrame", Minimap)
     b:SetWidth(33)
     b:SetHeight(33)
     b:SetFrameStrata("MEDIUM")
@@ -4586,11 +4608,11 @@ function BCRAFT_MinimapButton_Init()
     border:SetHeight(56)
     border:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
 
-    b:SetScript("OnClick", function() BCRAFT_MinimapButton_OnClick(arg1) end)
-    b:SetScript("OnEnter", function() BCRAFT_MinimapButton_OnEnter() end)
+    b:SetScript("OnClick", function() BCT_MinimapButton_OnClick(arg1) end)
+    b:SetScript("OnEnter", function() BCT_MinimapButton_OnEnter() end)
     b:SetScript("OnLeave", function() GameTooltip:Hide() end)
     b:SetScript("OnDragStart", function()
-      this:SetScript("OnUpdate", function() BCRAFT_MinimapButton_OnDrag() end)
+      this:SetScript("OnUpdate", function() BCT_MinimapButton_OnDrag() end)
     end)
     b:SetScript("OnDragStop", function()
       this:SetScript("OnUpdate", nil)
@@ -4598,10 +4620,10 @@ function BCRAFT_MinimapButton_Init()
   end
 
   if db.settings.minimapButton == true then
-    BCRAFT_MinimapButtonFrame:Show()
+    BCT_MinimapButtonFrame:Show()
   else
-    BCRAFT_MinimapButtonFrame:Hide()
+    BCT_MinimapButtonFrame:Hide()
   end
 
-  BCRAFT_MinimapButton_UpdatePosition()
+  BCT_MinimapButton_UpdatePosition()
 end
