@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta4 (Testversion)
+
+- **Aufgeräumte Liste:** Die Spalten mit Fertigkeitsstufen und Hersteller-Zahlen sind aus der Rezeptliste entfernt. Sie stehen weiter im Tooltip. Rezeptnamen haben jetzt mehr Platz; in der Suche steht rechts „Beruf > Kategorie“.
+- **Bessere Lesbarkeit:** Katalog, Detailfenster und Einstellungen haben einen fast deckenden dunklen Hintergrund.
+
 ## 3.0.0-beta3 (Testversion)
 
 - **Fix: Fenster überlagern sich nicht mehr kaputt.** Das Detailfenster (Rezept, Hersteller, Whisper) liegt jetzt über dem Katalog und öffnet **exakt rechts daneben**; ist rechts kein Platz, öffnet es **über dem Katalog**. Das Einstellungsfenster öffnet rechts, sonst links, sonst darüber.

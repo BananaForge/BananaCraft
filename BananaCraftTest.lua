@@ -60,7 +60,7 @@ local ADDON_NAME = "BananaCraftTest"
 local DB_NAME = "BananaCraftTestDB"
 local PREFIX = "BCT0"
 local DEBUG = false  -- Debug messages OFF by default (use /bct debug to enable)
-local ADDON_VERSION = "3.0.0-beta3"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "3.0.0-beta4"  -- keep in sync with the .toc "## Version:" line
 BCT_VERSION = ADDON_VERSION
 
 -- /bct versioncheck state (see startHashSync section for PING/PONG, this is
@@ -2147,6 +2147,15 @@ end
 local BCT_RecipePopup = nil
 local BCT_RecipeQuantity = 1  -- Default quantity
 
+-- Fast deckende dunkle Flaeche hinter Fenstern, damit der Text besser lesbar ist
+function BCT_SolidBackground(frame, alpha)
+  local t = frame:CreateTexture(nil, "BACKGROUND")
+  t:SetTexture(0, 0, 0, alpha or 0.92)
+  t:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -10)
+  t:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 10)
+  return t
+end
+
 function BCT_ShowRecipePopup(data)
   if not BCT_RecipePopup then
     local pop = CreateFrame("Frame", "BCT_RecipePopup", UIParent)
@@ -2161,6 +2170,7 @@ function BCT_ShowRecipePopup(data)
       tile = true, tileSize = 32, edgeSize = 32,
       insets = { left = 11, right = 12, top = 12, bottom = 11 },
     })
+    BCT_SolidBackground(pop)
     pop:SetMovable(true)
     pop:EnableMouse(true)
     pop:RegisterForDrag("LeftButton")
@@ -3170,6 +3180,7 @@ local function buildSettings()
     tile = true, tileSize = 32, edgeSize = 32,
     insets = { left = 11, right = 12, top = 12, bottom = 11 },
   })
+  BCT_SolidBackground(f)
   f:SetMovable(true)
   f:EnableMouse(true)
   f:RegisterForDrag("LeftButton")

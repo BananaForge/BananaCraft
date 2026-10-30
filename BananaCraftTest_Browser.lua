@@ -335,30 +335,28 @@ local function updateRows()
     else
       local r = e.r
       row:Show()
+      -- Fertigkeitswerte und Hersteller-Zahlen stehen nur noch im Tooltip.
+      -- In der Suche zeigt die rechte Seite, in welchem Beruf/welcher Kategorie ein Treffer liegt.
       if r[1] == "h" then
         row.icon:Hide()
+        row.name:SetWidth(340)
         row.name:SetText("|cffffd200" .. r[5] .. "|r")
         row.skill:SetText("")
-        row.crafters:SetText("")
       else
         row.entry = e
         row.icon:Show()
         row.icon:SetTexture(ICONPATH .. r[3])
-        row.name:SetText(qcol(r[4]) .. r[5] .. "|r")
         if searching then
+          row.name:SetWidth(190)
+          row.name:SetText(qcol(r[4]) .. r[5] .. "|r")
           row.skill:SetText("|cffaaaaaa" .. e.p.key .. " > " .. e.c.name .. "|r")
         else
-          row.skill:SetText(skillText(r))
-        end
-        local ct, on = countsFor(e.p, r)
-        if ct == 0 then
-          row.crafters:SetText("|cff555555-|r")
-        elseif on > 0 then
-          row.crafters:SetText("|cff3ddc4a" .. ct .. " (" .. on .. ")|r")
-        else
-          row.crafters:SetText("|cff8c8c8c" .. ct .. "|r")
+          row.name:SetWidth(340)
+          row.name:SetText(qcol(r[4]) .. r[5] .. "|r")
+          row.skill:SetText("")
         end
       end
+      row.crafters:SetText("")
     end
   end
 
@@ -448,7 +446,7 @@ local function backdrop(frame, small)
       tile = true, tileSize = 16, edgeSize = 14,
       insets = { left = 4, right = 4, top = 4, bottom = 4 },
     })
-    frame:SetBackdropColor(0, 0, 0, 0.75)
+    frame:SetBackdropColor(0, 0, 0, 0.95)
   else
     frame:SetBackdrop({
       bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -456,6 +454,7 @@ local function backdrop(frame, small)
       tile = true, tileSize = 32, edgeSize = 32,
       insets = { left = 11, right = 12, top = 12, bottom = 11 },
     })
+    BCT_SolidBackground(frame)   -- besser lesbar: dahinter eine fast deckende dunkle Flaeche
   end
 end
 
@@ -674,7 +673,7 @@ local function buildWindow()
     row.name:SetJustifyH("LEFT")
     row.skill = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     row.skill:SetPoint("LEFT", row.name, "RIGHT", 4, 0)
-    row.skill:SetWidth(92)
+    row.skill:SetWidth(150)
     row.skill:SetJustifyH("LEFT")
     row.crafters = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     row.crafters:SetPoint("RIGHT", row, "RIGHT", -4, 0)

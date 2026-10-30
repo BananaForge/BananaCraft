@@ -11,7 +11,7 @@ Diese Version läuft **neben** dem normalen BananaCraft. Sie hat einen eigenen O
 - **Qualitätsfarben:** weiß, grün, blau, lila (Name in der Liste und im Tooltip).
 - **Suche nach dem Namen** bleibt: das Suchfeld durchsucht alle Berufe auf einmal. Shift+Klick auf ein Item oder eine Verzauberung schreibt den Namen ins Suchfeld.
 - **Filter:** „Nur mit Crafter“ und „Nur online“. In der Testversion sind beide aus, damit alle Rezepte aller Berufe sichtbar sind.
-- **Sammelberufe (Kräuterkunde, Bergbau):** stehen getrennt am Ende der Berufsliste und zeigen, **wer welches Vorkommen abbauen bzw. ernten kann**. Dafür liest die Testversion den Fertigkeitswert jedes Spielers aus (nach dem Login und bei Skill-Änderungen) und teilt ihn mit der Gilde. Die Zahl rechts zeigt, wie viele Spieler den nötigen Wert haben. Ein Spieler erscheint dort, sobald er mit der Testversion eingeloggt war; Alts desselben Accounts werden beim Teilen mitgesendet.
+- **Sammelberufe (Kräuterkunde, Bergbau):** stehen getrennt am Ende der Berufsliste und zeigen, **wer welches Vorkommen abbauen bzw. ernten kann**. Dafür liest die Testversion den Fertigkeitswert jedes Spielers aus (nach dem Login und bei Skill-Änderungen) und teilt ihn mit der Gilde. Im Tooltip stehen die Spieler, die den nötigen Wert haben. Ein Spieler erscheint dort, sobald er mit der Testversion eingeloggt war; Alts desselben Accounts werden beim Teilen mitgesendet.
 - **Klick auf ein Rezept** öffnet die Detailansicht (sie geht **rechts neben dem Katalog** auf, und wenn dort kein Platz ist, **über dem Katalog**; das Einstellungsfenster rechts, links oder darüber) (Materialien, Hersteller, Whisper). **Rechtsklick** lädt ein Item, das dein Client noch nicht kennt, vom Server (danach zeigt der Tooltip den vollen Item-Text).
 - Der Katalog ist das einzige Hauptfenster. Die alte Crafter-Liste gibt es in der Testversion nicht mehr; *Datenbank mit der Gilde teilen* sitzt unten rechts im Katalog.
 - Alles Bisherige bleibt: Alts und Main, Export/Import, Einstellungen (Zahnrad).
@@ -45,7 +45,7 @@ Dabei wird nur **gelesen**: Das normale BananaCraft bleibt unverändert, und Än
 - Passt die Gliederung zu dem, was du erwartest? Fehlen Kategorien oder Rezepte?
 - Zeigen die Tooltips etwas an? Bei welchen Rezepten bleibt er leer?
 - Stimmen die Qualitätsfarben?
-- Zeigen die Hersteller-Zahlen (rechts in der Liste) die richtigen Leute?
+- Zeigt der Tooltip bei einem Rezept die richtigen Hersteller?
 
 Rückmeldungen am besten mit Screenshot und dem Namen des Rezepts.
 
