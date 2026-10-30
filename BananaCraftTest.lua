@@ -54,7 +54,7 @@ local ADDON_NAME = "BananaCraftTest"
 local DB_NAME = "BananaCraftTestDB"
 local PREFIX = "BCT0"
 local DEBUG = false  -- Debug messages OFF by default (use /bct debug to enable)
-local ADDON_VERSION = "3.0.0-beta1"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "3.0.0-beta2"  -- keep in sync with the .toc "## Version:" line
 BCT_VERSION = ADDON_VERSION
 
 -- /bct versioncheck state (see startHashSync section for PING/PONG, this is
@@ -365,9 +365,60 @@ local function ensureDB()
   if not db.settings then db.settings = {} end
   if db.settings.onlineOnly == nil then db.settings.onlineOnly = false end
   if db.settings.altConfirm == nil then db.settings.altConfirm = false end
+  if db.settings.autoImportLive == nil then db.settings.autoImportLive = false end
   if not db.bank then db.bank = {} end  -- Bank inventory storage
   if not db.bankScanned then db.bankScanned = nil end  -- Last bank scan timestamp
   return db
+end
+
+-- -------------------------
+-- Daten aus dem normalen BananaCraft uebernehmen (nur Testversion)
+--
+-- Sind beide Addons aktiviert, liegt die Datenbank des normalen BananaCraft
+-- als globale Variable BananaCraftDB im Speicher. Die Testversion kopiert
+-- daraus Gildenliste, Charaktere, Alt-Zuordnungen und Bank in ihre eigene
+-- Datenbank. Gelesen wird nur; das normale BananaCraft bleibt unveraendert.
+-- -------------------------
+local function deepCopy(t)
+  if type(t) ~= "table" then return t end
+  local r = {}
+  for k, v in pairs(t) do r[k] = deepCopy(v) end
+  return r
+end
+
+local function importLiveData(silent)
+  local live = BananaCraftDB
+  if type(live) ~= "table" or type(live.guild) ~= "table" then
+    if not silent then msg("|cffff0000" .. BCT_L.LIVE_MISSING .. "|r") end
+    return false
+  end
+  local db = ensureDB()
+  db.guild = deepCopy(live.guild)
+  db.characters = deepCopy(live.characters or {})
+  db.altOf = deepCopy(live.altOf or {})
+  db.altOfTs = deepCopy(live.altOfTs or {})
+  db.altConfirm = deepCopy(live.altConfirm or {})
+  db.mainChar = live.mainChar
+  db.bank = deepCopy(live.bank or {})
+  db.bankScanned = live.bankScanned
+  ensureDB()   -- db.me wieder auf den aktuellen Charakter zeigen lassen
+
+  local people, profs = 0, 0
+  for _, data in pairs(db.guild) do
+    if type(data) == "table" then
+      people = people + 1
+      if type(data.profs) == "table" then
+        for _ in pairs(data.profs) do profs = profs + 1 end
+      end
+    end
+  end
+  if not silent then
+    msg("|cff00ff00" .. BCT_L.LIVE_DONE .. "|r " .. people .. " " .. BCT_L.LIVE_PEOPLE .. ", " .. profs .. " " .. BCT_L.LIVE_PROFS)
+  end
+  if BCT_RefreshCatalog then BCT_RefreshCatalog() end
+  BCT_UI_Refresh()
+  if BCT_RefreshSettings then BCT_RefreshSettings() end
+  return true
 end
 
 -- STEP 2: Online status via cached roster lookup
@@ -1563,9 +1614,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         debug("|cffff8800Empfangen:|r " .. player .. " hat " .. prof .. " verlernt")
         debug("DELETE: " .. player .. " - " .. prof)
         
-        if BCT_UI and BCT_UI:IsShown() then
-          BCT_UI_Refresh()
-        end
+        BCT_UI_Refresh()
       end
     end
     return
@@ -1598,7 +1647,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
         if owner == "" then db.altOf[key] = nil else db.altOf[key] = owner end
         db.altOfTs[key] = ts
         if db.altConfirm[key] and db.altConfirm[key] ~= owner then db.altConfirm[key] = nil end
-        if BCT_UI and BCT_UI:IsShown() then scheduleUIRefresh() end
+        scheduleUIRefresh()
       end
     end
     return
@@ -1611,7 +1660,7 @@ local function handleAddonMessage(prefix, text, distrib, sender)
       local nName = BCT_SplitKey(parts[2])
       if sender == nName then
         db.altConfirm[parts[2]] = parts[3]
-        if BCT_UI and BCT_UI:IsShown() then scheduleUIRefresh() end
+        scheduleUIRefresh()
       end
     end
     return
@@ -1786,46 +1835,13 @@ local function handleAddonMessage(prefix, text, distrib, sender)
 
         debug("Empfangen: " .. player .. " — " .. prof .. " (" .. tlen(recipes) .. " Rezepte)")
 
-        if BCT_UI and BCT_UI:IsShown() then
-          BCT_UI_Refresh()
-        end
+        BCT_UI_Refresh()
       end
 
       clearPending(player, prof)
     end
     return
   end
-end
-
--- -------------------------
--- UI: Data & Filter
--- -------------------------
-local UI_Search = ""
-local UI_FilterProf = "ALL"
-local UI_EnchantSlot = "ALL"  -- For Enchanting filter
-local UI_ScrollOffset = 0
-local UI_CurrentTab = 1  -- Tab system: 1 = Rezepte, 2 = Admin
-local BCT_VISIBLE_ROWS = 12
-local BCT_ROW_HEIGHT = 22
-
-local function uiGetProfessionList()
-  local db = ensureDB()
-  local set = { ALL = true }
-  for _, data in pairs(db.guild) do
-    if data.profs then
-      for pname, _ in pairs(data.profs) do
-        set[pname] = true
-      end
-    end
-  end
-  local list = { "ALL" }
-  for k, _ in pairs(set) do
-    if k ~= "ALL" then
-      table.insert(list, k)
-    end
-  end
-  table.sort(list)
-  return list
 end
 
 local function uiBuildData()
@@ -1912,67 +1928,6 @@ end
 -- fuer den Katalog (BananaCraftTest_Browser.lua): Rezepte samt Herstellern
 function BCT_GetRecipeRows()
   return uiBuildData()
-end
-
-local function uiFilterData(data)
-  local filtered = {}
-  local searchL = norm(UI_Search)
-
-  for i = 1, tlen(data) do
-    local row = data[i]
-    
-    -- Filter by profession
-    local profMatch = (UI_FilterProf == "ALL") or (row.prof == UI_FilterProf)
-    
-    if profMatch then
-      local searchMatch = false
-      if searchL == "" then
-        searchMatch = true
-      else
-        local rL = norm(row.recipe)
-        if string.find(rL, searchL, 1, true) then
-          searchMatch = true
-        end
-      end
-      
-      -- Subcategory filter
-      local slotMatch = true
-      if UI_EnchantSlot ~= "ALL" and UI_EnchantSlot ~= "" then
-        -- Use recipe-to-category mapping (loaded from BCT_RecipeMaps)
-        local recipeCategory = nil
-        
-        if BCT_RecipeMaps and BCT_RecipeMaps[row.prof] then
-          recipeCategory = BCT_RecipeMaps[row.prof][row.recipe]
-          
-          -- DEBUG: Show what's not matching
-          if not recipeCategory then
-            debug("MISSING RECIPE MAP: prof='" .. tostring(row.prof) .. "' recipe='" .. tostring(row.recipe) .. "'")
-          end
-        end
-        
-        if recipeCategory and recipeCategory == UI_EnchantSlot then
-          slotMatch = true
-        else
-          slotMatch = false
-        end
-      end
-      
-      -- "Nur online": Rezepte ohne einen einzigen Online-Crafter ausblenden
-      local onlineMatch = true
-      if ensureDB().settings.onlineOnly then
-        onlineMatch = false
-        for c = 1, tlen(row.crafters) do
-          if row.crafters[c].online then onlineMatch = true break end
-        end
-      end
-
-      if searchMatch and slotMatch and onlineMatch then
-        table.insert(filtered, row)
-      end
-    end
-  end
-
-  return filtered
 end
 
 -- -------------------------
@@ -2461,654 +2416,39 @@ function BCT_UpdateRecipePopupContent(pop, data)
 end
 
 -- -------------------------
--- UI: Refresh
+-- Oberflaeche = Katalog (BananaCraftTest_Browser.lua)
 -- -------------------------
 function BCT_UI_Refresh()
-  local f = BCT_UI
-  if not f or not f:IsShown() then return end
-
-  local allData = uiBuildData()
-  local filtered = uiFilterData(allData)
-  local totalItems = tlen(filtered)
-
-  local sb = f.scrollbar
-  if sb then
-    local maxScroll = math.max(0, totalItems - f.visibleRows)
-    sb:SetMinMaxValues(0, maxScroll)
-    
-    if UI_ScrollOffset > maxScroll then UI_ScrollOffset = maxScroll end
-    if UI_ScrollOffset < 0 then UI_ScrollOffset = 0 end
-    
-    sb:SetValue(UI_ScrollOffset)
-    
-    if maxScroll > 0 then sb:Show() else sb:Hide() end
-  end
-
-  for i = 1, f.visibleRows do
-    local row = f.rows[i]
-    local dataIndex = UI_ScrollOffset + i
-
-    if dataIndex <= totalItems then
-      local data = filtered[dataIndex]
-      
-      -- Count online vs total crafters
-      local onlineCount = 0
-      local totalCount = tlen(data.crafters)
-      
-      for c = 1, totalCount do
-        if data.crafters[c].online then
-          onlineCount = onlineCount + 1
-        end
-      end
-      
-      -- Display recipe name
-      row.recipe:SetText(data.recipe or "")
-      
-      -- Display crafter info
-      local crafterText = ""
-      if onlineCount > 0 then
-        crafterText = "|cff00ff00" .. onlineCount .. " " .. BCT_L.ONLINE .. "|r"
-      else
-        crafterText = "|cff888888" .. totalCount .. " " .. BCT_L.OFFLINE .. "|r"
-      end
-      
-      if totalCount > 1 then
-        crafterText = crafterText .. " |cffaaaaaa(" .. totalCount .. " " .. BCT_L.TOTAL .. ")|r"
-      end
-      
-      crafterText = crafterText .. " |cff888888- " .. BCT_ProfName(data.prof or "") .. "|r"
-      row.who:SetText(crafterText)
-      
-      row.data = data
-      row:Show()
-    else
-      row:Hide()
-    end
-  end
-  
-  -- Update statistics (bottom center)
-  if f.statsText then
-    local db = ensureDB()
-    local totalPlayers = 0
-    local totalRecipes = 0
-    
-    -- Count unique players and total recipes
-    for playerName, playerData in pairs(db.guild) do
-      if playerData.profs then
-        local hasRecipes = false
-        for profName, profData in pairs(playerData.profs) do
-          if profData.recipes and tlen(profData.recipes) > 0 then
-            totalRecipes = totalRecipes + tlen(profData.recipes)
-            hasRecipes = true
-          end
-        end
-        if hasRecipes then
-          totalPlayers = totalPlayers + 1
-        end
-      end
-    end
-    
-    f.statsText:SetText(totalPlayers .. " Spieler | " .. totalRecipes .. " Rezepte")
-  end
+  if BCT_RefreshCatalog then BCT_RefreshCatalog() end
 end
 
--- -------------------------
--- UI: Create
--- -------------------------
--- "Nur online" setzen (Haken im Hauptfenster und in den Einstellungen).
-function BCT_SetOnlineOnly(on)
-  ensureDB().settings.onlineOnly = on and true or false
-  if BCT_UI and BCT_UI.onlineCB then BCT_UI.onlineCB:SetChecked(on) end
-  if BCT_SettingsFrame and BCT_SettingsFrame.onlineCB then BCT_SettingsFrame.onlineCB:SetChecked(on) end
-  UI_ScrollOffset = 0
-  BCT_UI_Refresh()
+-- alte Berufe aus der Gildenliste raeumen (beim Oeffnen des Katalogs)
+function BCT_CleanupOld()
+  cleanupOldProfessionsFromAllPlayers()
 end
 
-local function uiCreate()
-  -- Defensive check: if a previous session already built BCT_UI but somehow
-  -- without the info/language buttons (e.g. an older cached UI state after
-  -- a partial reload), rebuild from scratch instead of silently keeping a
-  -- half-built frame around. This is what caused the info/language buttons
-  -- to "disappear" even though the button-creation code was present.
-  if BCT_UI then
-    if BCT_UI.infoBtn and BCT_UI.deBtn and BCT_UI.enBtn and BCT_UI.gearBtn and BCT_UI.onlineCB then
-      return
-    else
-      debug("[UI] BCT_UI existierte bereits, aber ohne Info/Sprach-Buttons - baue Fenster neu auf.")
-      BCT_UI:Hide()
-      BCT_UI:SetParent(nil)
-      BCT_UI = nil
-    end
-  end
-
-  local f = CreateFrame("Frame", "BCT_MainFrame", UIParent)
-  BCT_UI = f
-  tinsert(UISpecialFrames, "BCT_MainFrame")  -- Esc schliesst das Fenster
-  f:SetWidth(650)
-  f:SetHeight(480)  -- Extended for statistics display
-  f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-  f:SetBackdrop({
-    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
-    edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-    tile = true, tileSize = 32, edgeSize = 32,
-    insets = { left = 11, right = 12, top = 12, bottom = 11 },
-  })
-  f:SetMovable(true)
-  f:EnableMouse(true)
-  f:RegisterForDrag("LeftButton")
-  f:SetScript("OnDragStart", function() this:StartMoving() end)
-  f:SetScript("OnDragStop", function() this:StopMovingOrSizing() end)
-
-  -- Logo oben links. Der 1.12-Client liest nur BLP und unkomprimierte TGA
-  -- mit Zweierpotenz-Kantenlaengen, daher BananaCraftTest_Logo.tga (128x128).
-  local logo = f:CreateTexture(nil, "ARTWORK")
-  logo:SetWidth(48)
-  logo:SetHeight(48)
-  logo:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -10)
-  logo:SetTexture("Interface\\AddOns\\BananaCraftTest\\BananaCraftTest_Logo")
-
-  local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  title:SetPoint("TOP", f, "TOP", 0, -18)
-  title:SetText(BCT_L.WINDOW_TITLE)
-  f.titleFS = title
-
-  local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-  close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -6)
-
-  -- Small, unobtrusive "thank you" button left of the close button
-  local infoBtn = CreateFrame("Button", nil, f)
-  infoBtn:SetWidth(16)
-  infoBtn:SetHeight(16)
-  infoBtn:SetPoint("RIGHT", close, "LEFT", -2, 0)
-
-  local infoTex = infoBtn:CreateTexture(nil, "ARTWORK")
-  infoTex:SetAllPoints(infoBtn)
-  infoTex:SetTexture("Interface\\common\\friendship-heart")
-  -- Fallback if the texture is missing on this client build
-  if not infoTex:GetTexture() then
-    infoTex:SetTexture("Interface\\Icons\\INV_ValentinesCard01")
-  end
-  infoTex:SetVertexColor(1, 0.75, 0.3)
-  infoBtn.tex = infoTex
-
-  infoBtn:SetScript("OnEnter", function()
-    this.tex:SetVertexColor(1, 1, 1)
-    GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-    GameTooltip:SetText(BCT_L.ABOUT_TOOLTIP)
-    GameTooltip:Show()
-  end)
-  infoBtn:SetScript("OnLeave", function()
-    this.tex:SetVertexColor(1, 0.75, 0.3)
-    GameTooltip:Hide()
-  end)
-  infoBtn:SetScript("OnClick", function() BCT_ShowThanksFrame() end)
-  f.infoBtn = infoBtn
-
-  -- Language buttons: EN / DE, left of the heart
-  local function makeLangButton(code, label, anchorTo, xoff)
-    local b = CreateFrame("Button", nil, f)
-    b:SetWidth(22)
-    b:SetHeight(16)
-    b:SetPoint("RIGHT", anchorTo, "LEFT", xoff, 0)
-
-    local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    fs:SetAllPoints(b)
-    fs:SetText(label)
-    b.fs = fs
-    b.code = code
-
-    b:SetScript("OnEnter", function()
-      GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-      GameTooltip:SetText(BCT_L.LANG_TOOLTIP)
-      GameTooltip:Show()
-    end)
-    b:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    b:SetScript("OnClick", function()
-      BCT_SetLocale(this.code)
-      BCT_ApplyLocale()
-      msg(BCT_L.LANG_SWITCHED)
-    end)
-    return b
-  end
-
-  -- Zahnrad: oeffnet das Einstellungsfenster (links vom Herz)
-  local gearBtn = CreateFrame("Button", nil, f)
-  gearBtn:SetWidth(16)
-  gearBtn:SetHeight(16)
-  gearBtn:SetPoint("RIGHT", infoBtn, "LEFT", -4, 0)
-  local gearTex = gearBtn:CreateTexture(nil, "ARTWORK")
-  gearTex:SetAllPoints(gearBtn)
-  gearTex:SetTexture("Interface\\Icons\\INV_Misc_Gear_01")
-  gearBtn.tex = gearTex
-  gearBtn:SetScript("OnEnter", function()
-    GameTooltip:SetOwner(this, "ANCHOR_LEFT")
-    GameTooltip:SetText(BCT_L.GEAR_TOOLTIP)
-    GameTooltip:Show()
-  end)
-  gearBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-  gearBtn:SetScript("OnClick", function() BCT_ToggleSettings() end)
-  f.gearBtn = gearBtn
-
-  local deBtn = makeLangButton("deDE", "DE", gearBtn, -4)
-  local enBtn = makeLangButton("enUS", "EN", deBtn, -2)
-  f.deBtn = deBtn
-  f.enBtn = enBtn
-
-  -- Clean background - no logos
-
-  local searchLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  searchLabel:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -62)
-  searchLabel:SetText(BCT_L.SEARCH_LABEL)
-  f.searchLabelFS = searchLabel
-
-  local search = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
-  search:SetWidth(180)  -- Made narrower to fit checkbox
-  search:SetHeight(20)
-  search:SetPoint("LEFT", searchLabel, "RIGHT", 10, 0)
-  search:SetAutoFocus(false)
-  search:SetScript("OnEnterPressed", function() this:ClearFocus() end)
-  -- Fokus merken: nur wenn das Suchfeld den Cursor hat, uebernimmt es
-  -- Shift-Klick-Links (siehe BCT_InstallLinkHook)
-  search:SetScript("OnEditFocusGained", function() BCT_SearchFocused = true BCT_ActiveSearchBox = this end)
-  search:SetScript("OnEditFocusLost", function() BCT_SearchFocused = false end)
-  f.search = search
-  search:SetScript("OnTextChanged", function()
-    UI_Search = this:GetText() or ""
-    UI_ScrollOffset = 0
-    scheduleUIRefresh()  -- debounced: collapses fast keystrokes into one rebuild
-  end)
-
-  -- "Nur online": zeigt nur Rezepte mit mindestens einem Online-Crafter
-  local onlineCB = CreateFrame("CheckButton", "BCT_OnlineOnlyCB", f, "UICheckButtonTemplate")
-  onlineCB:SetWidth(24)
-  onlineCB:SetHeight(24)
-  onlineCB:SetPoint("LEFT", search, "RIGHT", 10, -1)
-  local onlineCBText = getglobal("BCT_OnlineOnlyCBText")
-  onlineCBText:SetText(BCT_L.FILTER_ONLINE_ONLY)
-  onlineCB:SetChecked(ensureDB().settings.onlineOnly)
-  onlineCB:SetScript("OnClick", function()
-    BCT_SetOnlineOnly(this:GetChecked() and true or false)
-  end)
-  f.onlineCB = onlineCB
-  f.onlineCBText = onlineCBText
-
-  local BCT_SubDD_Initialize  -- forward declaration (defined below, used by the filter dropdown)
-  local dd = CreateFrame("Frame", "BCT_FilterDropDown", f, "UIDropDownMenuTemplate")
-  dd:SetPoint("TOPRIGHT", f, "TOPRIGHT", -20, -54)
-  f.filterDD = dd
-
-  local function BCT_FilterDD_OnClick()
-    UI_FilterProf = this.value or "ALL"
-    UIDropDownMenu_SetSelectedValue(dd, UI_FilterProf)
-    UIDropDownMenu_SetText(BCT_ProfName(UI_FilterProf), dd)
-    UI_ScrollOffset = 0
-    
-    -- Show/hide subcategory filter for professions with categories
-    local profsWithSubs = {
-      ["Enchanting"] = true,
-      ["Leatherworking"] = true,
-      ["Alchemy"] = true,
-      ["Blacksmithing"] = true,
-      ["Engineering"] = true,
-      ["Jewelcrafting"] = true,
-      ["Tailoring"] = true
-    }
-    
-    if profsWithSubs[UI_FilterProf] then
-      BCT_UI.subDD:Show()
-      -- Reinitialize dropdown for new profession
-      UIDropDownMenu_Initialize(BCT_UI.subDD, BCT_SubDD_Initialize)
-      UI_EnchantSlot = "ALL"
-      UIDropDownMenu_SetSelectedValue(BCT_UI.subDD, UI_EnchantSlot)
-      UIDropDownMenu_SetText(BCT_CatName(UI_EnchantSlot), BCT_UI.subDD)
-    else
-      BCT_UI.subDD:Hide()
-      UI_EnchantSlot = "ALL"  -- Reset subcategory filter
-    end
-    
-    BCT_UI_Refresh()
-  end
-
-  local function BCT_FilterDD_Initialize()
-    local list = uiGetProfessionList()
-    local info
-    for i = 1, tlen(list) do
-      info = {}
-      info.text = BCT_ProfName(list[i])   -- display only
-      info.value = list[i]                -- key stays English!
-      info.func = BCT_FilterDD_OnClick
-      UIDropDownMenu_AddButton(info)
-    end
-  end
-
-  UIDropDownMenu_Initialize(dd, BCT_FilterDD_Initialize)
-  UIDropDownMenu_SetWidth(150, dd)
-  UIDropDownMenu_SetSelectedValue(dd, UI_FilterProf)
-  UIDropDownMenu_SetText(BCT_ProfName(UI_FilterProf), dd)
-
-  -- Subcategory Filter (visible for professions with categories)
-  local subDD = CreateFrame("Frame", "BCT_SubcategoryDropDown", f, "UIDropDownMenuTemplate")
-  subDD:SetPoint("TOPRIGHT", dd, "BOTTOMRIGHT", 0, 6)
-  f.subDD = subDD
-  subDD:Hide()  -- Hidden by default
-  
-  local function BCT_SubDD_OnClick()
-    UI_EnchantSlot = this.value or "ALL"
-    UIDropDownMenu_SetSelectedValue(subDD, UI_EnchantSlot)
-    UIDropDownMenu_SetText(BCT_CatName(UI_EnchantSlot), subDD)
-    UI_ScrollOffset = 0
-    BCT_UI_Refresh()
-  end
-  
-  BCT_SubDD_Initialize = function()
-    -- Define subcategories for each profession
-    -- IMPORTANT: These must match EXACT header names from WoW profession window!
-    -- Category list is derived from BCT_RecipeMaps at runtime.
-    -- This guarantees the dropdown can never drift out of sync with the
-    -- actual data (previously several entries were typos or plural
-    -- mismatches and silently returned zero results).
-    local categories = {}
-    if BCT_RecipeMaps then
-      for prof, recipes in pairs(BCT_RecipeMaps) do
-        local seen, list = {}, { "ALL" }
-        for recipeName, catName in pairs(recipes) do
-          if catName and catName ~= "" and not seen[catName] then
-            seen[catName] = true
-            table.insert(list, catName)
-          end
-        end
-        -- Sort by translated label so the dropdown reads alphabetically
-        -- in whichever language is active ("ALL" always stays on top).
-        table.sort(list, function(a, b)
-          if a == "ALL" then return true end
-          if b == "ALL" then return false end
-          return BCT_CatName(a) < BCT_CatName(b)
-        end)
-        categories[prof] = list
-      end
-    end
-    
-    local slots = categories[UI_FilterProf] or {"ALL"}
-    local info
-    for i = 1, tlen(slots) do
-      info = {}
-      info.text = BCT_CatName(slots[i])   -- display only
-      info.value = slots[i]               -- key stays English!
-      info.func = BCT_SubDD_OnClick
-      UIDropDownMenu_AddButton(info)
-    end
-  end
-  
-  UIDropDownMenu_Initialize(subDD, BCT_SubDD_Initialize)
-  UIDropDownMenu_SetWidth(150, subDD)
-  UIDropDownMenu_SetSelectedValue(subDD, UI_EnchantSlot)
-  UIDropDownMenu_SetText(BCT_CatName(UI_EnchantSlot), subDD)
-
-  -- Clean UI - no logos
-
-  -- Gilden-Button: sendet in den Gildenkanal.
-  local shareBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  shareBtn:SetWidth(220)
-  shareBtn:SetHeight(28)
-  shareBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 30)  -- Higher for statistics space
-  shareBtn:SetText(BCT_L.SHARE_BUTTON)
-  shareBtn:SetScript("OnClick", function()
-    broadcastAll()
-  end)
-  f.shareBtn = shareBtn
-
-  -- Version text (bottom left, small font)
-  local versionText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  versionText:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 20, 12)
-  versionText:SetText("v" .. ADDON_VERSION)
-  versionText:SetTextColor(0.5, 0.5, 0.5, 1)  -- Gray color
-  
-  -- Statistics text (bottom center, small font - below share button)
-  local statsText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  statsText:SetPoint("BOTTOM", f, "BOTTOM", 0, 12)  -- Below share button
-  statsText:SetTextColor(0.5, 0.5, 0.5, 1)  -- Gray color
-  f.statsText = statsText  -- Store reference for updates
-  
-  -- Copyright text (bottom right, small font)
-  local copyrightText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  copyrightText:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -20, 12)
-  copyrightText:SetText("© by Lumihunt")
-  copyrightText:SetTextColor(0.5, 0.5, 0.5, 1)  -- Gray color
-
-  -- Recipe page (existing list)
-  local recipePage = CreateFrame("Frame", nil, f)
-  recipePage:SetAllPoints(f)
-  f.recipePage = recipePage
-
-  local listBg = CreateFrame("Frame", nil, recipePage)
-  listBg:SetPoint("TOPLEFT", recipePage, "TOPLEFT", 18, -115)
-  listBg:SetPoint("BOTTOMRIGHT", recipePage, "BOTTOMRIGHT", -38, 68)  -- More space for share button + stats
-  listBg:SetBackdrop({
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 16,
-    insets = { left = 4, right = 4, top = 4, bottom = 4 },
-  })
-  listBg:SetBackdropColor(0, 0, 0, 0.80)  -- Match popup brightness for better readability
-  f.listBg = listBg
-  
-  -- Clean background - no watermarks
-
-  f.visibleRows = BCT_VISIBLE_ROWS
-  f.rowHeight = BCT_ROW_HEIGHT
-  f.rows = {}
-
-  local sb = CreateFrame("Slider", "BCT_Scrollbar", recipePage)
-  f.scrollbar = sb
-  sb:SetOrientation("VERTICAL")
-  sb:SetPoint("TOPRIGHT", listBg, "TOPRIGHT", -6, -6)
-  sb:SetPoint("BOTTOMRIGHT", listBg, "BOTTOMRIGHT", -6, 6)
-  sb:SetWidth(16)
-  sb:SetMinMaxValues(0, 0)
-  sb:SetValue(0)
-  sb:SetValueStep(1)
-  
-  sb:SetBackdrop({
-    bgFile = "Interface\\Buttons\\UI-SliderBar-Background",
-    edgeFile = "Interface\\Buttons\\UI-SliderBar-Border",
-    tile = true, tileSize = 8, edgeSize = 8,
-    insets = { left = 3, right = 3, top = 3, bottom = 3 }
-  })
-  
-  local thumb = sb:CreateTexture(nil, "OVERLAY")
-  thumb:SetTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
-  thumb:SetWidth(16)
-  thumb:SetHeight(24)
-  sb:SetThumbTexture(thumb)
-  
-  sb:SetScript("OnValueChanged", function()
-    UI_ScrollOffset = math.floor(this:GetValue() + 0.5)
-    BCT_UI_Refresh()
-  end)
-
-  local function DoScroll(delta)
-    if type(delta) ~= "number" then return end
-    
-    local allData = uiBuildData()
-    local filtered = uiFilterData(allData)
-    local totalItems = tlen(filtered)
-    local maxScroll = math.max(0, totalItems - f.visibleRows)
-    
-    UI_ScrollOffset = UI_ScrollOffset - (delta * 3)
-    if UI_ScrollOffset < 0 then UI_ScrollOffset = 0 end
-    if UI_ScrollOffset > maxScroll then UI_ScrollOffset = maxScroll end
-    
-    BCT_UI_Refresh()
-  end
-
-  listBg:EnableMouseWheel(true)
-  listBg:SetScript("OnMouseWheel", function()
-    DoScroll(arg1)
-  end)
-
-  for i = 1, f.visibleRows do
-    local row = CreateFrame("Button", nil, f)
-    row:SetHeight(f.rowHeight)
-    row:SetPoint("TOPLEFT", listBg, "TOPLEFT", 10, -8 - (i-1)*f.rowHeight)
-    row:SetPoint("TOPRIGHT", listBg, "TOPRIGHT", -30, -8 - (i-1)*f.rowHeight)
-
-    row.recipe = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    row.recipe:SetPoint("LEFT", row, "LEFT", 2, 0)
-    row.recipe:SetWidth(300)
-    row.recipe:SetJustifyH("LEFT")
-    row.recipe:SetTextColor(1, 1, 1, 1)  -- WHITE (R, G, B, Alpha) - like "ALL" dropdown
-
-    row.who = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    row.who:SetPoint("LEFT", row, "LEFT", 310, 0)
-    row.who:SetWidth(280)  -- Adjusted for wider window
-    row.who:SetJustifyH("LEFT")
-    row.who:SetTextColor(0.9, 0.9, 0.9, 1)  -- Light gray for better contrast
-
-    row:SetScript("OnClick", function()
-      if this and this.data then
-        BCT_ShowRecipePopup(this.data)
-      end
-    end)
-
-    row:EnableMouseWheel(true)
-    row:SetScript("OnMouseWheel", function()
-      DoScroll(arg1)
-    end)
-
-    f.rows[i] = row
-  end
-
-  -- Admin Page
-  local adminPage = CreateFrame("Frame", nil, f)
-  adminPage:SetAllPoints(f)
-  adminPage:Hide()
-  f.adminPage = adminPage
-  
-  local adminBg = CreateFrame("Frame", nil, adminPage)
-  adminBg:SetPoint("TOPLEFT", adminPage, "TOPLEFT", 18, -130)
-  adminBg:SetPoint("BOTTOMRIGHT", adminPage, "BOTTOMRIGHT", -38, 40)  -- 40 from bottom for tabs
-  adminBg:SetBackdrop({
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 16,
-    insets = { left = 4, right = 4, top = 4, bottom = 4 },
-  })
-  adminBg:SetBackdropColor(0,0,0,0.65)
-  
-  local adminTitle = adminPage:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-  adminTitle:SetPoint("TOP", adminBg, "TOP", 0, -15)
-  adminTitle:SetText("Berufe Verwalten")
-  
-  local adminInfo = adminPage:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  adminInfo:SetPoint("TOP", adminTitle, "BOTTOM", 0, -10)
-  adminInfo:SetWidth(450)
-  adminInfo:SetJustifyH("CENTER")
-  adminInfo:SetText("Klicke auf einen Beruf um ihn zu löschen und an die Gilde zu senden")
-  
-  -- Create profession delete buttons (dynamically)
-  f.adminButtons = {}
-  
-  local function refreshAdminPage()
-    -- Hide all buttons first
-    for i = 1, 10 do
-      if f.adminButtons[i] then
-        f.adminButtons[i]:Hide()
-      end
-    end
-    
-    local db = ensureDB()
-    local profList = {}
-    for profName, _ in pairs(db.me.profs) do
-      table.insert(profList, profName)
-    end
-    table.sort(profList)
-    
-    for i = 1, tlen(profList) do
-      local profName = profList[i]
-      
-      if not f.adminButtons[i] then
-        local btn = CreateFrame("Button", nil, adminPage, "UIPanelButtonTemplate")
-        btn:SetWidth(200)
-        btn:SetHeight(28)
-        if i == 1 then
-          btn:SetPoint("TOP", adminInfo, "BOTTOM", 0, -20)
-        else
-          btn:SetPoint("TOP", f.adminButtons[i-1], "BOTTOM", 0, -5)
-        end
-        f.adminButtons[i] = btn
-      end
-      
-      local btn = f.adminButtons[i]
-      btn:SetText(profName .. " löschen")
-      btn:Show()
-      
-      btn:SetScript("OnClick", function()
-        local db = ensureDB()
-        
-        -- Remove profession
-        db.me.profs[profName] = nil
-        
-        -- Update guild entry
-        if db.guild[myKey()] and db.guild[myKey()].profs then
-          db.guild[myKey()].profs[profName] = nil
-        end
-        
-        debug("|cffff0000Gelöscht:|r " .. profName)
-        
-        -- Broadcast deletion
-        local delMsg = "DEL" .. SEP .. safe(playerName()) .. SEP .. safe(profName)
-        enqueueSend("GUILD", delMsg)
-        
-        -- Refresh admin page
-        refreshAdminPage()
-      end)
-    end
-    
-    if tlen(profList) == 0 then
-      adminInfo:SetText("Keine Berufe gespeichert")
-    else
-      adminInfo:SetText("Klicke auf einen Beruf um ihn zu löschen und an die Gilde zu senden")
-    end
-  end
-  
-  f.refreshAdminPage = refreshAdminPage
-  
-  -- "Datenbank an Gilde teilen" button
-  local shareBtn = CreateFrame("Button", nil, adminPage, "UIPanelButtonTemplate")
-  shareBtn:SetWidth(220)
-  shareBtn:SetHeight(30)
-  shareBtn:SetPoint("BOTTOM", adminBg, "BOTTOM", 0, 15)
-  shareBtn:SetText("Datenbank an Gilde teilen")
-  shareBtn:SetScript("OnClick", function()
-    broadcastAll()
-  end)
-
-  -- Hinweis: "Gildenmitglieder verbinden" sitzt am Hauptfenster, nicht hier.
-  -- Diese adminPage wird nie eingeblendet (kein Tab fuehrt dorthin).
-  
-  -- No tabs - just show recipe page
-  recipePage:Show()
-
-  f:Hide()
+-- "Datenbank mit der Gilde teilen"
+function BCT_ShareDatabase()
+  broadcastAll()
 end
 
-local function uiToggle()
-  uiCreate()
-  if BCT_UI:IsShown() then
-    BCT_UI:Hide()
-  else
-    -- Cleanup old professions from all players when opening UI
-    cleanupOldProfessionsFromAllPlayers()
-    
-    UI_ScrollOffset = 0
-    BCT_UI:Show()
-
-    BCT_UI_Refresh()
+-- Kurzstatistik fuer die Fusszeile: "9 Spieler | 860 Rezepte"
+function BCT_StatsText()
+  local db = ensureDB()
+  local players, recipes = 0, 0
+  for _, data in pairs(db.guild) do
+    if type(data) == "table" and type(data.profs) == "table" then
+      local has = false
+      for _, pd in pairs(data.profs) do
+        if type(pd) == "table" and type(pd.recipes) == "table" and tlen(pd.recipes) > 0 then
+          has = true
+        end
+      end
+      if has then players = players + 1 end
+    end
   end
-end
-
-function BCT_ToggleCrafterList()
-  uiToggle()
+  for _ in pairs(BCT_GetRecipeRows()) do recipes = recipes + 1 end
+  return players .. " " .. BCT_L.STATS_PLAYERS .. " | " .. recipes .. " " .. BCT_L.STATS_RECIPES
 end
 
 -- -------------------------
@@ -3772,23 +3112,20 @@ local function buildSettings()
   table.insert(texts, { autoB, "SET_LANG_AUTO" })
 
   -- Schalter
-  f.onlineCB = check("BCT_SetOnlineCB", "FILTER_ONLINE_ONLY", -82, function(on)
-    BCT_SetOnlineOnly(on)
-  end)
-  f.mmCB = check("BCT_SetMinimapCB", "SET_MINIMAP", -106, function(on)
+  f.mmCB = check("BCT_SetMinimapCB", "SET_MINIMAP", -82, function(on)
     ensureDB().settings.minimapButton = on
     BCT_MinimapButton_Init()
   end)
-  f.dbgCB = check("BCT_SetDebugCB", "SET_DEBUG", -130, function(on)
+  f.dbgCB = check("BCT_SetDebugCB", "SET_DEBUG", -106, function(on)
     DEBUG = on
     msg("Debug: " .. (DEBUG and "|cff00ff00AN|r" or "|cffff0000AUS|r"))
   end)
   -- Optionale Alt-Bestaetigung: Alts melden selbst "ich bin Alt von <Main>",
   -- und die Anzeige unterscheidet "bestaetigt" und "angegeben".
-  f.confirmCB = check("BCT_SetConfirmCB", "SET_ALT_CONFIRM", -130, function(on)
+  f.confirmCB = check("BCT_SetConfirmCB", "SET_ALT_CONFIRM", -106, function(on)
     ensureDB().settings.altConfirm = on
     if on then sendAltConfirm() end
-    if BCT_UI and BCT_UI:IsShown() then BCT_UI_Refresh() end
+    BCT_UI_Refresh()
   end, 206)
   f.confirmCB:SetScript("OnEnter", function()
     GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
@@ -3798,18 +3135,24 @@ local function buildSettings()
   end)
   f.confirmCB:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
+  -- Testversion: Daten aus dem normalen BananaCraft uebernehmen
+  f.autoLiveCB = check("BCT_SetAutoLiveCB", "SET_AUTO_LIVE", -82, function(on)
+    ensureDB().settings.autoImportLive = on
+    if on then importLiveData() end
+  end, 206)
+
   -- Daten
-  label("SET_SECTION_DATA", 22, -166)
-  button(f, "BTN_RESCAN", 172, 22, -188, function() SlashCmdList["BCT"]("rescan") end)
-  button(f, "BTN_SEND_ALL", 172, 206, -188, function() broadcastAll() end)
-  button(f, "BTN_SYNC", 172, 22, -216, function() startHashSync() end)
-  button(f, "BTN_EXPORT", 172, 206, -216, function() exportToCSV() end)
-  button(f, "BTN_SCANBANK", 172, 22, -244, function() scanBank() end)
-  button(f, "BTN_VERSIONCHECK", 172, 206, -244, function() SlashCmdList["BCT"]("versioncheck") end)
+  label("SET_SECTION_DATA", 22, -142)
+  button(f, "BTN_RESCAN", 172, 22, -164, function() SlashCmdList["BCT"]("rescan") end)
+  button(f, "BTN_SEND_ALL", 172, 206, -164, function() broadcastAll() end)
+  button(f, "BTN_SYNC", 172, 22, -192, function() startHashSync() end)
+  button(f, "BTN_EXPORT", 172, 206, -192, function() exportToCSV() end)
+  button(f, "BTN_SCANBANK", 172, 22, -220, function() scanBank() end)
+  button(f, "BTN_VERSIONCHECK", 172, 206, -220, function() SlashCmdList["BCT"]("versioncheck") end)
 
   -- Loeschen
   local delDD = CreateFrame("Frame", "BCT_DeleteDropDown", f, "UIDropDownMenuTemplate")
-  delDD:SetPoint("TOPLEFT", f, "TOPLEFT", 6, -270)
+  delDD:SetPoint("TOPLEFT", f, "TOPLEFT", 6, -246)
   local function delDDInit()
     local db = ensureDB()
     local mine = db.characters[playerName()]
@@ -3832,7 +3175,7 @@ local function buildSettings()
   UIDropDownMenu_SetWidth(140, delDD)
   UIDropDownMenu_SetText(BCT_L.SET_DELETE_PROF, delDD)
   f.delDD = delDD
-  button(f, "BTN_DELETE_ALL", 172, 206, -272, function()
+  button(f, "BTN_DELETE_ALL", 172, 206, -248, function()
     confirmAction(BCT_L.CONFIRM_DELETE_ALL, function()
       SlashCmdList["BCT"]("delete all")
     end)
@@ -3841,20 +3184,21 @@ local function buildSettings()
   -- Alts dieses Accounts: angehakt = wird mit "Share database with guild"
   -- geteilt. Die Zeilen werden in BCT_RefreshSettings gefuellt.
   -- Export/Import fuer Alts auf anderen Accounts
-  button(f, "BTN_ALT_EXPORT", 172, 22, -300, function() showAltTextWindow("export") end)
-  button(f, "BTN_ALT_IMPORT", 172, 206, -300, function() showAltTextWindow("import") end)
+  button(f, "BTN_ALT_EXPORT", 172, 22, -276, function() showAltTextWindow("export") end)
+  button(f, "BTN_ALT_IMPORT", 172, 206, -276, function() showAltTextWindow("import") end)
+  button(f, "BTN_IMPORT_LIVE", 356, 22, -304, function() importLiveData() end)
 
   -- Zwei Auswahlmenues nebeneinander:
   --   links  "Alts von anderen Accounts" (importierte Charaktere): nur teilen/nicht teilen
   --   rechts "Twinks auf selbem Account": Main waehlen und Alts teilen/nicht teilen
   -- Der Main ist nur rechts waehlbar, importierte Alts sind reine Zugabe.
-  label("SET_ALTS_OTHER", 22, -338)
-  label("SET_ALTS_SAME", 222, -338)
+  label("SET_ALTS_OTHER", 22, -342)
+  label("SET_ALTS_SAME", 222, -342)
 
   local function afterAltChange()
     publishAccountAlts()
     BCT_RefreshSettings()
-    if BCT_UI and BCT_UI:IsShown() then BCT_UI_Refresh() end
+    BCT_UI_Refresh()
   end
 
   local function titleEntry(text)
@@ -3867,7 +3211,7 @@ local function buildSettings()
 
   -- links: importierte Charaktere
   local otherDD = CreateFrame("Frame", "BCT_OtherAltsDropDown", f, "UIDropDownMenuTemplate")
-  otherDD:SetPoint("TOPLEFT", f, "TOPLEFT", 6, -356)
+  otherDD:SetPoint("TOPLEFT", f, "TOPLEFT", 6, -360)
   UIDropDownMenu_Initialize(otherDD, function()
     local db = ensureDB()
     local names = {}
@@ -3903,7 +3247,7 @@ local function buildSettings()
 
   -- rechts: Charaktere dieses Accounts
   local sameDD = CreateFrame("Frame", "BCT_SameAltsDropDown", f, "UIDropDownMenuTemplate")
-  sameDD:SetPoint("TOPLEFT", f, "TOPLEFT", 206, -356)
+  sameDD:SetPoint("TOPLEFT", f, "TOPLEFT", 206, -360)
   UIDropDownMenu_Initialize(sameDD, function()
     local db = ensureDB()
     local realm = GetRealmName and GetRealmName() or nil
@@ -3979,7 +3323,6 @@ function BCT_RefreshSettings(retext)
     UIDropDownMenu_SetText(BCT_L.SET_DELETE_PROF, f.delDD)
   end
 
-  f.onlineCB:SetChecked(db.settings.onlineOnly)
   f.mmCB:SetChecked(db.settings.minimapButton == true)
   f.dbgCB:SetChecked(DEBUG)
 
@@ -3994,6 +3337,7 @@ function BCT_RefreshSettings(retext)
 
   -- Beschriftung der beiden Auswahlmenues
   if f.confirmCB then f.confirmCB:SetChecked(db.settings.altConfirm) end
+  if f.autoLiveCB then f.autoLiveCB:SetChecked(db.settings.autoImportLive) end
   local importedCount = 0
   for _, data in pairs(db.characters) do
     if type(data) == "table" and data.imported then importedCount = importedCount + 1 end
@@ -4005,7 +3349,7 @@ function BCT_RefreshSettings(retext)
     UIDropDownMenu_SetText("|cffff8800" .. BCT_L.SET_DD_PICK .. "|r", f.sameDD)
   end
 
-  local contentEnd = 396
+  local contentEnd = 400
 
   f:SetHeight(contentEnd + 22)
 end
@@ -4038,15 +3382,15 @@ SlashCmdList["BCT"] = function(input)
     BCT_ToggleCatalog()
     return
   end
-  if cmd == "crafter" or cmd == "list" then
-    uiToggle()
+  if cmd == "importlive" or cmd == "uebernehmen" then
+    importLiveData()
     return
   end
 
   if cmd == "help" then
     msg(BCT_L.CMD_HEADER)
     msg(BCT_L.CMD_CATALOG)
-    msg(BCT_L.CMD_CRAFTER)
+    msg(BCT_L.CMD_IMPORTLIVE)
     msg(BCT_L.CMD_SHOW)
     msg(BCT_L.CMD_SCAN)
     msg(BCT_L.CMD_RESCAN)
@@ -4116,7 +3460,7 @@ SlashCmdList["BCT"] = function(input)
     local n = altClearImported()
     msg("|cff00ff00" .. BCT_L.ALTX_CLEARED .. "|r " .. n)
     if BCT_RefreshSettings then BCT_RefreshSettings() end
-    if BCT_UI and BCT_UI:IsShown() then BCT_UI_Refresh() end
+    BCT_UI_Refresh()
     return
   end
   if cmd == "debug" then
@@ -4241,6 +3585,8 @@ eventFrame:SetScript("OnEvent", function()
 
   if event == "PLAYER_LOGIN" then
     ensureDB()
+    -- optional: bei jedem Login die Daten des normalen BananaCraft uebernehmen
+    if ensureDB().settings.autoImportLive then importLiveData(true) end
     local db = ensureDB()
     
     -- Data migration: Fix old corrupted profession data
@@ -4334,9 +3680,7 @@ eventFrame:SetScript("OnEvent", function()
   if event == "GUILD_ROSTER_UPDATE" then
     -- Roster data changed: rebuild the online lookup and repaint if visible.
     refreshOnlineCache(true)
-    if BCT_UI and BCT_UI:IsShown() then
-      BCT_UI_Refresh()
-    end
+    BCT_UI_Refresh()
     return
   end
 
@@ -4357,36 +3701,8 @@ end)
 -- Called after switching language so no /reload is needed.
 -- -------------------------
 function BCT_ApplyLocale()
-  local f = BCT_UI
-
-  if f then
-    if f.titleFS then f.titleFS:SetText(BCT_L.WINDOW_TITLE) end
-    if f.searchLabelFS then f.searchLabelFS:SetText(BCT_L.SEARCH_LABEL) end
-    if f.shareBtn then f.shareBtn:SetText(BCT_L.SHARE_BUTTON) end
-    if f.onlineCBText then f.onlineCBText:SetText(BCT_L.FILTER_ONLINE_ONLY) end
-    if BCT_RefreshSettings then BCT_RefreshSettings(true) end
-
-    -- Highlight the active language button
-    local cur = BCT_GetLocale()
-    if f.deBtn and f.deBtn.fs then
-      if cur == "deDE" then f.deBtn.fs:SetTextColor(1, 0.82, 0) else f.deBtn.fs:SetTextColor(0.5, 0.5, 0.5) end
-    end
-    if f.enBtn and f.enBtn.fs then
-      if cur == "enUS" then f.enBtn.fs:SetTextColor(1, 0.82, 0) else f.enBtn.fs:SetTextColor(0.5, 0.5, 0.5) end
-    end
-
-    -- Dropdown captions use translated text but keep English values
-    if f.filterDD then
-      UIDropDownMenu_SetText(BCT_ProfName(UI_FilterProf), f.filterDD)
-    end
-    if f.subDD then
-      UIDropDownMenu_SetText(BCT_CatName(UI_EnchantSlot), f.subDD)
-    end
-
-    if f:IsShown() then
-      BCT_UI_Refresh()
-    end
-  end
+  if BCT_RelocalizeCatalog then BCT_RelocalizeCatalog() end
+  if BCT_RefreshSettings then BCT_RefreshSettings(true) end
 
   -- Thanks window, if it was already built
   local tf = BCT_ThanksFrame

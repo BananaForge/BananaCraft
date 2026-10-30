@@ -456,19 +456,28 @@ local function buildWindow()
   local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
   close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -6)
 
-  -- Wechsel zur bisherigen Crafter-Liste und zu den Einstellungen
-  local crafterBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-  crafterBtn:SetWidth(110)
-  crafterBtn:SetHeight(20)
-  crafterBtn:SetPoint("RIGHT", close, "LEFT", -4, 0)
-  crafterBtn:SetText(T("CAT_BTN_CRAFTERS", "Crafter list"))
-  crafterBtn:SetScript("OnClick", function() BCT_ToggleCrafterList() end)
-  f.crafterBtn = crafterBtn
+  -- Sprache (EN / DE) und Einstellungen oben rechts
+  local function langButton(code, label, anchorTo, x)
+    local b = CreateFrame("Button", nil, f)
+    b:SetWidth(22)
+    b:SetHeight(16)
+    b:SetPoint("RIGHT", anchorTo, "LEFT", x, 0)
+    local fs = b:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    fs:SetAllPoints(b)
+    fs:SetText(label)
+    b.fs = fs
+    b.code = code
+    b:SetScript("OnClick", function()
+      BCT_SetLocale(this.code)
+      BCT_ApplyLocale()
+    end)
+    return b
+  end
 
   local gearBtn = CreateFrame("Button", nil, f)
   gearBtn:SetWidth(18)
   gearBtn:SetHeight(18)
-  gearBtn:SetPoint("RIGHT", crafterBtn, "LEFT", -6, 0)
+  gearBtn:SetPoint("RIGHT", close, "LEFT", -6, 0)
   local gearTex = gearBtn:CreateTexture(nil, "ARTWORK")
   gearTex:SetAllPoints(gearBtn)
   gearTex:SetTexture("Interface\\Icons\\INV_Misc_Gear_01")
@@ -479,6 +488,8 @@ local function buildWindow()
     GameTooltip:Show()
   end)
   gearBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  f.deBtn = langButton("deDE", "DE", gearBtn, -8)
+  f.enBtn = langButton("enUS", "EN", f.deBtn, -2)
 
   -- Suche + Filter
   local sl = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -676,15 +687,28 @@ local function buildWindow()
   listPanel:EnableMouseWheel(true)
   listPanel:SetScript("OnMouseWheel", wheel)
 
-  -- Fusszeile
+  -- Fusszeile: Version, Kurzstatistik, Datenbank teilen
   local foot = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  foot:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 20, 14)
-  foot:SetText(T("CAT_FOOTER", "Test version") .. " " .. (BCT_VERSION or ""))
+  foot:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 20, 16)
   foot:SetTextColor(0.6, 0.6, 0.6)
+  f.foot = foot
+
+  local stats = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+  stats:SetPoint("BOTTOM", f, "BOTTOM", -60, 16)
+  stats:SetTextColor(0.6, 0.6, 0.6)
+  f.stats = stats
+
+  local shareBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  shareBtn:SetWidth(240)
+  shareBtn:SetHeight(24)
+  shareBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -22, 12)
+  shareBtn:SetScript("OnClick", function() BCT_ShareDatabase() end)
+  f.shareBtn = shareBtn
 
   -- Daten regelmaessig auffrischen, solange das Fenster offen ist
   f:SetScript("OnShow", function()
     S.tick = 0
+    if BCT_CleanupOld then BCT_CleanupOld() end
     buildIndex()
     refreshAll()
     markSelection()
@@ -698,6 +722,7 @@ local function buildWindow()
   end)
 
   layoutCats()
+  BCT_RelocalizeCatalog()
   f:Hide()
   return f
 end
@@ -705,6 +730,26 @@ end
 -- ------------------------------------------------------------------
 -- Oeffentliche Funktionen
 -- ------------------------------------------------------------------
+-- Texte nach einem Sprachwechsel neu setzen (und beim Bauen des Fensters)
+function BCT_RelocalizeCatalog()
+  if not f then return end
+  f.title:SetText(T("CAT_TITLE", "BananaCraft TEST - Catalog"))
+  f.searchLabel:SetText(T("SEARCH_LABEL", "Search:"))
+  getglobal("BCT_BrowserCBCraftersText"):SetText(T("CAT_ONLY_CRAFTERS", "Only with crafters"))
+  getglobal("BCT_BrowserCBOnlineText"):SetText(T("CAT_ONLY_ONLINE", "Only online"))
+  f.shareBtn:SetText(T("SHARE_BUTTON", "Share database with guild"))
+  f.foot:SetText("v" .. (BCT_VERSION or ""))
+  f.stats:SetText(BCT_StatsText and BCT_StatsText() or "")
+  local cur = BCT_GetLocale and BCT_GetLocale() or "enUS"
+  if f.deBtn and f.deBtn.fs then
+    if cur == "deDE" then f.deBtn.fs:SetTextColor(1, 0.82, 0) else f.deBtn.fs:SetTextColor(0.5, 0.5, 0.5) end
+  end
+  if f.enBtn and f.enBtn.fs then
+    if cur == "enUS" then f.enBtn.fs:SetTextColor(1, 0.82, 0) else f.enBtn.fs:SetTextColor(0.5, 0.5, 0.5) end
+  end
+  if f:IsShown() then refreshAll() end
+end
+
 function BCT_ToggleCatalog()
   if not BCT_Catalog or tlen(BCT_Catalog) == 0 then
     DEFAULT_CHAT_FRAME:AddMessage("|cffffd200BananaCraft-Test:|r Katalogdaten fehlen (BananaCraftTest_Catalog.lua).")
@@ -717,7 +762,8 @@ end
 function BCT_RefreshCatalog()
   if f and f:IsShown() then
     buildIndex()
-    updateRows()
+    refreshAll()
+    if f.stats then f.stats:SetText(BCT_StatsText and BCT_StatsText() or "") end
   end
 end
 

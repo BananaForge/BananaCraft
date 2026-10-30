@@ -11,21 +11,33 @@ Diese Version läuft **neben** dem normalen BananaCraft. Sie hat einen eigenen O
 - **Qualitätsfarben:** weiß, grün, blau, lila (Name in der Liste und im Tooltip).
 - **Suche nach dem Namen** bleibt: das Suchfeld durchsucht alle Berufe auf einmal. Shift+Klick auf ein Item oder eine Verzauberung schreibt den Namen ins Suchfeld.
 - **Filter:** „Nur mit Crafter“ und „Nur online“. In der Testversion sind beide aus, damit alle Rezepte aller Berufe sichtbar sind.
-- **Klick auf ein Rezept** öffnet die bekannte Detailansicht (Materialien, Hersteller, Whisper). **Rechtsklick** lädt ein Item, das dein Client noch nicht kennt, vom Server (danach zeigt der Tooltip den vollen Item-Text).
-- Alles Bisherige bleibt: Crafter-Liste, Alts und Main, Export/Import, Einstellungen.
+- **Klick auf ein Rezept** öffnet die Detailansicht (Materialien, Hersteller, Whisper). **Rechtsklick** lädt ein Item, das dein Client noch nicht kennt, vom Server (danach zeigt der Tooltip den vollen Item-Text).
+- Der Katalog ist das einzige Hauptfenster. Die alte Crafter-Liste gibt es in der Testversion nicht mehr; *Datenbank mit der Gilde teilen* sitzt unten rechts im Katalog.
+- Alles Bisherige bleibt: Alts und Main, Export/Import, Einstellungen (Zahnrad).
+- **Daten aus dem normalen BananaCraft übernehmen** (nur Testversion, siehe unten).
 
 ## Befehle
 
 | Befehl | Wirkung |
 |---|---|
 | `/bct` | Katalog öffnen/schließen (auch Linksklick auf den Minimap-Button) |
-| `/bct crafter` | Die bisherige Crafter-Liste (Suche nach Namen, wer was kann) |
+| `/bct importlive` | Daten des normalen BananaCraft in die Testversion kopieren |
 | `/bct scan`, `send`, `sync`, … | wie bei BananaCraft, nur mit `/bct` |
 
 ## Installation
 
 1. Ordner `BananaCraftTest` nach `Interface/AddOns/` legen (der normale `BananaCraft`-Ordner kann bleiben).
 2. Im Spiel `/bct` eingeben.
+
+## Eigene Daten live ansehen
+
+Die Testversion hat eine eigene Datenbank und beginnt leer. Um den Katalog mit deinen echten Crafter-Daten zu sehen:
+
+1. In der Charakterauswahl **beide Addons** aktivieren (`BananaCraft` und `BananaCraftTest`).
+2. Einloggen und `/bct importlive` eingeben, oder im Einstellungsfenster auf *Daten aus BananaCraft übernehmen* klicken.
+3. Mit dem Haken *Beim Login übernehmen* geschieht das bei jedem Login automatisch.
+
+Dabei wird nur **gelesen**: Das normale BananaCraft bleibt unverändert, und Änderungen in der Testversion gehen nicht zurück.
 
 ## Bitte testen
 

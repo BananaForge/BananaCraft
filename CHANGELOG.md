@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-beta2 (Testversion)
+
+- **Die alte Crafter-Liste ist entfernt.** Der Katalog ist das einzige Hauptfenster. Darin sitzen jetzt auch *Datenbank mit der Gilde teilen*, die Kurzstatistik (Spieler | Rezepte), die Sprachwahl (EN/DE) und das Zahnrad.
+- **Neu: Daten aus dem normalen BananaCraft übernehmen** (`/bct importlive`, Knopf im Einstellungsfenster, optional automatisch beim Login). Liest die Datenbank des normalen BananaCraft, wenn beide Addons aktiv sind, und ändert sie nicht.
+
 ## 3.0.0-beta1 (Testversion)
 
 - **Neu: Rezeptkatalog.** Beruf → Stufe/Kategorie → Rezept, mit Tooltips, Fertigkeitsstufen, Reagenzien, Qualitätsfarben und den Herstellern aus der Gilde. Die Suche nach dem Namen läuft über alle Berufe. Siehe README.
