@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.0
+
+- **Neu: Rezeptkatalog.** Das Hauptfenster ist jetzt ein Katalog im Stil von AtlasLoot: links der Beruf, in der Mitte Stufe/Kategorie (Apprentice, Journeyman, Expert, Artisan, Flasks, Protection Potions, Helm, Chest, …), rechts die Rezepte. Tooltips wie im Spiel, Qualitätsfarben, Filter „Nur mit Crafter" und „Nur online". Die Suche nach dem Namen bleibt und durchsucht alle Berufe; der Shift-Klick ins Suchfeld funktioniert weiter. Klick auf ein Rezept öffnet die Detailansicht mit Materialien, Herstellern und Whisper (rechts neben dem Katalog). Die bisherige Crafter-Liste entfällt.
+- **Neu: Sammelberufe.** Kräuterkunde und Bergbau zeigen, wer welches Vorkommen abbauen bzw. ernten kann. Dafür liest der Addon den eigenen Fertigkeitswert aus und teilt ihn mit der Gilde.
+- **Materialien für alle Rezepte.** Verzauberungen lesen ihre Materialien aus dem Tooltip des Spielclients, die „Crafted Epic Weapons" sind mit ihrem Herstellungsrezept verknüpft. `/bc checkmats` prüft, dass jedes Rezept Materialien hat.
+- **Update ohne Löschen:** der Ordner heißt weiter `BananaCraft`, die gespeicherten Daten (`BananaCraftDB`) und das Nachrichten-Prefix bleiben gleich. Neue Version einfach über die alte kopieren; Gilden mit gemischten Versionen (2.x und 3.0) synchronisieren weiter miteinander.
+
 ## 2.7.0
 
 - **Entfernt: die komplette Partnerfunktion** (Partnergilde, Einladecode, Partnerkanal, `/bc partner ...`, Partner-Bereich im Einstellungsfenster, `BananaCraft_Partner.lua`). Beim ersten Start räumt der Addon die Daten der bisher bekannten Partnergilden und den Partnerbereich aus der Datenbank; die eigene Gilde bleibt unangetastet. Alts, Main und Export/Import laufen unverändert über die Gilde.
