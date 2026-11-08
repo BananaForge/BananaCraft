@@ -2,7 +2,7 @@
 
 **Share professions and recipes with your guild: find the crafter, whisper them, done.**
 
-![Version](https://img.shields.io/badge/version-3.0.0-ffd100) ![Client](https://img.shields.io/badge/client-1.12.1-blue) ![License](https://img.shields.io/badge/license-MIT-lightgrey)
+![Version](https://img.shields.io/badge/version-3.0.1-ffd100) ![Client](https://img.shields.io/badge/client-1.12.1-blue) ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 *Formerly known as BananaRepublik Partnerguild.* Every guild member scans their professions, the addon shares the recipes over the guild channel, and everyone can search who can craft what. Built for the guild **Banana Republic**. Lua 5.0, no libraries.
 
@@ -15,6 +15,7 @@
 - **Shift-click search:** with the cursor in the search box, Shift+click an item, enchant or recipe (bags, profession window, vendor, chat links) to put its name into the search box.
 - **Alts of your account:** *Share database with guild* also sends the professions of your other characters (same realm). They show up as "Alt of <character>", whether the alt is in another guild or has none. You choose your **Main** in the settings window; every other character of the account is shown as "Alt of <Main>". You can untick single alts there. An optional *Alt confirmation* lets alts report themselves, so the list can show "confirmed" or "claimed" (this is not proof of the same account; the 1.12 client has no account ID). Alts on **other accounts** come in via *Export alts* / *Import alts* in the settings window: export on the other account, copy the text (Ctrl+C), paste it into the import window on your main account (Ctrl+V). An alt has to have been logged in once with the addon, with its profession windows opened.
 - **Settings window (gear icon)** with language, *Online only* filter, minimap button, rescan, send, sync, CSV export, bank scan, version check and delete. The `/bc` commands still work.
+- **Activity tracker:** every 10 minutes the addon counts the online guild members (peak per server hour) and shares the finished hours invisibly in the guild channel, so the BananaGuild dashboard gets a complete activity heatmap. Nothing to set up (`BananaActivity.lua`, shared with BananaBank).
 - German and English, minimap button.
 
 ## Installation

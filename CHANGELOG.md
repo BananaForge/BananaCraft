@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.1
+
+- **Neu: gemeinsamer Aktivitäts-Tracker** (neue Datei `BananaActivity.lua`). Er zählt alle 10 Minuten die Online-Gildenmitglieder (Spitze pro Serverstunde) und teilt die fertigen Stunden unsichtbar im Gildenkanal, damit das BananaGuild-Dashboard eine vollständige Aktivitäts-Heatmap bekommt. Nichts einzustellen, kein Chat-Output, keine Oberfläche.
+
 ## 3.0.0
 
 - **Neu: Rezeptkatalog.** Das Hauptfenster ist jetzt ein Katalog im Stil von AtlasLoot: links der Beruf, in der Mitte Stufe/Kategorie (Apprentice, Journeyman, Expert, Artisan, Flasks, Protection Potions, Helm, Chest, …), rechts die Rezepte. Tooltips wie im Spiel, Qualitätsfarben, Filter „Nur mit Crafter" und „Nur online". Die Suche nach dem Namen bleibt und durchsucht alle Berufe; der Shift-Klick ins Suchfeld funktioniert weiter. Klick auf ein Rezept öffnet die Detailansicht mit Materialien, Herstellern und Whisper (rechts neben dem Katalog). Die bisherige Crafter-Liste entfällt.
