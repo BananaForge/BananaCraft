@@ -13,15 +13,24 @@
     Nothing else is needed. Data format of that table: a[hourIndex] = online peak, b[hourIndex] = level 60 peak.
 
   Messages (prefix BGLD, no pipe char):
-    A;idx;all;l60            a finished hour
+    A;idx;all;l60;now        a finished hour (accepted only for the last 2 hours, and only when the sender's clock hour 'now'
+                             matches ours: a client with a wrong clock cannot push shifted hours into the others' data)
     AQ;have                  "I have data up to hour 'have', send me newer ones" (login, once)
-    AS;target;base;d:a:b,..  answer, one chunk (hour = base + d)
+    AT;target;now;base;d:a:b,..  answer, one chunk (hour = base + d), ignored when 'now' differs from ours by more than 1
+    (the old answer AS carries no clock hour and is ignored)
 ]]
 
-local LIBVER = 1
+local LIBVER = 2
 
 if BananaActivity and BananaActivity.libVersion and BananaActivity.libVersion >= LIBVER then
 	return
+end
+
+-- an older copy (version 1) is already running: switch its frame off, this copy replaces it
+if BananaActivity and BananaActivityFrame then
+	BananaActivityFrame:UnregisterAllEvents()
+	BananaActivityFrame:SetScript("OnEvent", nil)
+	BananaActivityFrame:SetScript("OnUpdate", nil)
 end
 
 BananaActivity = BananaActivity or {}
@@ -78,7 +87,7 @@ end
 function A.Prune(store)
 	local lim = A.HourIndex() - A.KEEP
 	for idx in pairs(store.a) do
-		if idx < lim then store.a[idx] = nil; store.b[idx] = nil end
+		if idx < lim then store.a[idx] = nil; store.b[idx] = nil; if store.src then store.src[idx] = nil end end
 	end
 end
 
@@ -91,14 +100,39 @@ local function Valid(idx, a, b)
 end
 
 -- returns true when something new was stored
-function A.Merge(idx, a, b)
+function A.Merge(idx, a, b, src)
 	local changed = false
 	for i = 1, table.getn(A.stores) do
 		local s = A.stores[i]
-		if a > (s.a[idx] or -1) then s.a[idx] = a; changed = true end
+		s.src = s.src or {}
+		if a > (s.a[idx] or -1) then s.a[idx] = a; s.src[idx] = src or "n"; changed = true end
 		if (b or 0) > (s.b[idx] or -1) then s.b[idx] = b or 0; changed = true end
 	end
 	return changed
+end
+
+-- the clock hour of another client must match ours (+-1), otherwise its hours would land in the wrong cells
+local function SameClock(n)
+	if not n then return false end
+	return math.abs(n - A.HourIndex()) <= 1
+end
+
+-- lines for /bgd activity
+function A.Dump(store)
+	local out = {}
+	local sh, sm = 0, 0
+	if GetGameTime then sh, sm = GetGameTime() end
+	table.insert(out, "server " .. tostring(sh) .. ":" .. tostring(sm) .. "  utc-hour " .. math.mod(math.floor(time() / 3600), 24)
+		.. "  offset " .. A.Offset() .. "  hour index " .. A.HourIndex())
+	local keys = {}
+	for idx in pairs(store.a) do table.insert(keys, idx) end
+	table.sort(keys)
+	for i = math.max(1, table.getn(keys) - 23), table.getn(keys) do
+		local idx = keys[i]
+		local d, h = A.WeekHour(idx)
+		table.insert(out, idx .. "  day " .. d .. " " .. h .. ":00  online " .. store.a[idx] .. "  l60 " .. (store.b[idx] or 0) .. "  " .. ((store.src and store.src[idx]) == "o" and "own" or "received"))
+	end
+	return out
 end
 
 --------------------------------------------------------------------- measuring
@@ -127,17 +161,17 @@ function A.Sample()
 	end
 	A.lastSample = GetTime()
 	local idx = A.HourIndex()
-	A.Merge(idx, all, l60)
+	A.Merge(idx, all, l60, "o")
 	-- the hour that just ended is final now: tell the others (after a random delay, skipped when somebody was faster)
 	local prev = A.lastIdx
 	A.lastIdx = idx
-	if prev and prev ~= idx and A.stores[1] and A.stores[1].a[prev] then
+	if prev and prev < idx and idx - prev <= 2 and A.stores[1] and A.stores[1].a[prev] then
 		A.pending[prev] = true
 		Later(1 + math.random() * 40, function()
 			if A.pending[prev] then
 				A.pending[prev] = nil
 				local s = A.stores[1]
-				if s and s.a[prev] then Send("A;" .. prev .. ";" .. s.a[prev] .. ";" .. (s.b[prev] or 0)) end
+				if s and s.a[prev] then Send("A;" .. prev .. ";" .. s.a[prev] .. ";" .. (s.b[prev] or 0) .. ";" .. A.HourIndex()) end
 			end
 		end)
 	end
@@ -152,7 +186,7 @@ function A.RequestSync()
 	if not s then return end
 	local have = 0
 	for idx in pairs(s.a) do if idx > have then have = idx end end
-	Send("AQ;" .. have)
+	Send("AQ;" .. have .. ";" .. A.HourIndex())
 end
 
 -- answer a request: newer hours in chunks, one per ~1.3 s
@@ -169,7 +203,7 @@ function A.Answer(target, have)
 	local chunk, base, count, delay = nil, nil, 0, 0
 	local function Flush()
 		if chunk and count > 0 then
-			local msg = "AS;" .. target .. ";" .. base .. ";" .. table.concat(chunk, ",")
+			local msg = "AT;" .. target .. ";" .. A.HourIndex() .. ";" .. base .. ";" .. table.concat(chunk, ",")
 			Later(delay, function() Send(msg) end)
 			delay = delay + 1.3
 		end
@@ -195,15 +229,19 @@ local function Num(x) return tonumber(x) end
 local function OnAddon(sender, msg)
 	local _, _, kind, rest = string.find(msg, "^(%a+);?(.*)$")
 	if kind == "A" then
-		local _, _, i, a, b = string.find(rest, "^(%d+);(%d+);(%d+)")
-		i, a, b = Num(i), Num(a), Num(b)
-		if Valid(i, a, b) then
-			A.Merge(i, a, b)
+		local _, _, i, a, b, n = string.find(rest, "^(%d+);(%d+);(%d+);?(%d*)")
+		i, a, b, n = Num(i), Num(a), Num(b), Num(n)
+		-- live message of a finished hour: only the last 2 hours, and the sender's clock must match (when it tells it)
+		local now = A.HourIndex()
+		if Valid(i, a, b) and i < now and now - i <= 2 and (n == nil or SameClock(n)) then
+			A.Merge(i, a, b, "n")
 			local s = A.stores[1]
 			if A.pending[i] and s and (s.a[i] or 0) >= a then A.pending[i] = nil end
 		end
 	elseif kind == "AQ" then
-		local have = Num(rest) or 0
+		local _, _, h, n = string.find(rest, "^(%d*);?(%d*)")
+		local have = Num(h) or 0
+		if n ~= "" and not SameClock(Num(n)) then return end
 		local s = A.stores[1]
 		if not s or A.answering[sender] then return end
 		local newer = false
@@ -216,15 +254,15 @@ local function OnAddon(sender, msg)
 				A.Answer(sender, have)
 			end
 		end)
-	elseif kind == "AS" then
-		local _, _, target, base, list = string.find(rest, "^([^;]*);(%d+);(.*)$")
+	elseif kind == "AT" then
+		local _, _, target, n, base, list = string.find(rest, "^([^;]*);(%d+);(%d+);(.*)$")
 		base = Num(base)
-		if not base then return end
+		if not base or not SameClock(Num(n)) then return end
 		-- somebody else answers this client already
 		if target and A.answering[target] then A.answering[target] = nil end
 		for d, a, b in string.gfind(list or "", "(%d+):(%d+):(%d+)") do
 			local idx, av, bv = base + tonumber(d), tonumber(a), tonumber(b)
-			if Valid(idx, av, bv) then A.Merge(idx, av, bv) end
+			if Valid(idx, av, bv) then A.Merge(idx, av, bv, "n") end
 		end
 		if A.onData then pcall(A.onData) end
 	end

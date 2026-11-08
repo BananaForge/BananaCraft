@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.2
+
+- **Aktivitäts-Tracker aktualisiert** (`BananaActivity.lua` Version 2): Stunden von Clients mit falscher Uhr werden abgelehnt, eine ältere laufende Kopie wird abgeschaltet.
+
 ## 3.0.1
 
 - **Neu: gemeinsamer Aktivitäts-Tracker** (neue Datei `BananaActivity.lua`). Er zählt alle 10 Minuten die Online-Gildenmitglieder (Spitze pro Serverstunde) und teilt die fertigen Stunden unsichtbar im Gildenkanal, damit das BananaGuild-Dashboard eine vollständige Aktivitäts-Heatmap bekommt. Nichts einzustellen, kein Chat-Output, keine Oberfläche.
