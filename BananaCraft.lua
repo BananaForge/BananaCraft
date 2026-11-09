@@ -60,7 +60,7 @@ local ADDON_NAME = "BananaCraft"
 local DB_NAME = "BananaCraftDB"
 local PREFIX = "BCRAFT0"
 local DEBUG = false  -- Debug messages OFF by default (use /bc debug to enable)
-local ADDON_VERSION = "3.0.1"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "3.0.3"  -- keep in sync with the .toc "## Version:" line
 BCRAFT_VERSION = ADDON_VERSION
 
 -- /bc versioncheck state (see startHashSync section for PING/PONG, this is
@@ -2528,6 +2528,7 @@ function BCRAFT_StatsText()
     end
   end
   for _ in pairs(BCRAFT_GetRecipeRows()) do recipes = recipes + 1 end
+  if players == 0 then return BCRAFT_L.STATS_EMPTY end
   return players .. " " .. BCRAFT_L.STATS_PLAYERS .. " | " .. recipes .. " " .. BCRAFT_L.STATS_RECIPES
 end
 

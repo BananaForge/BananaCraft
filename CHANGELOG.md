@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.3
+
+- **Verständlichere Hinweise zum Scannen.** Berufe werden erfasst, wenn man das Berufsfenster öffnet (jedes einzeln, auch Verzauberkunst). Die Meldung „Keine Berufe zum Senden", der Hinweis nach `/bc rescan` und die Fußzeile des leeren Katalogs sagen das jetzt ausdrücklich. Nur Texte, keine Änderung an der Logik.
+
 ## 3.0.2
 
 - **Aktivitäts-Tracker aktualisiert** (`BananaActivity.lua` Version 2): Stunden von Clients mit falscher Uhr werden abgelehnt, eine ältere laufende Kopie wird abgeschaltet.

@@ -49,8 +49,8 @@ de.SECONDS = "Sekunden"
 en.NOTHING_TO_SEND = "Nothing to send."
 de.NOTHING_TO_SEND = "Keine Berufe zum Senden."
 
-en.SCAN_FIRST = "Scan your professions first!"
-de.SCAN_FIRST = "Scanne zuerst deine Berufe!"
+en.SCAN_FIRST = "Nothing stored yet: open each of your profession windows once, they are scanned automatically."
+de.SCAN_FIRST = "Noch nichts gespeichert: oeffne einmal jedes deiner Berufsfenster, dann werden sie automatisch erfasst."
 
 en.REMAINING = "remaining"
 de.REMAINING = "verbleibend"
@@ -235,8 +235,8 @@ de.VERSIONCHECK_ASKING = "Frage Gilde nach BananaCraft-Version..."
 en.VERSIONCHECK_RUNS = "runs"
 de.VERSIONCHECK_RUNS = "nutzt"
 
-en.CACHE_CLEARED = "Session cache cleared. You can rescan all professions now!"
-de.CACHE_CLEARED = "Session-Cache geloescht. Du kannst jetzt alle Berufe neu scannen!"
+en.CACHE_CLEARED = "Session cache cleared. Now open your profession window to scan it!"
+de.CACHE_CLEARED = "Session-Cache geloescht. Oeffne jetzt dein Berufsfenster, dann wird es neu gescannt!"
 
 en.DEBUG_LABEL = "Debug:"
 de.DEBUG_LABEL = "Debug:"
@@ -613,6 +613,8 @@ en.STATS_PLAYERS = "players"
 de.STATS_PLAYERS = "Spieler"
 en.STATS_RECIPES = "recipes"
 de.STATS_RECIPES = "Rezepte"
+en.STATS_EMPTY = "No data yet: open your profession windows to scan"
+de.STATS_EMPTY = "Noch keine Daten: Berufsfenster oeffnen zum Scannen"
 
 -- Sammelberufe und Popup-Ueberschriften
 en.CAT_CRAFTED_BY = "Can be crafted by:"
