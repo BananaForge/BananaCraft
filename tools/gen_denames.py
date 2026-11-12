@@ -6,6 +6,9 @@ Aufruf:  python3 -I tools/gen_denames.py <BananaCraft_ItemDB_deDE.lua> BananaCra
 Die ItemDB (ID -> {Englisch, Deutsch}, Quelle wowhead.com/classic/de) ist ~1,8 MB gross und wird
 nicht ausgeliefert. Hier wird nur der Teil uebernommen, der zu Zeilen des Katalogs gehoert
 (Items, die ein Beruf herstellt).
+
+Zusaetzlich werden die Zauber-/Verzauberungsnamen aus tools/spell_denames_deDE.tsv uebernommen
+(Rezepte ohne hergestelltes Item, z.B. "Enchant Bracer - Minor Health"). Itemnamen haben Vorrang.
 """
 import re, sys
 
@@ -33,6 +36,15 @@ for kind, num, name in rows:
     item = craft.get(num, 0) if kind == "s" else (num if kind == "i" else 0)
     de = names.get(item)
     if de and de != name and name not in res: res[name] = de
+
+import os
+tsv = os.path.join(os.path.dirname(os.path.abspath(__file__)), "spell_denames_deDE.tsv")
+if os.path.exists(tsv):
+    catalog_names = set(r[2] for r in rows)
+    for ln in open(tsv, encoding="utf-8"):
+        if ln.startswith("#") or "\t" not in ln: continue
+        en, de = ln.rstrip("\n").split("\t", 1)
+        if en in catalog_names and de and de != en and en not in res: res[en] = de
 
 def q(s): return '"%s"' % s.replace("\\", "\\\\").replace('"', '\\"')
 with open(out, "w", encoding="utf-8", newline="\n") as f:

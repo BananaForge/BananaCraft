@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.7
+
+- **Deutsche Namen jetzt auch für Verzauberungen und weitere Zauber** (Armschiene, Brust, Umhang, Handschuhe, Stiefel, Waffe, Schild, Öle, Zauberstäbe, Runenruten, …). Die Tabelle `BananaCraft_DeNames.lua` hat damit 1307 Einträge. Crafter mit deutschem Client erscheinen damit auch bei Verzauberungen, egal in welcher Sprache der Betrachter spielt.
+
 ## 3.0.6
 
 - **Deutsche Rezeptnamen:** neue Datei `BananaCraft_DeNames.lua` mit den deutschen Namen von rund 1150 herstellbaren Items (Quelle: wowhead.com/classic/de). Dadurch erkennt der Katalog Crafter mit deutschem Client unabhängig von der eigenen Spielsprache (Kochen, Schneiderei, Erste Hilfe, Schmiedekunst, … ). Verzauberungen sind noch nicht abgedeckt: ein deutscher Client erkennt sie über seine eigenen Tooltips, ein englischer nicht.
