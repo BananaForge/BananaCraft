@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.8
+
+- **Aktivitäts-Tracker-Fix** (`BananaActivity.lua`): Lücken zwischen zwei Sitzungen werden beim Login aufgefüllt (die letzten 14 Tage werden angefragt, nicht nur neuere Stunden).
+
 ## 3.0.7
 
 - **Deutsche Namen jetzt auch für Verzauberungen und weitere Zauber** (Armschiene, Brust, Umhang, Handschuhe, Stiefel, Waffe, Schild, Öle, Zauberstäbe, Runenruten, …). Die Tabelle `BananaCraft_DeNames.lua` hat damit 1307 Einträge. Crafter mit deutschem Client erscheinen damit auch bei Verzauberungen, egal in welcher Sprache der Betrachter spielt.

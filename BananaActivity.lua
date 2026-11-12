@@ -44,7 +44,8 @@ A.stores     = A.stores or {}
 A.queue      = {}
 A.lastSample = -10000
 A.pending    = {}           -- idx -> true (own A message waiting)
-A.answering  = {}           -- target -> true (own AS answer waiting)
+A.answering  = {}           -- target -> true (own answer waiting or running)
+A.heard      = {}           -- target -> { hour = value } what other clients already sent to that target
 
 --------------------------------------------------------------------- time (server hours, no date() needed)
 
@@ -184,42 +185,50 @@ end
 function A.RequestSync()
 	local s = A.stores[1]
 	if not s then return end
-	local have = 0
-	for idx in pairs(s.a) do if idx > have then have = idx end end
-	Send("AQ;" .. have .. ";" .. A.HourIndex())
+	-- ask for the last 14 days (28 days when nothing is stored yet). NOT "newer than my newest hour": the own sample of the
+	-- current hour is always the newest one, so the hours between two sessions would never be answered.
+	local now = A.HourIndex()
+	local empty = true
+	for _ in pairs(s.a) do empty = false break end
+	local from = now - (empty and A.CATCHUP or 14 * 24)
+	Send("AQ;" .. from .. ";" .. now)
 end
 
--- answer a request: newer hours in chunks, one per ~1.3 s
-function A.Answer(target, have)
+-- answer a request: all hours newer than 'from', in chunks of 16, one chunk per ~1.3 s.
+-- Hours that somebody else already sent to the same client (with at least our value) are left out.
+function A.Answer(target, from)
 	local s = A.stores[1]
-	if not s then return end
-	local from = math.max(have, A.HourIndex() - A.CATCHUP)
+	if not s then A.answering[target] = nil return end
+	from = math.max(from, A.HourIndex() - A.CATCHUP)
 	local keys = {}
 	for idx in pairs(s.a) do
 		if idx > from then table.insert(keys, idx) end
 	end
-	if table.getn(keys) == 0 then return end
 	table.sort(keys)
-	local chunk, base, count, delay = nil, nil, 0, 0
-	local function Flush()
-		if chunk and count > 0 then
-			local msg = "AT;" .. target .. ";" .. A.HourIndex() .. ";" .. base .. ";" .. table.concat(chunk, ",")
-			Later(delay, function() Send(msg) end)
-			delay = delay + 1.3
+	local n, pos, total = table.getn(keys), 1, 0
+	local function Step()
+		local heard = A.heard[target]
+		local base, chunk = nil, {}
+		while pos <= n and table.getn(chunk) < 16 do
+			local idx = keys[pos]
+			pos = pos + 1
+			if not (heard and heard[idx] and heard[idx] >= s.a[idx]) then
+				if not base then base = idx end
+				table.insert(chunk, (idx - base) .. ":" .. s.a[idx] .. ":" .. (s.b[idx] or 0))
+				total = total + 1
+			end
 		end
-		chunk, base, count = nil, nil, 0
+		if base then
+			Send("AT;" .. target .. ";" .. A.HourIndex() .. ";" .. base .. ";" .. table.concat(chunk, ","))
+		end
+		if pos <= n and total < 700 then
+			Later(1.3, Step)
+		else
+			A.answering[target] = nil
+			Later(120, function() A.heard[target] = nil end)
+		end
 	end
-	local total = 0
-	for i = 1, table.getn(keys) do
-		local idx = keys[i]
-		if not base then base = idx; chunk = {} end
-		table.insert(chunk, (idx - base) .. ":" .. s.a[idx] .. ":" .. (s.b[idx] or 0))
-		count = count + 1
-		total = total + 1
-		if count >= 16 then Flush() end
-		if total >= 600 then break end
-	end
-	Flush()
+	Step()
 end
 
 --------------------------------------------------------------------- events
@@ -248,21 +257,20 @@ local function OnAddon(sender, msg)
 		for idx in pairs(s.a) do if idx > have then newer = true break end end
 		if not newer then return end
 		A.answering[sender] = true
-		Later(3 + math.random() * 25, function()
-			if A.answering[sender] then
-				A.answering[sender] = nil
-				A.Answer(sender, have)
-			end
-		end)
+		Later(3 + math.random() * 25, function() A.Answer(sender, have) end)
 	elseif kind == "AT" then
 		local _, _, target, n, base, list = string.find(rest, "^([^;]*);(%d+);(%d+);(.*)$")
 		base = Num(base)
 		if not base or not SameClock(Num(n)) then return end
-		-- somebody else answers this client already
-		if target and A.answering[target] then A.answering[target] = nil end
+		-- remember what the target got from this answer, our own answer to it then skips these hours
+		if target and target ~= "" then A.heard[target] = A.heard[target] or {} end
 		for d, a, b in string.gfind(list or "", "(%d+):(%d+):(%d+)") do
 			local idx, av, bv = base + tonumber(d), tonumber(a), tonumber(b)
-			if Valid(idx, av, bv) then A.Merge(idx, av, bv, "n") end
+			if Valid(idx, av, bv) then
+				A.Merge(idx, av, bv, "n")
+				local h = target and A.heard[target]
+				if h and av > (h[idx] or -1) then h[idx] = av end
+			end
 		end
 		if A.onData then pcall(A.onData) end
 	end
