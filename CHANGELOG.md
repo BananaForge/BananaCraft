@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.9
+
+- `BananaActivity.lua` zählt Nachrichten für die Diagnose in BananaGuild (`/bgd activity`).
+
 ## 3.0.8
 
 - **Aktivitäts-Tracker-Fix** (`BananaActivity.lua`): Lücken zwischen zwei Sitzungen werden beim Login aufgefüllt (die letzten 14 Tage werden angefragt, nicht nur neuere Stunden).

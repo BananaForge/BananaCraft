@@ -45,6 +45,7 @@ A.queue      = {}
 A.lastSample = -10000
 A.pending    = {}           -- idx -> true (own A message waiting)
 A.answering  = {}           -- target -> true (own answer waiting or running)
+A.stat       = {}           -- counters for /bgd activity
 A.heard      = {}           -- target -> { hour = value } what other clients already sent to that target
 
 --------------------------------------------------------------------- time (server hours, no date() needed)
@@ -125,6 +126,10 @@ function A.Dump(store)
 	if GetGameTime then sh, sm = GetGameTime() end
 	table.insert(out, "server " .. tostring(sh) .. ":" .. tostring(sm) .. "  utc-hour " .. math.mod(math.floor(time() / 3600), 24)
 		.. "  offset " .. A.Offset() .. "  hour index " .. A.HourIndex())
+	local st = {}
+	for k, v in pairs(A.stat) do table.insert(st, k .. "=" .. v) end
+	table.sort(st)
+	table.insert(out, "tracker v" .. A.libVersion .. ", stores " .. table.getn(A.stores) .. ", " .. (table.getn(st) > 0 and table.concat(st, " ") or "no traffic yet"))
 	local keys = {}
 	for idx in pairs(store.a) do table.insert(keys, idx) end
 	table.sort(keys)
@@ -142,7 +147,10 @@ local function Later(delay, fn)
 	table.insert(A.queue, { at = GetTime() + delay, fn = fn })
 end
 
+local function Count(k) A.stat[k] = (A.stat[k] or 0) + 1 end
+
 local function Send(msg)
+	Count("sent_" .. (string.sub(msg, 1, 2) == "AT" and "AT" or (string.sub(msg, 1, 2) == "AQ" and "AQ" or "A")))
 	if SendAddonMessage and IsInGuild and IsInGuild() then
 		SendAddonMessage(A.PREFIX, msg, "GUILD")
 	end
@@ -242,7 +250,9 @@ local function OnAddon(sender, msg)
 		i, a, b, n = Num(i), Num(a), Num(b), Num(n)
 		-- live message of a finished hour: only the last 2 hours, and the sender's clock must match (when it tells it)
 		local now = A.HourIndex()
+		if n and not SameClock(n) then Count("rej_clock") end
 		if Valid(i, a, b) and i < now and now - i <= 2 and (n == nil or SameClock(n)) then
+			Count("recv_A")
 			A.Merge(i, a, b, "n")
 			local s = A.stores[1]
 			if A.pending[i] and s and (s.a[i] or 0) >= a then A.pending[i] = nil end
@@ -250,6 +260,7 @@ local function OnAddon(sender, msg)
 	elseif kind == "AQ" then
 		local _, _, h, n = string.find(rest, "^(%d*);?(%d*)")
 		local have = Num(h) or 0
+		Count("recv_AQ")
 		if n ~= "" and not SameClock(Num(n)) then return end
 		local s = A.stores[1]
 		if not s or A.answering[sender] then return end
@@ -258,16 +269,20 @@ local function OnAddon(sender, msg)
 		if not newer then return end
 		A.answering[sender] = true
 		Later(3 + math.random() * 25, function() A.Answer(sender, have) end)
+	elseif kind == "AS" then
+		Count("old_AS")     -- an answer of a client with the old version 1 of this file (ignored)
 	elseif kind == "AT" then
 		local _, _, target, n, base, list = string.find(rest, "^([^;]*);(%d+);(%d+);(.*)$")
 		base = Num(base)
-		if not base or not SameClock(Num(n)) then return end
+		if not base then return end
+		if not SameClock(Num(n)) then Count("rej_clock") return end
+		Count("recv_AT")
 		-- remember what the target got from this answer, our own answer to it then skips these hours
 		if target and target ~= "" then A.heard[target] = A.heard[target] or {} end
 		for d, a, b in string.gfind(list or "", "(%d+):(%d+):(%d+)") do
 			local idx, av, bv = base + tonumber(d), tonumber(a), tonumber(b)
 			if Valid(idx, av, bv) then
-				A.Merge(idx, av, bv, "n")
+				if A.Merge(idx, av, bv, "n") then Count("new_hours") end
 				local h = target and A.heard[target]
 				if h and av > (h[idx] or -1) then h[idx] = av end
 			end
