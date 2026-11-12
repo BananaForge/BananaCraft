@@ -64,7 +64,7 @@ local ADDON_NAME = "BananaCraft"
 local DB_NAME = "BananaCraftDB"
 local PREFIX = "BCRAFT0"
 local DEBUG = false  -- Debug messages OFF by default (use /bc debug to enable)
-local ADDON_VERSION = "3.0.4"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "3.0.5"  -- keep in sync with the .toc "## Version:" line
 BCRAFT_VERSION = ADDON_VERSION
 
 -- /bc versioncheck state (see startHashSync section for PING/PONG, this is

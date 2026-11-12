@@ -2,7 +2,7 @@
 
 **Share professions and recipes with your guild: find the crafter, whisper them, done.**
 
-![Version](https://img.shields.io/badge/version-3.0.4-ffd100) ![Client](https://img.shields.io/badge/client-1.12.1-blue) ![License](https://img.shields.io/badge/license-MIT-lightgrey)
+![Version](https://img.shields.io/badge/version-3.0.5-ffd100) ![Client](https://img.shields.io/badge/client-1.12.1-blue) ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 *Formerly known as BananaRepublik Partnerguild.* Every guild member scans their professions, the addon shares the recipes over the guild channel, and everyone can search who can craft what. Built for the guild **Banana Republic**. Lua 5.0, no libraries.
 

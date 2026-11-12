@@ -41,7 +41,7 @@ local MAX_RESULTS = 400
 local S = {
   prof = 1, cat = 1, search = "", offset = 0,
   onlyCrafters = false, onlineOnly = false,
-  list = {}, index = {}, gather = {}, tooltipTarget = nil,
+  list = {}, index = {}, byItem = {}, merged = {}, gather = {}, tooltipTarget = nil,
 }
 local f            -- das Fenster
 local profBtns, catBtns, rowFrames = {}, {}, {}
@@ -74,12 +74,20 @@ end
 -- ------------------------------------------------------------------
 local function buildIndex()
   S.index = {}
+  S.byItem = {}     -- "Beruf:ItemID" -> Liste von Rezeptzeilen (unabhaengig von der Sprache des Crafters)
+  S.merged = {}
   S.gather = {}
   if BCRAFT_GetRecipeRows then
     local rows = BCRAFT_GetRecipeRows()
     for i = 1, tlen(rows) do
       local rr = rows[i]
       S.index[rr.prof .. ":" .. rr.recipe] = rr
+      local rd = rr.recipeData
+      if type(rd) == "table" and rd.itemID then
+        local k = rr.prof .. ":" .. rd.itemID
+        if not S.byItem[k] then S.byItem[k] = {} end
+        table.insert(S.byItem[k], rr)
+      end
     end
   end
   -- Sammelberufe: Spieler mit Fertigkeitswert
@@ -91,8 +99,81 @@ local function buildIndex()
   end
 end
 
-local function crafterCounts(dbProf, name)
-  local rr = S.index[dbProf .. ":" .. name]
+-- Name des Rezepts in der Sprache DIESES Clients (Verzauberungen ueber den
+-- Spell-Tooltip, Items ueber GetItemInfo). Deutsche Crafter speichern deutsche
+-- Namen; so findet ein deutscher Client sie auch ohne Item-ID.
+local localNames = {}
+local function localNameOf(r)
+  local kind, id = r[1], r[2]
+  local key = kind .. id
+  local c = localNames[key]
+  if c ~= nil then return c or nil end
+  local nm = nil
+  if kind == "e" or kind == "s" then
+    if not BCRAFT_NameTip then
+      BCRAFT_NameTip = CreateFrame("GameTooltip", "BCRAFT_NameTip", nil, "GameTooltipTemplate")
+    end
+    BCRAFT_NameTip:SetOwner(UIParent, "ANCHOR_NONE")
+    BCRAFT_NameTip:ClearLines()
+    local ok = pcall(function() BCRAFT_NameTip:SetHyperlink("enchant:" .. id) end)
+    if ok then
+      local fs = getglobal("BCRAFT_NameTipTextLeft1")
+      nm = fs and fs:GetText() or nil
+      if nm == "" then nm = nil end
+    end
+    BCRAFT_NameTip:Hide()
+  end
+  if not nm and (kind == "i" or kind == "s") then
+    local it = itemIdOf(r)
+    if it then nm = GetItemInfo(it) end
+  end
+  if nm then localNames[key] = nm end   -- fehlende Namen nicht merken (Client kann nachladen)
+  return nm
+end
+
+-- Alle Rezeptzeilen der Datenbank, die zu dieser Katalogzeile gehoeren: gleicher
+-- englischer Name, gleiche Item-ID oder gleicher Name in der Clientsprache.
+-- Mehrere Treffer werden zu einer Zeile mit allen Craftern zusammengefasst.
+local function matchRow(dbProf, r)
+  local key = dbProf .. ":" .. r[1] .. r[2]
+  local hit = S.merged[key]
+  if hit ~= nil then return hit or nil end
+  local found, seen = {}, {}
+  local function add(rr)
+    if rr and not seen[rr] then seen[rr] = true; table.insert(found, rr) end
+  end
+  add(S.index[dbProf .. ":" .. r[5]])
+  local it = itemIdOf(r)
+  local list = it and S.byItem[dbProf .. ":" .. it] or nil
+  if list then
+    for i = 1, tlen(list) do add(list[i]) end
+  end
+  if tlen(found) == 0 or r[1] == "e" then
+    local ln = localNameOf(r)
+    if ln and ln ~= r[5] then add(S.index[dbProf .. ":" .. ln]) end
+  end
+  local res = nil
+  if tlen(found) == 1 then
+    res = found[1]
+  elseif tlen(found) > 1 then
+    res = { recipe = found[1].recipe, prof = found[1].prof, recipeData = found[1].recipeData, crafters = {} }
+    local have = {}
+    for i = 1, tlen(found) do
+      for j = 1, tlen(found[i].crafters) do
+        local cr = found[i].crafters[j]
+        if not have[cr.player] then
+          have[cr.player] = true
+          table.insert(res.crafters, cr)
+        end
+      end
+    end
+  end
+  S.merged[key] = res or false
+  return res
+end
+
+local function crafterCounts(dbProf, r)
+  local rr = matchRow(dbProf, r)
   if not rr then return 0, 0, nil end
   local on = 0
   for i = 1, tlen(rr.crafters) do
@@ -119,7 +200,7 @@ local function countsFor(p, r)
     end
     return total, online, matched, nil
   end
-  local total, online, rr = crafterCounts(p.db, r[5])
+  local total, online, rr = crafterCounts(p.db, r)
   return total, online, rr and rr.crafters or nil, rr
 end
 
@@ -923,4 +1004,11 @@ function BCRAFT_CheckMaterials()
   end
   if tlen(missing) > 25 then DEFAULT_CHAT_FRAME:AddMessage("  ... +" .. (tlen(missing) - 25)) end
   if BananaCraftDB then BananaCraftDB.matCheck = { total = total, ok = withMats, missing = missing } end
+end
+
+-- fuer Tests / Diagnose: Hersteller zu einer Katalogzeile (Beruf-DB-Name, Zeile)
+function BCRAFT_CrafterCount(dbProf, r, fresh)
+  if fresh then buildIndex() end
+  local total, online, rr = crafterCounts(dbProf, r)
+  return total, online, rr
 end

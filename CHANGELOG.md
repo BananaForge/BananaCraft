@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.5
+
+- **Fix: Rezepte von Spielern mit deutschem Client erschienen nicht im Katalog.** Der Katalog führt Rezepte unter englischen Namen, deutsche Clients speichern aber deutsche („Spinnenwurst"). Der Katalog ordnet jetzt zusätzlich über die Item-ID (sprachunabhängig) und über den Namen in der Sprache des eigenen Clients zu. Bei Rezepten ohne Item-ID sieht ein englischer Client deutsche Crafter weiterhin nicht.
+
 ## 3.0.4
 
 - **Fix: Juwelenschleifen, Alchimie und Überlebenskunst im deutschen Client.** Der Beruf heißt dort „Juwelenschleifen", das Addon kannte nur „Juwelierskunst" und speicherte ihn unter dem deutschen Namen. Der Katalog findet Berufe aber unter dem englischen Namen, deshalb tauchten diese Spieler nicht bei den Jewelcrafting-Rezepten auf. Die Namen werden jetzt beim Scannen und beim Empfang normalisiert, und bereits gespeicherte Einträge werden beim Start umgestellt.
