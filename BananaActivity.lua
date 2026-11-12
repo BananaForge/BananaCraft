@@ -13,14 +13,15 @@
     Nothing else is needed. Data format of that table: a[hourIndex] = online peak, b[hourIndex] = level 60 peak.
 
   Messages (prefix BGLD, no pipe char):
-    A;idx;all;l60;now        a finished hour (accepted only for the last 2 hours, and only when the sender's clock hour 'now'
-                             matches ours: a client with a wrong clock cannot push shifted hours into the others' data)
-    AQ;have                  "I have data up to hour 'have', send me newer ones" (login, once)
-    AT;target;now;base;d:a:b,..  answer, one chunk (hour = base + d), ignored when 'now' differs from ours by more than 1
-    (the old answer AS carries no clock hour and is ignored)
+    AB;idx;all;l60;now        a finished hour (accepted only for the last 2 hours, and only when the sender's clock hour 'now'
+                              matches ours: a client with a wrong clock cannot push shifted hours into the others' data)
+    AR;from;now               "send me every hour newer than 'from'" (login, once)
+    AU;target;now;base;d:a:b,..  answer, one chunk (hour = base + d), ignored when 'now' differs from ours by more than 1
+    The kinds A / AQ / AS / AT of older versions are ignored (their hours could be shifted).
+    Hour index = floor(time() / 3600) in UTC. Stored data of an older format is deleted once (store.epoch).
 ]]
 
-local LIBVER = 2
+local LIBVER = 3
 
 if BananaActivity and BananaActivity.libVersion and BananaActivity.libVersion >= LIBVER then
 	return
@@ -78,8 +79,14 @@ end
 
 --------------------------------------------------------------------- storage
 
+A.EPOCH = 3   -- data written by older versions had hours shifted by a wrong GetGameTime(): deleted once
+
 function A.Init(store)
 	if type(store) ~= "table" then return end
+	if store.epoch ~= A.EPOCH then
+		store.a, store.b, store.src = {}, {}, {}
+		store.epoch = A.EPOCH
+	end
 	store.a = store.a or {}
 	store.b = store.b or {}
 	for i = 1, table.getn(A.stores) do
@@ -153,7 +160,7 @@ end
 local function Count(k) A.stat[k] = (A.stat[k] or 0) + 1 end
 
 local function Send(msg)
-	Count("sent_" .. (string.sub(msg, 1, 2) == "AT" and "AT" or (string.sub(msg, 1, 2) == "AQ" and "AQ" or "A")))
+	Count("sent_" .. (string.sub(msg, 1, 2) == "AU" and "AU" or (string.sub(msg, 1, 2) == "AR" and "AR" or "AB")))
 	if SendAddonMessage and IsInGuild and IsInGuild() then
 		SendAddonMessage(A.PREFIX, msg, "GUILD")
 	end
@@ -183,7 +190,7 @@ function A.Sample()
 			if A.pending[prev] then
 				A.pending[prev] = nil
 				local s = A.stores[1]
-				if s and s.a[prev] then Send("A;" .. prev .. ";" .. s.a[prev] .. ";" .. (s.b[prev] or 0) .. ";" .. A.HourIndex()) end
+				if s and s.a[prev] then Send("AB;" .. prev .. ";" .. s.a[prev] .. ";" .. (s.b[prev] or 0) .. ";" .. A.HourIndex()) end
 			end
 		end)
 	end
@@ -202,7 +209,7 @@ function A.RequestSync()
 	local empty = true
 	for _ in pairs(s.a) do empty = false break end
 	local from = now - (empty and A.CATCHUP or 14 * 24)
-	Send("AQ;" .. from .. ";" .. now)
+	Send("AR;" .. from .. ";" .. now)
 end
 
 -- answer a request: all hours newer than 'from', in chunks of 16, one chunk per ~1.3 s.
@@ -230,7 +237,7 @@ function A.Answer(target, from)
 			end
 		end
 		if base then
-			Send("AT;" .. target .. ";" .. A.HourIndex() .. ";" .. base .. ";" .. table.concat(chunk, ","))
+			Send("AU;" .. target .. ";" .. A.HourIndex() .. ";" .. base .. ";" .. table.concat(chunk, ","))
 		end
 		if pos <= n and total < 700 then
 			Later(1.3, Step)
@@ -248,22 +255,22 @@ local function Num(x) return tonumber(x) end
 
 local function OnAddon(sender, msg)
 	local _, _, kind, rest = string.find(msg, "^(%a+);?(.*)$")
-	if kind == "A" then
+	if kind == "AB" then
 		local _, _, i, a, b, n = string.find(rest, "^(%d+);(%d+);(%d+);?(%d*)")
 		i, a, b, n = Num(i), Num(a), Num(b), Num(n)
 		-- live message of a finished hour: only the last 2 hours, and the sender's clock must match (when it tells it)
 		local now = A.HourIndex()
 		if n and not SameClock(n) then Count("rej_clock") end
 		if Valid(i, a, b) and i < now and now - i <= 2 and (n == nil or SameClock(n)) then
-			Count("recv_A")
+			Count("recv_AB")
 			A.Merge(i, a, b, "n")
 			local s = A.stores[1]
 			if A.pending[i] and s and (s.a[i] or 0) >= a then A.pending[i] = nil end
 		end
-	elseif kind == "AQ" then
+	elseif kind == "AR" then
 		local _, _, h, n = string.find(rest, "^(%d*);?(%d*)")
 		local have = Num(h) or 0
-		Count("recv_AQ")
+		Count("recv_AR")
 		if n ~= "" and not SameClock(Num(n)) then return end
 		local s = A.stores[1]
 		if not s or A.answering[sender] then return end
@@ -272,14 +279,14 @@ local function OnAddon(sender, msg)
 		if not newer then return end
 		A.answering[sender] = true
 		Later(3 + math.random() * 25, function() A.Answer(sender, have) end)
-	elseif kind == "AS" then
-		Count("old_AS")     -- an answer of a client with the old version 1 of this file (ignored)
-	elseif kind == "AT" then
+	elseif kind == "A" or kind == "AQ" or kind == "AS" or kind == "AT" then
+		Count("old_version")   -- a client with an older BananaActivity.lua: its hours may be shifted, ignored
+	elseif kind == "AU" then
 		local _, _, target, n, base, list = string.find(rest, "^([^;]*);(%d+);(%d+);(.*)$")
 		base = Num(base)
 		if not base then return end
 		if not SameClock(Num(n)) then Count("rej_clock") return end
-		Count("recv_AT")
+		Count("recv_AU")
 		-- remember what the target got from this answer, our own answer to it then skips these hours
 		if target and target ~= "" then A.heard[target] = A.heard[target] or {} end
 		for d, a, b in string.gfind(list or "", "(%d+):(%d+):(%d+)") do
