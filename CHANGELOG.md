@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.4
+
+- **Fix: Juwelenschleifen, Alchimie und Überlebenskunst im deutschen Client.** Der Beruf heißt dort „Juwelenschleifen", das Addon kannte nur „Juwelierskunst" und speicherte ihn unter dem deutschen Namen. Der Katalog findet Berufe aber unter dem englischen Namen, deshalb tauchten diese Spieler nicht bei den Jewelcrafting-Rezepten auf. Die Namen werden jetzt beim Scannen und beim Empfang normalisiert, und bereits gespeicherte Einträge werden beim Start umgestellt.
+
 ## 3.0.3
 
 - **Verständlichere Hinweise zum Scannen.** Berufe werden erfasst, wenn man das Berufsfenster öffnet (jedes einzeln, auch Verzauberkunst). Die Meldung „Keine Berufe zum Senden", der Hinweis nach `/bc rescan` und die Fußzeile des leeren Katalogs sagen das jetzt ausdrücklich. Nur Texte, keine Änderung an der Logik.

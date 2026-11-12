@@ -19,11 +19,15 @@
 local ProfessionNameMap = {
   -- German → English
   ["Alchemie"] = "Alchemy",
+  ["Alchimie"] = "Alchemy",
   ["Schmiedekunst"] = "Blacksmithing",
   ["Verzauberkunst"] = "Enchanting",
   ["Verzauberungskunst"] = "Enchanting",
   ["Ingenieurskunst"] = "Engineering",
   ["Juwelierskunst"] = "Jewelcrafting",
+  ["Juwelenschleifen"] = "Jewelcrafting",   -- so heisst der Beruf im deutschen Client
+  ["Ueberlebenskunst"] = "Survival",
+  ["Überlebenskunst"] = "Survival",
   ["Lederverarbeitung"] = "Leatherworking",
   ["Schneiderei"] = "Tailoring",
   ["Bergbau"] = "Mining",
@@ -60,7 +64,7 @@ local ADDON_NAME = "BananaCraft"
 local DB_NAME = "BananaCraftDB"
 local PREFIX = "BCRAFT0"
 local DEBUG = false  -- Debug messages OFF by default (use /bc debug to enable)
-local ADDON_VERSION = "3.0.3"  -- keep in sync with the .toc "## Version:" line
+local ADDON_VERSION = "3.0.4"  -- keep in sync with the .toc "## Version:" line
 BCRAFT_VERSION = ADDON_VERSION
 
 -- /bc versioncheck state (see startHashSync section for PING/PONG, this is
@@ -366,6 +370,42 @@ local function ensureDB()
     end
     if fixed > 0 then
       debug("UNKNOWN repariert: " .. fixed .. " Rezepte")
+    end
+  end
+
+  -- Berufe, die unter ihrem deutschen Namen gespeichert wurden (z. B.
+  -- "Juwelenschleifen"), auf den englischen Schluessel umstellen, sonst findet
+  -- der Katalog sie nicht. Bei einer Doppelung gewinnt der neuere Scan.
+  if not BCRAFT_ProfNamesFixed then
+    BCRAFT_ProfNamesFixed = true
+    local renamed = 0
+    local function renameProfs(profs)
+      if type(profs) ~= "table" then return end
+      local old = {}
+      for pname, _ in pairs(profs) do
+        local en = ProfessionNameMap[pname]
+        if en and en ~= pname then table.insert(old, pname) end
+      end
+      for i = 1, tlen(old) do
+        local pname = old[i]
+        local en = ProfessionNameMap[pname]
+        local data = profs[pname]
+        profs[pname] = nil
+        local cur = profs[en]
+        if type(data) == "table" and (type(cur) ~= "table" or tostring(data.scannedAt or "") > tostring(cur.scannedAt or "")) then
+          profs[en] = data
+        end
+        renamed = renamed + 1
+      end
+    end
+    for _, data in pairs(db.guild) do
+      if type(data) == "table" then renameProfs(data.profs) end
+    end
+    for _, data in pairs(db.characters) do
+      if type(data) == "table" then renameProfs(data.profs) end
+    end
+    if renamed > 0 then
+      debug("Berufsnamen auf Englisch umgestellt: " .. renamed)
     end
   end
 
@@ -1747,6 +1787,10 @@ local function handleAddonMessage(prefix, text, distrib, sender)
   -- Datensaetze mit Platzhalter-Beruf "UNKNOWN" (alte Versionen) verwerfen
   if (cmd == "S" or cmd == "C" or cmd == "E") and tlen(parts) >= 3 and isBadProfName(parts[3]) then
     return
+  end
+  -- Aeltere Versionen schicken deutsche Berufsnamen ("Juwelenschleifen"): auf den englischen Schluessel abbilden
+  if (cmd == "S" or cmd == "C" or cmd == "E") and tlen(parts) >= 3 then
+    parts[3] = normalizeProfessionName(parts[3])
   end
 
   if cmd == "S" then
