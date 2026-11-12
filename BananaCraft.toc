@@ -2,7 +2,7 @@
 ## Title: BananaCraft
 ## Notes: Rezeptkatalog der Gilde: Berufe, Rezepte, Materialien und Crafter, mit Tooltips
 ## Author: Lumihunt
-## Version: 3.0.5
+## Version: 3.0.6
 ## SavedVariables: BananaCraftDB
 
 BananaPresence.lua
@@ -11,5 +11,6 @@ BananaActivity.lua
 BananaCraft_Locale.lua
 BananaCraft_RecipeMaps.lua
 BananaCraft_Catalog.lua
+BananaCraft_DeNames.lua
 BananaCraft.lua
 BananaCraft_Browser.lua

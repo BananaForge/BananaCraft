@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.6
+
+- **Deutsche Rezeptnamen:** neue Datei `BananaCraft_DeNames.lua` mit den deutschen Namen von rund 1150 herstellbaren Items (Quelle: wowhead.com/classic/de). Dadurch erkennt der Katalog Crafter mit deutschem Client unabhängig von der eigenen Spielsprache (Kochen, Schneiderei, Erste Hilfe, Schmiedekunst, … ). Verzauberungen sind noch nicht abgedeckt: ein deutscher Client erkennt sie über seine eigenen Tooltips, ein englischer nicht.
+
 ## 3.0.5
 
 - **Fix: Rezepte von Spielern mit deutschem Client erschienen nicht im Katalog.** Der Katalog führt Rezepte unter englischen Namen, deutsche Clients speichern aber deutsche („Spinnenwurst"). Der Katalog ordnet jetzt zusätzlich über die Item-ID (sprachunabhängig) und über den Namen in der Sprache des eigenen Clients zu. Bei Rezepten ohne Item-ID sieht ein englischer Client deutsche Crafter weiterhin nicht.

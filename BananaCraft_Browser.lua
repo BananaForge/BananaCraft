@@ -132,7 +132,7 @@ local function localNameOf(r)
 end
 
 -- Alle Rezeptzeilen der Datenbank, die zu dieser Katalogzeile gehoeren: gleicher
--- englischer Name, gleiche Item-ID oder gleicher Name in der Clientsprache.
+-- englischer Name, gleiche Item-ID, deutscher Name (Tabelle) oder Name in der Clientsprache.
 -- Mehrere Treffer werden zu einer Zeile mit allen Craftern zusammengefasst.
 local function matchRow(dbProf, r)
   local key = dbProf .. ":" .. r[1] .. r[2]
@@ -148,6 +148,9 @@ local function matchRow(dbProf, r)
   if list then
     for i = 1, tlen(list) do add(list[i]) end
   end
+  -- deutscher Name aus der mitgelieferten Namenstabelle (Items), sprachunabhaengig vom Betrachter
+  local dn = BCRAFT_DeNames and BCRAFT_DeNames[r[5]]
+  if dn then add(S.index[dbProf .. ":" .. dn]) end
   if tlen(found) == 0 or r[1] == "e" then
     local ln = localNameOf(r)
     if ln and ln ~= r[5] then add(S.index[dbProf .. ":" .. ln]) end
