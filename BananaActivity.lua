@@ -50,22 +50,25 @@ A.heard      = {}           -- target -> { hour = value } what other clients alr
 
 --------------------------------------------------------------------- time (server hours, no date() needed)
 
--- server hour minus UTC hour, from GetGameTime() (server clock) against time() (UTC epoch)
+-- Hours are counted in UTC (floor(time() / 3600)), the same number on every client. GetGameTime() is NOT used for this:
+-- on this realm it does not match the server time the players see, which shifted the cells by one hour.
 function A.Offset()
-	if not GetGameTime or not time then return A.off or 0 end
-	local sh, sm = GetGameTime()
-	if not sh then return A.off or 0 end
-	local t = time()
-	local um = math.mod(math.floor(t / 60), 1440)
-	local d = (sh * 60 + (sm or 0) - um) / 60
-	d = math.floor(d + 0.5)
-	if d > 12 then d = d - 24 elseif d < -12 then d = d + 24 end
-	A.off = d
-	return d
+	return 0
 end
 
 function A.HourIndex(t)
-	return math.floor((t or time()) / 3600) + A.Offset()
+	return math.floor((t or time()) / 3600)
+end
+
+-- hours to add to a UTC hour index to get the viewer's local clock (PC time zone, incl. summer time)
+function A.LocalShift()
+	if not date or not time then return 0 end
+	local lh, lm = tonumber(date("%H")), tonumber(date("%M"))
+	if not lh then return 0 end
+	local um = math.mod(math.floor(time() / 60), 1440)
+	local d = math.floor(((lh * 60 + (lm or 0)) - um) / 60 + 0.5)
+	if d > 12 then d = d - 24 elseif d < -12 then d = d + 24 end
+	return d
 end
 
 -- weekday 0 = Monday .. 6 = Sunday, hour 0..23 (epoch day 0 was a Thursday)
@@ -124,8 +127,8 @@ function A.Dump(store)
 	local out = {}
 	local sh, sm = 0, 0
 	if GetGameTime then sh, sm = GetGameTime() end
-	table.insert(out, "server " .. tostring(sh) .. ":" .. tostring(sm) .. "  utc-hour " .. math.mod(math.floor(time() / 3600), 24)
-		.. "  offset " .. A.Offset() .. "  hour index " .. A.HourIndex())
+	table.insert(out, "GetGameTime " .. tostring(sh) .. ":" .. tostring(sm) .. "  utc-hour " .. math.mod(math.floor(time() / 3600), 24)
+		.. "  local shift " .. A.LocalShift() .. "  hour index " .. A.HourIndex() .. "  (hours below are UTC)")
 	local st = {}
 	for k, v in pairs(A.stat) do table.insert(st, k .. "=" .. v) end
 	table.sort(st)

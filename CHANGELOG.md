@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.10
+
+- `BananaActivity.lua`: Stunden werden in UTC gezählt statt über GetGameTime (die Heatmap in BananaGuild war eine Stunde verschoben).
+
 ## 3.0.9
 
 - `BananaActivity.lua` zählt Nachrichten für die Diagnose in BananaGuild (`/bgd activity`).
