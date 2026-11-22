@@ -21,7 +21,7 @@
     Hour index = floor(time() / 3600) in UTC. Stored data of an older format is deleted once (store.epoch).
 ]]
 
-local LIBVER = 3
+local LIBVER = 4
 
 if BananaActivity and BananaActivity.libVersion and BananaActivity.libVersion >= LIBVER then
 	return
@@ -94,6 +94,7 @@ function A.Init(store)
 	end
 	table.insert(A.stores, store)
 	A.Prune(store)
+	A.Clean(store)
 end
 
 function A.Prune(store)
@@ -111,14 +112,56 @@ local function Valid(idx, a, b)
 	return true
 end
 
+-- Plausibility: one faulty client (e.g. a roster that was still stale right after login) must not push an absurd hour into
+-- everybody's data. A value above max(2 x median, median + 10) of the stored hours is rejected (needs 24 hours of data).
+A.medCache = {}
+function A.Median(store)
+	local c = A.medCache[store]
+	if c and GetTime() - c.t < 60 then return c.v end
+	local v = {}
+	for _, x in pairs(store.a) do table.insert(v, x) end
+	local med = nil
+	if table.getn(v) >= 24 then
+		table.sort(v)
+		med = v[math.floor((table.getn(v) + 1) / 2)]
+	end
+	A.medCache[store] = { t = GetTime(), v = med }
+	return med
+end
+
+function A.Plausible(store, a)
+	local med = A.Median(store)
+	if not med then return true end
+	return a <= math.max(2 * med, med + 10)
+end
+
+-- remove the implausible hours that are already stored; returns how many
+function A.Clean(store)
+	A.medCache[store] = nil
+	local med = A.Median(store)
+	if not med then return 0 end
+	local n = 0
+	for idx, a in pairs(store.a) do
+		if not A.Plausible(store, a) then
+			store.a[idx], store.b[idx] = nil, nil
+			if store.src then store.src[idx] = nil end
+			n = n + 1
+		end
+	end
+	A.medCache[store] = nil
+	return n
+end
+
 -- returns true when something new was stored
 function A.Merge(idx, a, b, src)
 	local changed = false
 	for i = 1, table.getn(A.stores) do
 		local s = A.stores[i]
 		s.src = s.src or {}
-		if a > (s.a[idx] or -1) then s.a[idx] = a; s.src[idx] = src or "n"; changed = true end
-		if (b or 0) > (s.b[idx] or -1) then s.b[idx] = b or 0; changed = true end
+		if not A.Plausible(s, a) then
+			A.stat.rej_outlier = (A.stat.rej_outlier or 0) + 1
+		elseif a > (s.a[idx] or -1) then s.a[idx] = a; s.src[idx] = src or "n"; changed = true end
+		if s.a[idx] and (b or 0) > (s.b[idx] or -1) then s.b[idx] = b or 0; changed = true end
 	end
 	return changed
 end
@@ -127,6 +170,25 @@ end
 local function SameClock(n)
 	if not n then return false end
 	return math.abs(n - A.HourIndex()) <= 1
+end
+
+-- the highest measured hours with their source (finds outliers), for /bgd activity top
+function A.Top(store, n)
+	local keys = {}
+	for idx in pairs(store.a) do table.insert(keys, idx) end
+	table.sort(keys, function(x, y)
+		if store.a[x] ~= store.a[y] then return store.a[x] > store.a[y] end
+		return x > y
+	end)
+	local out = {}
+	local shift = A.LocalShift()
+	for i = 1, math.min(n or 10, table.getn(keys)) do
+		local idx = keys[i]
+		local d, h = A.WeekHour(idx + shift)
+		table.insert(out, "online " .. store.a[idx] .. "  l60 " .. (store.b[idx] or 0) .. "  day " .. d .. " " .. h .. ":00 local  index " .. idx .. "  "
+			.. ((store.src and store.src[idx]) == "o" and "own" or "received"))
+	end
+	return out
 end
 
 -- lines for /bgd activity
@@ -297,6 +359,14 @@ local function OnAddon(sender, msg)
 				if h and av > (h[idx] or -1) then h[idx] = av end
 			end
 		end
+		if not A.cleanPending then
+			A.cleanPending = true
+			Later(15, function()
+				A.cleanPending = false
+				for i = 1, table.getn(A.stores) do A.Clean(A.stores[i]) end
+				if A.onData then pcall(A.onData) end
+			end)
+		end
 		if A.onData then pcall(A.onData) end
 	end
 end
@@ -313,7 +383,7 @@ frame:SetScript("OnEvent", function()
 		A.loginAt = GetTime()
 		Later(75, function() A.RequestSync() end)
 	elseif ev == "GUILD_ROSTER_UPDATE" then
-		if A.loginAt and GetTime() - A.loginAt > 45 and GetTime() - A.lastSample >= 570 then
+		if A.loginAt and GetTime() - A.loginAt > 90 and GetTime() - A.lastSample >= 570 then
 			A.Sample()
 		end
 	elseif ev == "CHAT_MSG_ADDON" then
@@ -337,7 +407,7 @@ frame:SetScript("OnUpdate", function()
 	if now - sinceCheck >= 60 then
 		sinceCheck = now
 		-- no roster update came by itself for 10 minutes: ask for one
-		if A.loginAt and now - A.loginAt > 45 and now - A.lastSample >= 600 and GuildRoster and IsInGuild and IsInGuild() then
+		if A.loginAt and now - A.loginAt > 90 and now - A.lastSample >= 600 and GuildRoster and IsInGuild and IsInGuild() then
 			GuildRoster()
 		end
 	end

@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.12
+
+- `BananaActivity.lua` Version 4: unplausible Stundenwerte (Ausreißer) der Aktivitäts-Heatmap werden abgelehnt bzw. gelöscht, erster Messwert 90 Sekunden nach dem Login.
+
 ## 3.0.11
 
 - `BananaActivity.lua` Version 3: neue Nachrichtenarten, die verschobenen Altdaten der Aktivitäts-Heatmap werden einmalig gelöscht (Update nötig, damit die Heatmap in BananaGuild stimmt).
