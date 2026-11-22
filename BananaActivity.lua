@@ -21,7 +21,7 @@
     Hour index = floor(time() / 3600) in UTC. Stored data of an older format is deleted once (store.epoch).
 ]]
 
-local LIBVER = 4
+local LIBVER = 5
 
 if BananaActivity and BananaActivity.libVersion and BananaActivity.libVersion >= LIBVER then
 	return
@@ -232,13 +232,20 @@ function A.Sample()
 	if not IsInGuild or not IsInGuild() or not GetNumGuildMembers then return end
 	local n = GetNumGuildMembers(true)
 	if not n or n < 1 then return end
-	local all, l60 = 0, 0
+	local all, l60, me = 0, 0, false
 	for i = 1, n do
-		local _, _, _, lvl, _, _, _, _, online = GetGuildRosterInfo(i)
+		local name, _, _, lvl, _, _, _, _, online = GetGuildRosterInfo(i)
 		if online then
 			all = all + 1
 			if lvl and lvl >= 60 then l60 = l60 + 1 end
+			if name == A.me then me = true end
 		end
+	end
+	-- the own character must be in the list and online: otherwise it is a stale list (for example the one of the old guild
+	-- right after a guild change) and the count would be wrong
+	if A.me and not me then
+		A.stat.skip_stale = (A.stat.skip_stale or 0) + 1
+		return
 	end
 	A.lastSample = GetTime()
 	local idx = A.HourIndex()

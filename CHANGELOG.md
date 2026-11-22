@@ -2,6 +2,10 @@
 
 Alle nennenswerten Änderungen an BananaCraft. Neueste Version oben.
 
+## 3.0.13
+
+- `BananaActivity.lua` Version 5: Die Online-Zählung für die Aktivitäts-Heatmap wird verworfen, wenn die Gildenliste veraltet ist (eigener Charakter fehlt in der Liste, zum Beispiel direkt nach einem Gildenwechsel).
+
 ## 3.0.12
 
 - `BananaActivity.lua` Version 4: unplausible Stundenwerte (Ausreißer) der Aktivitäts-Heatmap werden abgelehnt bzw. gelöscht, erster Messwert 90 Sekunden nach dem Login.
